@@ -24,7 +24,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | **Giai đoạn** | **G3 — Lõi danh mục** |
 | **Cổng gần nhất đã qua** | G2 — 01/09/2026, **qua có điều kiện** (3 điều kiện treo, mục 7) |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
-| **Tài liệu** | 19/25 file. **Xong tầng 0, 1, 2, 4** — còn lại là tầng 3 (`30`–`35`) |
+| **Tài liệu** | 20/26 file. Xong tầng 0, 1, 2, 4 — còn lại là tầng 3 (`30`–`35`) |
 
 ---
 
@@ -105,7 +105,9 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Site khách: trang danh sách + trang chi tiết, ba trạng thái, bộ lọc trong URL | ✔ chạy thật đầu-cuối |
 | Bộ lọc theo chủ đề (`?theme=`) | ✗ **`12` chưa có bảng `product_theme`** — đã ghi vào `13` mục 12 |
 | Sắp theo ngày khởi hành gần nhất | ✗ cần join `departure`, để G4 |
-| Trang tìm kiếm riêng, điểm đến, bài viết, sự kiện | ✗ G3 còn tiếp |
+| API điểm đến: `GET /destinations`, `/destinations/{slug}`, lọc sản phẩm theo điểm đến | ✔ spec v0.3, 10 test tích hợp |
+| Trang tìm kiếm riêng, bài viết, sự kiện, thông tin điểm đến | ✗ **chặn ở `12`**: chưa có bảng cho bài viết, lịch trình, khách sạn, buổi thuyết trình |
+| Trang điểm đến ở `web/` | ✗ API đã có, frontend chưa dùng |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
 | Đọc và ghi bốn nhóm bảng đó qua API | ✗ lược đồ đã có, chưa có endpoint nào chạm tới |
 | `product.hero_image` và `map_image` trỏ tới `media_asset` | ✗ đổi phá vỡ tương thích, phải tách hai lần triển khai — `12` mục 10 |
@@ -349,3 +351,5 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Viết `22-trang-quan-tri` và `23-luong-dat-tour` | Phát hiện `12` thiếu hai bảng: `role`/`staff_user_role` và `booking_passenger` |
 | 01/09/2026 | Viết `24-noi-dung-va-anh` — xong tầng 2 | Phát hiện `12` thiếu bảng bộ ảnh và chỗ lưu slug cũ; Q-1 vẫn chặn toàn bộ nội dung |
 | 01/09/2026 | Bổ sung `12` mục 3.1, 4.6, 4.7, 6.1 và viết migration `V2` — 7 bảng, 1 trigger lưu slug cũ, 3 quy tắc kiểm mới | Chưa có endpoint nào dùng bốn nhóm bảng này |
+| 01/09/2026 | Chạy cổng G2 — qua có điều kiện, 6/7. Commit 6 lần, đẩy nhánh `dung-khung-va-loi-danh-muc` | Chưa mở PR: máy chưa cài `gh` |
+| 01/09/2026 | Viết `15-ke-hoach-dung-be` sau khi đối chiếu repo `comic-social-network-be`; làm đợt 1a: API điểm đến, spec v0.3 | Đợt 1b chặn ở `12` thiếu bảng nội dung |

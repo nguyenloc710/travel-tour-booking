@@ -7,13 +7,15 @@ package vn.travel.booking.application.product;
  * riêng: market quyết định khách mua gì, locale quyết định khách đọc bằng tiếng
  * gì. Gộp hai thứ này là nhầm lẫn tốn kém nhất của dự án (CLAUDE.md điều 1).
  *
- * <p>{@code regionSlug} là slug <b>trong locale đang xem</b>: {@code nordvietnam}
- * với {@code da}, {@code mien-bac} với {@code vi}. Không phải mã miền.
+ * <p>{@code regionSlug} và {@code destinationSlug} là slug <b>trong locale đang
+ * xem</b>: {@code nordvietnam} với {@code da}, {@code mien-bac} với {@code vi}.
+ * Không phải mã miền hay mã điểm đến.
  */
 public record ProductQuery(
         String market,
         String locale,
         String regionSlug,
+        String destinationSlug,
         ProductType productType,
         String q,
         ProductSort sort,

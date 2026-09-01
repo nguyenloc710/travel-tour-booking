@@ -169,6 +169,12 @@ public class JdbcProductQueryAdapter implements ProductQueryPort {
             loc.append(" AND rt.slug = ?");
             thamSo.add(query.regionSlug());
         }
+        if (query.destinationSlug() != null && !query.destinationSlug().isBlank()) {
+            // Lọc theo điểm đến CHÍNH của sản phẩm. Một tour xuyên Việt thuộc về
+            // một điểm đến khởi hành, không thuộc về mọi điểm đến nó ghé qua.
+            loc.append(" AND dt.slug = ?");
+            thamSo.add(query.destinationSlug());
+        }
         if (query.productType() != null) {
             loc.append(" AND p.product_type = ?");
             thamSo.add(query.productType().name());

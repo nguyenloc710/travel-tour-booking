@@ -17,10 +17,11 @@ openapi: 3.0.3
 # interface Java lẫn TS client và cả hai bên biên dịch sạch (cổng G2).
 #
 # Phiên bản 0.2: lõi danh mục (G3) — listing sản phẩm và trang chi tiết.
+# Phiên bản 0.3: điểm đến, và bộ lọc sản phẩm theo điểm đến.
 
 info:
   title: Travel Tour Booking API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -34,6 +35,8 @@ tags:
     description: Miền — cấp phân loại địa lý trên cùng
   - name: products
     description: Sản phẩm — sáu loại, mỗi loại có bảng con riêng (ADR-005)
+  - name: destinations
+    description: Điểm đến — cấp phân loại dưới miền
 
 paths:
   /api/v1/{market}/regions:
@@ -96,6 +99,15 @@ paths:
           description: Slug miền **trong locale đang xem** — `nordvietnam` với `da`, `mien-bac` với `vi`.
           schema:
             type: string
+        - name: destination
+          in: query
+          required: false
+          description: |
+            Slug điểm đến **trong locale đang xem**. Lọc theo điểm đến **chính**
+            của sản phẩm, không lọc theo mọi điểm đến sản phẩm ghé qua — một
+            tour xuyên Việt thuộc về một điểm đến khởi hành, không thuộc về tất cả.
+          schema:
+            type: string
         - name: productType
           in: query
           required: false
@@ -148,6 +160,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProductPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/destinations:
+    get:
+      tags: [destinations]
+      operationId: listDestinations
+      summary: Danh sách điểm đến kèm số sản phẩm
+      description: |
+        Sắp theo miền rồi tới thứ tự trong miền, để danh sách đọc được như một
+        hành trình từ Bắc vào Nam chứ không phải một mớ theo bảng chữ cái.
+
+        `productCount` đếm theo **điểm đến chính** của sản phẩm, trong phạm vi
+        `(market, locale)` đang xem. Điểm đến chưa có sản phẩm nào vẫn trả về,
+        với số bằng 0 — trang điểm đến vẫn có nội dung riêng để đọc.
+
+        Điểm đến thiếu bản dịch cho locale yêu cầu thì **không xuất hiện**.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: region
+          in: query
+          required: false
+          description: Lọc theo slug miền **của locale đang xem**.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách điểm đến
+          headers:
+            Content-Language:
+              schema: { type: string }
+            Vary:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Destination'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/destinations/{slug}:
+    get:
+      tags: [destinations]
+      operationId: getDestination
+      summary: Một điểm đến
+      description: |
+        `slug` phụ thuộc locale, giống mọi slug khác. `404` gộp ba tình huống:
+        không tồn tại, chưa dịch cho locale này, hoặc miền chứa nó đã bị xoá mềm.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Điểm đến
+          headers:
+            Content-Language:
+              schema: { type: string }
+            Vary:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Destination'
         '400':
           $ref: '#/components/responses/Error'
         '404':
@@ -244,6 +331,29 @@ components:
         name:
           type: string
           example: Nordvietnam
+        productCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Đếm từ dữ liệu trong phạm vi (market, locale). Không hardcode.
+
+    Destination:
+      type: object
+      description: |
+        Một điểm đến, đã dịch sang locale đang xem, kèm miền chứa nó.
+      required: [slug, name, region, productCount]
+      properties:
+        slug:
+          type: string
+          example: hanoi
+        name:
+          type: string
+          example: Hanoi
+        summary:
+          type: string
+          description: Bỏ hẳn khỏi JSON khi chưa có bản mô tả.
+        region:
+          $ref: '#/components/schemas/Ref'
         productCount:
           type: integer
           format: int32

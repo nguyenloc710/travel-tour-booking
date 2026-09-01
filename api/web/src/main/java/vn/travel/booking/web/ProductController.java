@@ -37,6 +37,7 @@ public class ProductController implements ProductsApi {
             String market,
             String acceptLanguage,
             String region,
+            String destination,
             ProductType productType,
             String q,
             ProductSort sort,
@@ -49,6 +50,7 @@ public class ProductController implements ProductsApi {
                 RequestScope.market(market),
                 locale,
                 region,
+                destination,
                 productType == null ? null
                         : vn.travel.booking.application.product.ProductType.valueOf(productType.getValue()),
                 q,

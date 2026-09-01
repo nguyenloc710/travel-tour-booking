@@ -221,6 +221,7 @@ Không viết xong tầng này thì mọi tài liệu sau đều phải viết l
 | `docs/12-luoc-do-csdl.md` | Bảng, chỉ mục, ràng buộc, migration, dữ liệu mồi |
 | `docs/13-hop-dong-api.md` | **Trục chính.** Quy trình spec-first, mã lỗi, phân trang, xác thực, cách truyền market và locale |
 | `docs/14-quy-tac-nghiep-vu.md` | Engine giá, trạng thái khởi hành, **tồn kho và giữ chỗ** |
+| `docs/15-ke-hoach-dung-be.md` | Thứ tự dựng backend theo đợt; quy ước mượn từ dự án trước và lý do nhận hay loại |
 
 `13` quan trọng hơn hẳn so với dự án thuần TypeScript: hai bên không chia sẻ
 type được nữa, nên `contracts/openapi.yaml` là chỗ duy nhất hai bên gặp nhau.
