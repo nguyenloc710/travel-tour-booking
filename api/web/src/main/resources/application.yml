@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: travel-api
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/travel}
+    username: ${DB_USER:travel}
+    password: ${DB_PASSWORD:travel}
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Migration chạy lúc triển khai, TRƯỚC khi container nhận traffic — docs/12 mục 8.
+    baseline-on-migrate: false
+
+  jackson:
+    # Trường rỗng bỏ hẳn khỏi JSON, không trả null — docs/13 mục 4.
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+logging:
+  level:
+    root: INFO
+    vn.travel.booking: DEBUG

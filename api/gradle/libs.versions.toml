@@ -1,0 +1,34 @@
+# Phiên bản tập trung một chỗ. Đổi ở đây, không đổi rải rác trong module.
+# Không thêm dependency mới mà chưa hỏi — CLAUDE.md quy tắc 8.
+
+[versions]
+java = "21"
+springBoot = "4.1.1"
+postgresql = "42.7.7"
+testcontainers = "1.21.4"
+archunit = "1.5.0"
+openapiGenerator = "7.14.0"
+
+[libraries]
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+# Spring Boot 4 tách autoconfiguration của Flyway ra module riêng: chỉ có
+# flyway-core trên classpath thì migration KHÔNG chạy và cũng không báo gì.
+# Phiên bản để BOM của Spring Boot quản, không tự ghim.
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapiGenerator" }
