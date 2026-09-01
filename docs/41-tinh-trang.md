@@ -103,11 +103,11 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | CI chạy trên một PR thật | ✗ **chưa đẩy lên GitHub lần nào** |
 | API đọc: `GET /{market}/products` và `/products/{slug}` | ✔ 20 test tích hợp xanh |
 | Site khách: trang danh sách + trang chi tiết, ba trạng thái, bộ lọc trong URL | ✔ chạy thật đầu-cuối |
-| Bộ lọc theo chủ đề (`?theme=`) | ✗ **`12` chưa có bảng `product_theme`** — đã ghi vào `13` mục 12 |
-| Sắp theo ngày khởi hành gần nhất | ✗ cần join `departure`, để G4 |
+| Sắp sản phẩm theo ngày khởi hành gần nhất | ✗ `13` mục 12 |
 | API điểm đến: `GET /destinations`, `/destinations/{slug}`, lọc sản phẩm theo điểm đến | ✔ spec v0.3, 10 test tích hợp |
 | Tầng nội dung biên tập: chủ đề, khách sạn, tham quan, lịch trình, bài viết, thẻ, buổi thuyết trình | ✔ `12` mục 4.8–4.11 và `V3` — 17 bảng, 12 test |
-| API cho tầng nội dung đó | ✗ lược đồ đã có, chưa endpoint nào chạm tới |
+| API cho tầng nội dung đó: `/themes`, `?theme=`, `/itinerary`, `/hotels`, `/departures`, `/posts`, `/lectures` | ✔ spec v0.4, 15 test tích hợp + 11 test domain |
+| Giải trạng thái ngày khởi hành ở `domain` (`14` mục 5) | ✔ hàm thuần, 11 test JUnit không context |
 | `GET /site-info` | ✗ `13` mục 9.1 mới nói bốn chữ — chưa đủ để dựng bảng, ghi ở `12` mục 10 |
 | Trang điểm đến ở `web/` | ✗ API đã có, frontend chưa dùng |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
@@ -255,6 +255,16 @@ Ba cái từ lần thêm `V2`:
 - **`AFTER UPDATE OF slug`** chứ không phải `AFTER UPDATE`: sửa tiêu đề không
   được sinh dòng lịch sử slug
 
+Hai cái từ đợt 1b:
+
+- **`GUARANTEED` xét TRƯỚC `FEW_SEATS`** (`14` mục 5) — và chính tôi đặt kỳ vọng
+  sai trong test đầu tiên: một chuyến 18/20 khách với ngưỡng đảm bảo 12 ra
+  `GUARANTEED`, không phải `FEW_SEATS`. Đảo hai bước này không làm gãy gì, chỉ
+  làm mất doanh thu âm thầm
+- **Lọc theo thẻ hoặc chủ đề phải dùng `EXISTS`, không `JOIN`.** Với `JOIN` thì
+  bản ghi mang hai thẻ đang lọc xuất hiện **hai lần** và `totalItems` đếm sai
+  theo. Có test riêng cho đúng trường hợp đó
+
 Hai cái từ lần dựng CI:
 
 - **GitHub Actions không hỗ trợ neo YAML** (`&loc` / `*loc`). Danh sách đường dẫn
@@ -356,3 +366,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Chạy cổng G2 — qua có điều kiện, 6/7. Commit 6 lần, đẩy nhánh `dung-khung-va-loi-danh-muc` | Chưa mở PR: máy chưa cài `gh` |
 | 01/09/2026 | Viết `15-ke-hoach-dung-be` sau khi đối chiếu repo `comic-social-network-be`; làm đợt 1a: API điểm đến, spec v0.3 | Đợt 1b chặn ở `12` thiếu bảng nội dung |
 | 01/09/2026 | Bổ sung `12` mục 4.8–4.11 và viết `V3`: 17 bảng nội dung biên tập, 12 test | `site_info` vẫn để ngỏ; chưa endpoint nào dùng 17 bảng này |
+| 01/09/2026 | Đợt 1b: spec v0.4, 7 endpoint đọc còn thiếu, giải trạng thái ngày khởi hành ở `domain` | Xong danh mục đọc của `13` mục 9.1 trừ `/site-info`. Tổng 102 test |

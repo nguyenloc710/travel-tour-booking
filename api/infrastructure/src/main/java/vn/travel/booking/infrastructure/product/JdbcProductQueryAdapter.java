@@ -175,6 +175,18 @@ public class JdbcProductQueryAdapter implements ProductQueryPort {
             loc.append(" AND dt.slug = ?");
             thamSo.add(query.destinationSlug());
         }
+        if (query.themeSlugs() != null && !query.themeSlugs().isEmpty()) {
+            // EXISTS chứ không JOIN: với JOIN thì sản phẩm mang hai chủ đề đang
+            // lọc sẽ xuất hiện HAI LẦN, và totalItems đếm sai theo.
+            String dauHoi = String.join(",",
+                    java.util.Collections.nCopies(query.themeSlugs().size(), "?"));
+            loc.append(" AND EXISTS (SELECT 1 FROM product_theme pth")
+               .append(" JOIN theme_translation tt ON tt.theme_id = pth.theme_id")
+               .append(" AND tt.locale = ? AND NOT tt.soft_delete")
+               .append(" WHERE pth.product_id = p.id AND tt.slug IN (").append(dauHoi).append("))");
+            thamSo.add(query.locale());
+            thamSo.addAll(query.themeSlugs());
+        }
         if (query.productType() != null) {
             loc.append(" AND p.product_type = ?");
             thamSo.add(query.productType().name());

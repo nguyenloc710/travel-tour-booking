@@ -18,10 +18,12 @@ openapi: 3.0.3
 #
 # Phiên bản 0.2: lõi danh mục (G3) — listing sản phẩm và trang chi tiết.
 # Phiên bản 0.3: điểm đến, và bộ lọc sản phẩm theo điểm đến.
+# Phiên bản 0.4: chủ đề, lịch trình, khách sạn, ngày khởi hành, bài viết,
+#                buổi thuyết trình — đủ danh mục đọc của docs/13 mục 9.1.
 
 info:
   title: Travel Tour Booking API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -37,6 +39,12 @@ tags:
     description: Sản phẩm — sáu loại, mỗi loại có bảng con riêng (ADR-005)
   - name: destinations
     description: Điểm đến — cấp phân loại dưới miền
+  - name: themes
+    description: Chủ đề — phân loại ngang, cắt qua miền và loại sản phẩm
+  - name: posts
+    description: Bài viết
+  - name: lectures
+    description: Buổi thuyết trình
 
 paths:
   /api/v1/{market}/regions:
@@ -108,6 +116,21 @@ paths:
             tour xuyên Việt thuộc về một điểm đến khởi hành, không thuộc về tất cả.
           schema:
             type: string
+        - name: theme
+          in: query
+          required: false
+          description: |
+            Slug chủ đề **trong locale đang xem**. **Lặp lại được** để lọc nhiều
+            chủ đề: `?theme=trekking&theme=du-thuyen-song`. Không dùng dấu phẩy —
+            dấu phẩy vỡ khi giá trị có chứa dấu phẩy (`docs/13` mục 6).
+
+            Nhiều giá trị nghĩa là **HOẶC**: sản phẩm mang ít nhất một trong số đó.
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
         - name: productType
           in: query
           required: false
@@ -240,6 +263,232 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/{market}/themes:
+    get:
+      tags: [themes]
+      operationId: listThemes
+      summary: Danh sách chủ đề kèm số sản phẩm
+      description: |
+        Chủ đề là phân loại **ngang**: một tour trekking miền Bắc và một tour
+        trekking miền Trung cùng chủ đề nhưng khác mọi thứ khác.
+
+        `productCount` đếm trong phạm vi `(market, locale)`. Chủ đề chưa có sản
+        phẩm nào vẫn trả về với số 0 — nó vẫn là một lựa chọn hợp lệ của bộ lọc.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Danh sách chủ đề
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Theme'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/products/{slug}/itinerary:
+    get:
+      tags: [products]
+      operationId: getItinerary
+      summary: Lịch trình từng ngày
+      description: |
+        **Trả `404` với `COMBO` và `DAY_TOUR`** — hai loại đó không có lịch trình
+        theo ngày (`docs/13` mục 9.1). Đây là 404 nói "tài nguyên này không tồn
+        tại với loại sản phẩm này", không phải "sản phẩm không tồn tại".
+
+        Ngày bay hoặc ngày trên tàu thì `destination` bị bỏ khỏi JSON.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lịch trình, sắp theo số ngày tăng dần
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItineraryDay'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/products/{slug}/hotels:
+    get:
+      tags: [products]
+      operationId: getHotelStays
+      summary: Các chặng nghỉ khách sạn
+      description: |
+        **Trả `404` với `CRUISE`** — du thuyền ngủ trên tàu, và tab tương ứng
+        đổi thành Tàu và cabin (`docs/05` mục 2).
+
+        `name` của khách sạn **không dịch**: tên riêng giữ nguyên ở mọi ngôn ngữ
+        (`docs/24` mục 5). Chỉ `description` mới phụ thuộc locale.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách chặng nghỉ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HotelStay'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/products/{slug}/departures:
+    get:
+      tags: [products]
+      operationId: listDepartures
+      summary: Ngày khởi hành còn bán
+      description: |
+        **Không bao giờ được cache** (`docs/13` mục 8). Chỗ còn thay đổi từng
+        phút; hiện số chỗ cũ là dẫn khách vào một giao dịch sẽ thất bại ở bước cuối.
+
+        `status` là **giá trị tính ra**, không phải cột trong cơ sở dữ liệu:
+        `GUARANTEED` suy từ số khách đã đặt so với ngưỡng đảm bảo khởi hành
+        (`docs/14` mục 5). `seatsAvailable` đã **trừ chỗ đang giữ**.
+
+        `CRUISE` trả **phẳng**, mỗi hạng cabin một dòng; gộp theo ngày là việc
+        của frontend (`docs/13` mục 9.1).
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ngày khởi hành, sắp theo ngày tăng dần
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Departure'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/posts:
+    get:
+      tags: [posts]
+      operationId: listPosts
+      summary: Danh sách bài viết
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: tag
+          in: query
+          required: false
+          description: Slug thẻ **trong locale đang xem**, lặp lại được. Nhiều giá trị nghĩa là **HOẶC**.
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, format: int32, minimum: 1, maximum: 60, default: 12 }
+      responses:
+        '200':
+          description: Một trang bài viết
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/posts/{slug}:
+    get:
+      tags: [posts]
+      operationId: getPost
+      summary: Một bài viết
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bài viết
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/lectures:
+    get:
+      tags: [lectures]
+      operationId: listLectures
+      summary: Buổi thuyết trình sắp diễn ra
+      description: |
+        **Chỉ buổi chưa diễn ra**, lọc ở truy vấn chứ không ở tầng hiển thị
+        (`docs/13` mục 9.1). Lọc ở frontend nghĩa là buổi đã qua vẫn đi qua dây,
+        vẫn nằm trong cache, và sẽ có ngày hiện ra.
+
+        Buổi thuyết trình thuộc **đúng một thị trường**: buổi ở Odense phục vụ
+        khách Đan, buổi ở Hà Nội phục vụ khách Việt.
+
+        `seatsAvailable` là giá trị tính ra, không có cờ "đã đầy" trong cơ sở dữ
+        liệu (`docs/14` mục 5.2).
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Danh sách buổi thuyết trình, sắp theo ngày tăng dần
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lecture'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /api/v1/{market}/products/{slug}:
     get:
       tags: [products]
@@ -359,6 +608,135 @@ components:
           format: int32
           minimum: 0
           description: Đếm từ dữ liệu trong phạm vi (market, locale). Không hardcode.
+
+    Theme:
+      type: object
+      required: [slug, name, productCount]
+      properties:
+        slug: { type: string, example: trekking }
+        name: { type: string, example: Trekking }
+        productCount: { type: integer, format: int32, minimum: 0 }
+
+    ItineraryDay:
+      type: object
+      required: [dayNumber, title, description]
+      properties:
+        dayNumber: { type: integer, format: int32, minimum: 1 }
+        title: { type: string }
+        description: { type: string }
+        destination:
+          allOf: [{ $ref: '#/components/schemas/Ref' }]
+          description: Nơi ngủ đêm. Bỏ khỏi JSON với ngày bay hoặc ngày trên tàu.
+        hotelName:
+          type: string
+          description: Tên riêng, **không dịch**.
+
+    HotelStay:
+      type: object
+      required: [name, nights, destination]
+      properties:
+        name:
+          type: string
+          description: Tên riêng của khách sạn, **không dịch** — `docs/24` mục 5.
+        stars: { type: integer, format: int32, minimum: 1, maximum: 5 }
+        nights: { type: integer, format: int32, minimum: 1 }
+        destination: { $ref: '#/components/schemas/Ref' }
+        description:
+          type: string
+          description: Phụ thuộc locale. Bỏ khỏi JSON khi chưa dịch.
+        image: { type: string }
+
+    DepartureStatus:
+      type: string
+      description: |
+        Giá trị **tính ra**, không phải cột trong cơ sở dữ liệu. Thứ tự xét ở
+        `docs/14` mục 5; `GUARANTEED` xét **trước** `FEW_SEATS`.
+      enum: [OPEN, FEW_SEATS, GUARANTEED, SOLD_OUT, PENDING]
+
+    Departure:
+      type: object
+      required: [id, departDate, returnDate, days, status, seatsAvailable]
+      properties:
+        id: { type: string, format: uuid }
+        departDate: { type: string, format: date }
+        returnDate: { type: string, format: date }
+        days: { type: integer, format: int32 }
+        status: { $ref: '#/components/schemas/DepartureStatus' }
+        seatsAvailable:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Đã trừ chỗ đang giữ — `docs/14` mục 6.1.
+        priceFrom:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+        cabinCategory:
+          type: string
+          description: Chỉ `CRUISE`.
+        departureCity:
+          type: string
+          description: Chỉ những thị trường có nhiều điểm khởi hành.
+
+    PostSummary:
+      type: object
+      required: [slug, title, excerpt, tags]
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        heroImage: { type: string }
+        publishedAt: { type: string, format: date-time }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/Ref' }
+
+    PostPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PostSummary' }
+        page: { type: integer, format: int32 }
+        size: { type: integer, format: int32 }
+        totalItems: { type: integer, format: int64 }
+        totalPages: { type: integer, format: int32 }
+
+    PostDetail:
+      type: object
+      required: [slug, title, excerpt, body, tags]
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        body:
+          type: array
+          items: { type: string }
+          description: Từng đoạn văn một, không phải một khối HTML.
+        heroImage: { type: string }
+        publishedAt: { type: string, format: date-time }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/Ref' }
+
+    Lecture:
+      type: object
+      required: [id, eventDate, city, title, description, seats, seatsAvailable]
+      properties:
+        id: { type: string, format: uuid }
+        eventDate: { type: string, format: date }
+        startTime:
+          type: string
+          description: Giờ địa phương, dạng `HH:MM`.
+        city: { type: string }
+        venue: { type: string }
+        title: { type: string }
+        description: { type: string }
+        seats: { type: integer, format: int32 }
+        seatsAvailable:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Giá trị tính ra — không có cờ "đã đầy" trong cơ sở dữ liệu.
 
     ProductType:
       type: string

@@ -16,6 +16,7 @@ public record ProductQuery(
         String locale,
         String regionSlug,
         String destinationSlug,
+        java.util.List<String> themeSlugs,
         ProductType productType,
         String q,
         ProductSort sort,
