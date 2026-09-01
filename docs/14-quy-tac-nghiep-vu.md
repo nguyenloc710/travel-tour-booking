@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 31/08/2026
+Cập nhật: 01/09/2026
 Nguồn sự thật về: engine tính giá, làm tròn, giải trạng thái ngày khởi hành,
                   tồn kho và giữ chỗ, vòng đời báo giá, danh sách test bắt buộc.
 Không nói về: loại sản phẩm khác nhau ở đâu (04), lược đồ (12), API (13),
@@ -336,26 +336,26 @@ Bản demo có 24 test cho riêng engine giá. Giữ mức đó, và thêm phầ
 
 ### 9.1. Engine giá — `domain`, JUnit thuần
 
-- [ ] Hai người phòng đôi, không tuỳ chọn nào
-- [ ] Một người ở phòng đơn → có dòng phụ thu
-- [ ] Giảm đặt sớm đúng ngưỡng 6 tháng, và **đúng một ngày trước ngưỡng** (không được giảm)
-- [ ] Giảm đặt sớm bậc 3 tháng
-- [ ] Thứ tự: giảm đặt sớm trừ **trước** phí xử lý
-- [ ] `deposit + balance = total`, cho cả DKK và VND
-- [ ] Làm tròn từng dòng: các dòng cộng lại **bằng đúng** tổng
-- [ ] VND `fraction_digits = 0`: không có phần thập phân ở bất kỳ dòng nào
-- [ ] Bậc giá `PRIVATE_TOUR`: đúng bậc cho 2, 4, 8, 15, 20 khách
-- [ ] Bậc giá: số khách ngoài mọi bậc → ném lỗi, không lấy bậc gần nhất
-- [ ] Trẻ em tính vào số khách để chọn bậc, nhưng trả theo tỷ lệ của mình
-- [ ] Nâng hạng cabin theo đúng ngày khởi hành
-- [ ] Dòng bằng 0 không xuất hiện trong bảng phân rã
+- [x] Hai người phòng đôi, không tuỳ chọn nào
+- [x] Một người ở phòng đơn → có dòng phụ thu
+- [x] Giảm đặt sớm đúng ngưỡng 6 tháng, và **đúng một ngày trước ngưỡng** (không được giảm)
+- [x] Giảm đặt sớm bậc 3 tháng
+- [x] Thứ tự: giảm đặt sớm trừ **trước** phí xử lý
+- [x] `deposit + balance = total`, cho cả DKK và VND
+- [x] Làm tròn từng dòng: các dòng cộng lại **bằng đúng** tổng
+- [x] VND `fraction_digits = 0`: không có phần thập phân ở bất kỳ dòng nào
+- [x] Bậc giá `PRIVATE_TOUR`: đúng bậc cho 2, 4, 8, 15, 20 khách
+- [x] Bậc giá: số khách ngoài mọi bậc → ném lỗi, không lấy bậc gần nhất
+- [x] Trẻ em tính vào số khách để chọn bậc, nhưng trả theo tỷ lệ của mình
+- [x] Nâng hạng cabin theo đúng ngày khởi hành
+- [x] Dòng bằng 0 không xuất hiện trong bảng phân rã
 
 ### 9.2. Giải trạng thái — `domain`
 
-- [ ] `GUARANTEED` thắng `FEW_SEATS` khi cả hai điều kiện đúng
-- [ ] Nhân viên đặt `SOLD_OUT` tay khi vẫn còn chỗ → hiện `SOLD_OUT`
-- [ ] Không có đường nào cho ra `GUARANTEED` từ ghi đè tay
-- [ ] `PENDING` thắng tất cả
+- [x] `GUARANTEED` thắng `FEW_SEATS` khi cả hai điều kiện đúng
+- [x] Nhân viên đặt `SOLD_OUT` tay khi vẫn còn chỗ → hiện `SOLD_OUT`
+- [x] Không có đường nào cho ra `GUARANTEED` từ ghi đè tay
+- [x] `PENDING` thắng tất cả
 - [ ] Du thuyền: một hạng hết chỗ không làm ngày đó hết chỗ
 
 ### 9.3. Tồn kho — `infrastructure`, Testcontainers với Postgres thật

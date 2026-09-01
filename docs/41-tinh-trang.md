@@ -110,6 +110,9 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Giải trạng thái ngày khởi hành ở `domain` (`14` mục 5) | ✔ hàm thuần, 11 test JUnit không context |
 | Đăng nhập nhân viên, phiên cookie `HttpOnly`, ma trận quyền `22` mục 2.1 | ✔ 12 test |
 | Đường **ghi** đầu tiên: sửa bản dịch sản phẩm qua JPA + MapStruct, cột kiểm toán tự điền | ✔ |
+| Engine giá ở `domain`: tám bước cộng dồn, làm tròn từng dòng, bậc giá, giảm đặt sớm, nâng hạng cabin | ✔ **31 test** JUnit thuần — `14` mục 9.1 tick đủ |
+| Engine giá gắn vào endpoint `POST /pricing/preview` | ✗ đợt 4 |
+| Con số nghiệp vụ thị trường `VN` | ✗ **Q-2** — engine chạy được, chỉ thiếu dữ liệu cấu hình |
 | `GET /site-info` | ✗ `13` mục 9.1 mới nói bốn chữ — chưa đủ để dựng bảng, ghi ở `12` mục 10 |
 | Trang điểm đến ở `web/` | ✗ API đã có, frontend chưa dùng |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
@@ -383,3 +386,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Bổ sung `12` mục 4.8–4.11 và viết `V3`: 17 bảng nội dung biên tập, 12 test | `site_info` vẫn để ngỏ; chưa endpoint nào dùng 17 bảng này |
 | 01/09/2026 | Đợt 1b: spec v0.4, 7 endpoint đọc còn thiếu, giải trạng thái ngày khởi hành ở `domain` | Xong danh mục đọc của `13` mục 9.1 trừ `/site-info`. Tổng 102 test |
 | 01/09/2026 | Đợt 2: spec v0.5, Spring Security phiên cookie, entity JPA đầu tiên, MapStruct, `AuditorAware` | Tổng 114 test. Ba dependency mới, đều do tài liệu đã chốt |
+| 01/09/2026 | Đợt 3: engine giá thuần `domain` — 31 test, không context, không CSDL, không đồng hồ | Tổng 145 test. Chưa có endpoint tính giá; `VN` vẫn chờ Q-2 |
