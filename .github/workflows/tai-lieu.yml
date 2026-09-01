@@ -1,0 +1,43 @@
+# Bộ kiểm tài liệu.
+#
+# Tách riêng khỏi hai pipeline code vì nó lọc theo `docs/`: sửa tài liệu không
+# kích hoạt build Gradle lẫn build pnpm, và ngược lại. Việc kiểm chạy ở ba chỗ —
+# chạy tay, hook sau mỗi lần sửa file trong `docs/`, và ở đây (docs/42 mục 9).
+#
+# Không cần cài gì: `docs_check.py` chỉ dùng thư viện chuẩn Python.
+name: tai-lieu
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/docs_check.py'
+      - '.github/workflows/tai-lieu.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'scripts/docs_check.py'
+      - '.github/workflows/tai-lieu.yml'
+
+concurrency:
+  group: tai-lieu-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  kiem:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Cảnh báo không làm đỏ CI — chỉ lỗi mới làm. Phân biệt này có chủ ý:
+      # "tài liệu chưa viết" là cảnh báo suốt cả dự án, để nó chặn merge thì
+      # cả đội sẽ học cách phớt lờ màu đỏ.
+      - name: Bộ kiểm tài liệu
+        run: python scripts/docs_check.py
