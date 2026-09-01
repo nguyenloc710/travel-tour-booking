@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 01/09/2026
+Cập nhật: 02/09/2026
 Nguồn sự thật về: thứ tự dựng backend theo đợt, và những quy ước mượn từ dự án
                   comic-social-network-be cùng lý do nhận hay loại từng cái.
 Không nói về: kiến trúc và ranh giới module (10), lược đồ (12), hợp đồng API (13),
@@ -103,9 +103,22 @@ Mỗi đợt có đầu ra **đo được bằng một lệnh**, không phải b
 
 ### Đợt 5 — quản trị và vận hành
 
+Tách hai vì nửa sau chặn ở hai câu hỏi chưa ai trả lời.
+
+#### 5a — nhìn thấy việc phải làm ✔ 02/09/2026
+
 | | |
 |---|---|
-| **Làm** | CRUD quản trị theo `22`; ba màn hình dịch thuật; media qua presigned URL; `30` và `34` |
+| **Làm** | `GET /admin/products` (M2) · `/admin/translations/queue` (M10) · `/admin/translations/coverage` (M12) |
+| **Ghi chú** | Hàng đợi chỉ phủ **sản phẩm và bài viết**: bảng dịch của điểm đến và buổi thuyết trình không có `status` lẫn `translated_at` — `12` mục 10 |
+| **Xong khi** | Danh sách quản trị hiện được thứ bề mặt khách giấu đi: bản nguồn còn nháp, và sản phẩm chưa gán thị trường |
+
+#### 5b — nhập được một tour mới
+
+| | |
+|---|---|
+| **Làm** | Tạo và sửa sản phẩm (M3), gán thị trường và giá (M5), ngày khởi hành (M4); màn hình dịch song song đã có endpoint từ đợt 2 |
+| **Chặn** | Media qua presigned URL chặn ở **Q-6** → ADR-008; `30` chặn ở **Q-3** |
 | **Xong khi** | Nhân viên nhập được một tour mới đủ hai ngôn ngữ **không cần lập trình viên** — tiêu chí ra số 7 của G4 |
 
 ---

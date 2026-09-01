@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 01/09/2026
+Cập nhật: 02/09/2026
 Nguồn sự thật về: danh mục màn hình quản trị, bốn vai trò và ma trận quyền, ba
                   màn hình dịch thuật, checklist mở bán một sản phẩm.
 Không nói về: máy trạng thái đơn đặt và luồng huỷ hoàn (23), quy tắc tính giá và
@@ -281,7 +281,8 @@ Không dùng token lưu trong `localStorage`: kịch bản tấn công qua chèn
 
 | Việc | Chặn | Ghi ở |
 |---|---|---|
-| **`12` chưa định nghĩa bảng `role` và `staff_user_role`** dù mục 8.1 của `12` nói `role` là dữ liệu tra cứu | Toàn bộ ma trận quyền ở mục 2.1 | Cần bổ sung vào `12`, rồi migration |
+| ~~`12` chưa định nghĩa bảng `role` và `staff_user_role`~~ | — | **Xong** 01/09/2026: `12` mục 3.1 và migration `V2` |
+| **Hàng đợi mục 4.1 chưa phủ được điểm đến và buổi thuyết trình** — bảng dịch của chúng không có `status` lẫn `translated_at`, nên `OUTDATED` không tính ra được | Bậc ưu tiên 3 của mục 4.1.1 | `12` mục 10 |
 | Có ghi nhật ký thao tác cho thay đổi **nội dung** không, hay chỉ cho đơn đặt | Truy vết sửa nội dung; năm cột kiểm toán chỉ giữ lần sửa **cuối** | Quyết định kiến trúc → cân nhắc ADR |
 | Xác thực hai lớp cho `ADMIN` | Mục 9 | `31` |
 | Thời gian hết phiên | Mục 9 | `31` |

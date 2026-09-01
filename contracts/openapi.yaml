@@ -29,7 +29,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -623,6 +623,137 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/products:
+    get:
+      tags: [admin]
+      operationId: danhSachSanPhamQuanTri
+      summary: Danh sách sản phẩm, nhìn từ trang quản trị
+      description: |
+        Khác `GET /api/v1/{market}/products` ở bốn điểm (`docs/22` mục 1), và cả
+        bốn đều cố ý:
+
+        | | Bề mặt công khai | Ở đây |
+        |---|---|---|
+        | Market | Trong đường dẫn | **Không có** — nhân viên làm việc xuyên thị trường |
+        | Locale | Trong đường dẫn, trả đúng một bản | **Tất cả** bản dịch của một bản ghi |
+        | Bản chưa xuất bản | Không bao giờ | Có |
+        | Cache | Có | `no-store` |
+
+        Phân trang **phía máy chủ**: danh sách chỉ lớn dần theo thời gian và
+        không bao giờ nhỏ lại (`docs/22` mục 7).
+      parameters:
+        - name: productType
+          in: query
+          schema: { $ref: '#/components/schemas/ProductType' }
+        - name: market
+          in: query
+          description: |
+            Lọc theo thị trường **đã gán**. Chữ hoa — bề mặt quản trị không có
+            market trong đường dẫn nên đây dùng thẳng mã trong CSDL.
+          schema:
+            type: string
+            enum: [DK, VN]
+        - name: gap
+          in: query
+          description: Chỉ lấy sản phẩm đang thiếu hoặc đã cũ ở **một** locale bất kỳ.
+          schema: { $ref: '#/components/schemas/TranslationGap' }
+        - name: q
+          in: query
+          description: Tìm trong tiêu đề của **mọi** locale, khử dấu.
+          schema: { type: string, maxLength: 120 }
+        - name: page
+          in: query
+          schema: { type: integer, format: int32, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Một trang sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/translations/queue:
+    get:
+      tags: [admin]
+      operationId: hangDoiDich
+      summary: Việc dịch đang chờ, sắp theo tác động doanh thu
+      description: |
+        Bản ghi có bản ngôn ngữ nguồn `PUBLISHED` nhưng bản đích **thiếu** hoặc
+        **`OUTDATED`** (`docs/22` mục 4.1).
+
+        `OUTDATED` là **giá trị tính ra, không lưu**:
+        `translation(nguồn).lastModifiedAt > translation(đích).translatedAt`.
+        Thêm một cột cờ trong CSDL là tạo ra thứ có thể sai — và nó sẽ sai, vào
+        đúng lúc ai đó cập nhật bản nguồn bằng một câu SQL.
+
+        Sắp theo `priority` rồi mới tới ngày (`docs/22` mục 4.1.1). Sắp theo ngày
+        là để một dòng chữ trong bài blog chen lên trước một tour đang bán.
+      parameters:
+        - name: entityType
+          in: query
+          schema: { $ref: '#/components/schemas/TranslationEntityType' }
+        - name: limit
+          in: query
+          schema: { type: integer, format: int32, minimum: 1, maximum: 200, default: 50 }
+      responses:
+        '200':
+          description: Hàng đợi, ưu tiên cao trước
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TranslationQueueItem'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/translations/coverage:
+    get:
+      tags: [admin]
+      operationId: doPhuDich
+      summary: Độ phủ dịch theo loại thực thể
+      description: |
+        Hai con số cho mỗi dòng: **đã dịch** và **còn hạn** (`docs/22` mục 4.3).
+
+        Tách hai con số vì chúng nói hai chuyện khác nhau: 100% đã dịch nhưng
+        60% còn hạn nghĩa là nội dung đang trôi — và đó là dấu hiệu sớm hơn
+        nhiều so với việc khách phàn nàn.
+
+        **Trả số đếm, không trả phần trăm.** API không định dạng số cho người
+        đọc (`docs/13` mục 5); chia và làm tròn là việc của frontend.
+      parameters:
+        - name: locale
+          in: query
+          description: Locale đích. Bỏ trống thì lấy mọi locale khác ngôn ngữ nguồn.
+          schema:
+            type: string
+            enum: [vi]
+      responses:
+        '200':
+          description: Một dòng cho mỗi cặp (loại thực thể, locale)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TranslationCoverageRow'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+
   /api/v1/{market}/pricing/preview:
     post:
       tags: [booking]
@@ -1011,6 +1142,148 @@ components:
             với chính bản nguồn.
         lastModifiedAt: { type: string, format: date-time }
         lastModifiedBy: { type: string, format: uuid }
+
+    TranslationGap:
+      type: string
+      enum: [MISSING, OUTDATED]
+      description: |
+        `MISSING` chưa có bản dịch nào. `OUTDATED` có rồi nhưng bản nguồn đã sửa
+        sau đó. Cả hai đều **tính ra**, không cột nào trong CSDL lưu chúng.
+
+    TranslationEntityType:
+      type: string
+      enum: [PRODUCT, POST]
+      description: |
+        Chỉ hai loại, và **đây là giới hạn của lược đồ chứ không phải của thiết
+        kế**: `docs/22` mục 4.1 muốn cả điểm đến, nhưng
+        `destination_translation` và `lecture_translation` không có cột `status`
+        lẫn `translated_at`, nên với chúng thì "bản nguồn đã xuất bản chưa" và
+        "dịch từ lúc nào" đều không trả lời được.
+
+        Thêm hai cột đó là định nghĩa một vòng đời xuất bản cho điểm đến — thứ
+        chưa tài liệu nào mô tả, và nó đụng thẳng vào chính sách không-fallback
+        (`docs/02`). Vì thế: chờ quyết định, không tự thêm cột.
+
+    AdminTranslationState:
+      type: object
+      required: [locale, status, isSource, outdated]
+      properties:
+        locale: { type: string, example: vi }
+        status: { $ref: '#/components/schemas/TranslationStatus' }
+        isSource:
+          type: boolean
+          description: Ngôn ngữ nguồn của hệ thống — ADR-004, hiện là `da`.
+        outdated:
+          type: boolean
+          description: Với bản nguồn luôn `false` — nó không dịch từ đâu cả.
+
+    AdminProductMarketState:
+      type: object
+      required: [market, published]
+      properties:
+        market:
+          type: string
+          enum: [DK, VN]
+        published:
+          type: boolean
+          description: |
+            Công tắc "bắt đầu bán được" (`docs/01` mục 4.4). Dịch xong mà chưa
+            bật thì sản phẩm vẫn **không tồn tại** với khách.
+
+    AdminProductSummary:
+      type: object
+      required: [id, productType, sourceTitle, sourceStatus, markets, translations]
+      properties:
+        id: { type: string, format: uuid }
+        productType: { $ref: '#/components/schemas/ProductType' }
+        sourceTitle:
+          type: string
+          description: |
+            Tiêu đề bản ngôn ngữ nguồn. Luôn có: CSDL từ chối một sản phẩm không
+            có bản dịch nguồn (`ct_product_source_translation`).
+        sourceStatus: { $ref: '#/components/schemas/TranslationStatus' }
+        markets:
+          type: array
+          items: { $ref: '#/components/schemas/AdminProductMarketState' }
+          description: Rỗng nghĩa là **chưa gán thị trường nào**.
+        translations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminTranslationState' }
+          description: |
+            Chỉ những bản **đang tồn tại**. Locale vắng mặt ở đây là locale chưa
+            dịch — frontend đối chiếu với danh sách locale đang bật.
+        lastModifiedAt: { type: string, format: date-time }
+
+    AdminProductPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminProductSummary' }
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1 }
+        totalItems: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+
+    TranslationQueueItem:
+      type: object
+      required: [entityType, id, locale, gap, priority, sourceTitle, sourceLastModifiedAt]
+      properties:
+        entityType: { $ref: '#/components/schemas/TranslationEntityType' }
+        id: { type: string, format: uuid }
+        locale:
+          type: string
+          description: Locale **đích** — thứ đang thiếu, không phải thứ đang có.
+          example: vi
+        gap: { $ref: '#/components/schemas/TranslationGap' }
+        priority:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 4
+          description: |
+            Bậc ưu tiên của `docs/22` mục 4.1.1, thấp là gấp:
+
+            | | |
+            |---|---|
+            | 1 | Sản phẩm đã gán thị trường và **đang bán** — chưa dịch là mất doanh thu ngay |
+            | 2 | Sản phẩm đã xuất bản bản nguồn, chưa gán thị trường |
+            | 3 | Dành cho điểm đến — chưa dùng, xem `TranslationEntityType` |
+            | 4 | Bài viết, sự kiện |
+        sourceTitle: { type: string }
+        sourceLastModifiedAt:
+          type: string
+          format: date-time
+          description: Với `OUTDATED`, đây là **lý do** nó quay lại hàng đợi.
+        translatedAt:
+          type: string
+          format: date-time
+          description: Bỏ hẳn khỏi JSON khi chưa dịch lần nào.
+
+    TranslationCoverageRow:
+      type: object
+      required: [entityType, locale, total, translated, upToDate]
+      properties:
+        entityType: { $ref: '#/components/schemas/TranslationEntityType' }
+        locale: { type: string, example: vi }
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+          description: |
+            Mẫu số: số bản ghi có bản nguồn ở trạng thái `PUBLISHED`. Bản nguồn
+            còn là nháp thì chưa đến lượt dịch, nên không tính vào mẫu số.
+        translated:
+          type: integer
+          format: int32
+          minimum: 0
+        upToDate:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Đã dịch **và** không `OUTDATED`. Luôn `<= translated`.
+
 
     PaxCount:
       type: object

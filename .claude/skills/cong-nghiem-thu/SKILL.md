@@ -44,7 +44,7 @@ Tiêu chí nào chạy được bằng lệnh thì **chạy thật**, đừng su
 | Backend | `./gradlew build` · `./gradlew archTest` |
 | Frontend | `pnpm build` · `pnpm typecheck` · `pnpm i18n:check` |
 | Hợp đồng API | `pnpm contracts:generate` rồi biên dịch lại cả hai bên |
-| CSDL | `./gradlew flywayMigrate` trên CSDL sạch |
+| CSDL | `./gradlew bootRun` trỏ vào một CSDL trắng — Flyway chạy lúc khởi động, không có task `flywayMigrate` |
 
 ### Bước 3 — Kiểm trạng thái tài liệu
 

@@ -8,6 +8,7 @@ import vn.travel.booking.admin.dto.ProductTranslationView;
 import vn.travel.booking.product.entity.ProductTranslationEntity;
 import vn.travel.booking.product.mapper.ProductTranslationMapper;
 import vn.travel.booking.product.repository.ProductTranslationRepository;
+import vn.travel.booking.common.repository.LocaleRepository;
 
 import java.util.Comparator;
 import java.util.List;
@@ -27,13 +28,16 @@ public class AdminProductTranslationRepository {
 
     private final ProductTranslationRepository repository;
     private final ProductTranslationMapper mapper;
+    private final LocaleRepository locale;
     private final JdbcTemplate jdbc;
 
     public AdminProductTranslationRepository(ProductTranslationRepository repository,
                                              ProductTranslationMapper mapper,
+                                             LocaleRepository locale,
                                              JdbcTemplate jdbc) {
         this.repository = repository;
         this.mapper = mapper;
+        this.locale = locale;
         this.jdbc = jdbc;
     }
     public boolean productExists(UUID productId) {
@@ -49,7 +53,7 @@ public class AdminProductTranslationRepository {
      * không phải tình cờ.
      */
     public List<ProductTranslationView> findAll(UUID productId) {
-        String nguon = localeNguon();
+        String nguon = locale.localeNguon();
         Map<String, OffsetPair> moc = mocThoiGian(productId);
 
         return repository.findByProductIdAndSoftDeleteFalse(productId).stream()
@@ -71,7 +75,7 @@ public class AdminProductTranslationRepository {
         // TRIGGER đặt chứ không do Java, nên giá trị còn trong bộ nhớ là giá trị
         // trước lần lưu này. Đây là cái giá của việc để CSDL sở hữu cột đó — và
         // vẫn rẻ hơn nhiều so với hai chỗ cùng ghi một cột.
-        return dienThemTinhRa(daLuu, localeNguon(), mocThoiGian(productId));
+        return dienThemTinhRa(daLuu, this.locale.localeNguon(), mocThoiGian(productId));
     }
 
     // ------------------------------------------------------------ tính ra
@@ -104,11 +108,6 @@ public class AdminProductTranslationRepository {
             return Boolean.TRUE;
         }
         return nguon.lastModifiedAt().isAfter(ban.getTranslatedAt());
-    }
-
-    private String localeNguon() {
-        return jdbc.queryForObject(
-                "SELECT code FROM locale WHERE is_source AND is_active", String.class);
     }
 
     private Map<String, OffsetPair> mocThoiGian(UUID productId) {

@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Đã duyệt
-Cập nhật: 31/08/2026
+Cập nhật: 01/09/2026
 Phiên bản: 1.0
 Chủ sở hữu: Chủ sản phẩm
 Người duyệt: Chủ sản phẩm + Kiến trúc sư
@@ -114,7 +114,7 @@ Chạy cổng bằng: `/cong G2` — xem `.claude/skills/cong-nghiem-thu/`.
 | **Đầu vào** | G1 đã qua; `12` có DDL; `13` có danh mục endpoint |
 | **Bàn giao** | `api/` bốn module Gradle · `web/` pnpm workspace · `contracts/openapi.yaml` v0.1 · `compose.yaml` · CI hai pipeline code + bộ kiểm tài liệu, lọc đường dẫn · migration `V1__khoi_tao.sql` · dữ liệu mồi · `34` bản nháp · `40` `41` `42` |
 | **Tài liệu phải `Đã duyệt`** | `40`, `42` |
-| **Tiêu chí ra** | 1. `docker compose up -d` cho Postgres có sẵn `unaccent` và `pg_trgm`<br>2. `./gradlew build` xanh<br>3. `pnpm build` và `pnpm typecheck` xanh cả `site` lẫn `admin`<br>4. `pnpm contracts:generate` sinh được **cả** interface Java **và** TS client; controller rỗng `implements` interface đó và biên dịch sạch<br>5. `./gradlew flywayMigrate` dựng xong lược đồ của `12`, dữ liệu mồi nạp được<br>6. `python scripts/docs_check.py` → 0 lỗi<br>7. CI chạy trên một PR thật: sửa `web/` **không** kích hoạt build Gradle |
+| **Tiêu chí ra** | 1. `docker compose up -d` cho Postgres có sẵn `unaccent` và `pg_trgm`<br>2. `./gradlew build` xanh<br>3. `pnpm build` và `pnpm typecheck` xanh cả `site` lẫn `admin`<br>4. `pnpm contracts:generate` sinh được **cả** interface Java **và** TS client; controller rỗng `implements` interface đó và biên dịch sạch<br>5. Trên một CSDL **trắng**, Flyway dựng xong lược đồ của `12` và dữ liệu mồi nạp được. Migration chạy lúc **ứng dụng khởi động** (`./gradlew bootRun`) — dự án không áp plugin Flyway của Gradle, nên không có task `flywayMigrate`<br>6. `python scripts/docs_check.py` → 0 lỗi<br>7. CI chạy trên một PR thật: sửa `web/` **không** kích hoạt build Gradle |
 | **Rủi ro chính** | DDL ở `12` sai khi gặp Postgres thật — **dự kiến sẽ có sai**, và đó chính là giá trị của giai đoạn này. Sai thì sửa `12` trước, sửa migration sau |
 | **Không làm ở đây** | Logic nghiệp vụ. G2 chỉ dựng khung — một endpoint trả dữ liệu mồi là đủ |
 

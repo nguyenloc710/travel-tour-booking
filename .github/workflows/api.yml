@@ -43,12 +43,9 @@ jobs:
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Bước riêng, đứng TRƯỚC build: ranh giới module hỏng thì biết ngay,
-      # không phải đợi hết bộ test mới thấy (docs/10 mục 3).
-      - name: Ranh giới module — domain không dính Spring
-        run: ./gradlew archTest
-        working-directory: api
-
+      # ADR-010 gộp bốn module thành một: `archTest` không còn tồn tại, và
+      # cùng với nó là sáu bài test ranh giới. Ranh giới nay là quy ước đọc
+      # được, không phải bước CI — cái mất đó ghi thẳng trong ADR-010.
       - name: Build và test
         run: ./gradlew build
         working-directory: api
@@ -57,7 +54,7 @@ jobs:
       # controller quên sửa là lỗi biên dịch — bước trên đã bắt. Bước này chỉ
       # xác nhận việc sinh code tự nó chạy được trên máy sạch.
       - name: Sinh lại interface từ contracts/openapi.yaml
-        run: ./gradlew :web:contractsGenerate
+        run: ./gradlew contractsGenerate
         working-directory: api
 
       - name: Báo cáo test
@@ -65,6 +62,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bao-cao-test-api
-          path: api/*/build/reports/tests/
+          path: api/build/reports/tests/
           if-no-files-found: ignore
           retention-days: 7

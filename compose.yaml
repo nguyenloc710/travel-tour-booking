@@ -27,8 +27,9 @@ volumes:
 # hai collation "da-DK-x-icu" và "vi-VN-x-icu" dùng được ngay. Bản alpine cắt
 # bớt ICU — không đổi sang alpine.
 #
-# Extension được bật bởi migration V1, không cài tay:
-#   ./gradlew flywayMigrate   (hoặc để ứng dụng tự chạy lúc khởi động)
+# Extension được bật bởi migration V1, không cài tay. Flyway chạy lúc ứng dụng
+# khởi động — dự án không áp plugin Flyway của Gradle:
+#   cd api && ./gradlew bootRun
 #
 # Dữ liệu mồi cho dev:
 #   psql postgresql://travel:travel@localhost:5432/travel -f api/scripts/seed-dev.sql

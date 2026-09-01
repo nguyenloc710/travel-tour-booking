@@ -1150,6 +1150,7 @@ hằng đêm trong CI, không chạy ở mỗi lần build.
 | Chuyển `product.hero_image` và `map_image` sang tham chiếu `media_asset` | Ảnh đầu trang và ảnh bản đồ hiện không có chứng từ giấy phép. Đổi phá vỡ tương thích: phải tách hai lần triển khai theo mục 8 |
 | Ai được phép cấp vai trò `ADMIN`, và có cần hai người duyệt không | `22` mục 9 |
 | **Chưa có bảng `site_info`** — `13` mục 9.1 mới nói đúng bốn chữ "thị thực, mùa, tiền tệ, lệch giờ". Chưa đủ để dựng bảng; cần đặc tả nội dung trước | `GET /{market}/site-info` |
+| **`destination_translation` và `lecture_translation` không có `status` lẫn `translated_at`** — nên với hai thứ này thì "bản nguồn đã xuất bản chưa" và "dịch từ lúc nào" đều không trả lời được | Hàng đợi dịch (`22` mục 4.1) hiện chỉ phủ sản phẩm và bài viết. Thêm hai cột là định nghĩa một vòng đời xuất bản cho điểm đến — thứ chưa tài liệu nào mô tả, và nó đụng thẳng vào chính sách không-fallback của `02` |
 | Số chỗ mặc định `capacity` của `GROUP_TOUR` lấy từ `max_pax` hay nhập riêng | DDL `departure` |
 | Có mã hoá cột số hộ chiếu ở v1 không | `booking_passenger`, `31` |
 | Thời hạn lưu dữ liệu cá nhân | Cột `retention_until`, job xoá |

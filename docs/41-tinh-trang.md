@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Đã duyệt
-Cập nhật: 31/08/2026
+Cập nhật: 02/09/2026
 Phiên bản: 1.0
 Chủ sở hữu: Chủ sản phẩm
 Người duyệt: Chủ sản phẩm
@@ -22,9 +22,9 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | | |
 |---|---|
 | **Giai đoạn** | **G3 — Lõi danh mục** |
-| **Cổng gần nhất đã qua** | G2 — 01/09/2026, **qua có điều kiện** (3 điều kiện treo, mục 7) |
+| **Cổng gần nhất đã qua** | G2 — 01/09/2026, **qua có điều kiện**. Còn **1/3** điều kiện treo: mở một PR thật (mục 7) |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
-| **Tài liệu** | 20/26 file. Xong tầng 0, 1, 2, 4 — còn lại là tầng 3 (`30`–`35`) |
+| **Tài liệu** | 21/26 file. Xong tầng 0, 1, 2, 4 và `34` — còn lại `30`–`33`, `35` |
 
 ---
 
@@ -45,6 +45,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 1 | `12-luoc-do-csdl` | Nháp |
 | 1 | `13-hop-dong-api` | Nháp |
 | 1 | `14-quy-tac-nghiep-vu` | Nháp |
+| 3 | `34-cicd-va-moi-truong` | Nháp |
 | 4 | `40-ke-hoach-thuc-hien` | Đã duyệt |
 | 4 | `41-tinh-trang` | Đã duyệt — file này |
 | 4 | `42-quy-trinh-tai-lieu` | Đã duyệt |
@@ -61,24 +62,26 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Bản Word gửi khách | `docs/Dac-ta-chuc-nang-nghiep-vu.docx` | 12 chương, sinh lại bằng `docs/tools/build-docx.py` |
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
 | Bộ kiểm tài liệu | `scripts/docs_check.py` | Chạy được ngay, không cần cài gì |
-| Scaffolding backend | `api/` | Bốn module Gradle, migration `V1`, một endpoint đọc sinh từ spec |
-| Hợp đồng API | `contracts/openapi.yaml` | v0.1 — một endpoint, đủ để chứng minh spec-first |
+| Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), migration `V1`–`V4` |
+| Hợp đồng API | `contracts/openapi.yaml` | v0.7 |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
 | Lõi danh mục | `contracts/openapi.yaml` v0.2 · `api/` · `web/` | Listing + trang chi tiết, hai đầu sinh từ cùng một spec |
 | Tài liệu tầng 2 | `docs/20` … `docs/24` | Đủ 5 file, tất cả ở `Nháp` — `20`, `21`, `24` phải `Đã duyệt` trước cổng G3; `22`, `23` trước G4 |
 | Migration `V2` | `12` mục 3.1, 4.6, 4.7, 6.1 · `V2__vai_tro_anh_hanh_khach_slug.sql` | 7 bảng: vai trò, ảnh kèm giấy phép, slug cũ, hành khách. 13 test |
+| **Ba màn hình đọc của trang quản trị** | `22` M2, M10, M12 · spec v0.7 · `admin/` | Danh sách sản phẩm, hàng đợi dịch, bảng độ phủ — **12 test** |
 
 ---
 
 ## 3. Chưa có gì
 
-### Tài liệu còn thiếu — 6 file, toàn bộ là tầng 3
+### Tài liệu còn thiếu — 5 file, toàn bộ là tầng 3
 
 `30-thanh-toan` · `31-bao-mat-va-du-lieu-ca-nhan` ·
-`32-phap-ly-nganh-du-lich` · `33-testing` · `34-cicd-va-moi-truong` ·
-`35-van-hanh`
+`32-phap-ly-nganh-du-lich` · `33-testing` · `35-van-hanh`
+
+`34-cicd-va-moi-truong` đã viết ngày 02/09/2026 — điều kiện treo số 2 của G2.
 
 Thêm ba ADR đã được trỏ tới mà chưa viết: ADR-007, ADR-008 (Q-6), ADR-009 (Q-7).
 
@@ -88,19 +91,19 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 
 | Phần | Trạng thái |
 |---|---|
-| `api/` bốn module Gradle, `archTest` xanh 6/6 | ✔ |
+| `api/` **một** module Gradle chia theo feature — ADR-010, không còn `archTest` | ✔ |
 | `api/` migration `V1__khoi_tao.sql` — toàn bộ lược đồ `12` | ✔ **đã chạy trên Postgres 16 thật** |
 | `api/` dữ liệu tra cứu `R__` và `scripts/seed-dev.sql` | ✔ đã chạy sạch |
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
-| **Chưa commit lần nào** — toàn bộ `api/`, `web/`, `docs/`, `.claude/`, `.github/` còn là file chưa theo dõi | ✗ |
-| Test: 6 ArchUnit + 5 domain + 43 tích hợp Testcontainers | ✔ 54/54 xanh |
+| Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc` |
+| Test | ✔ **179/179 xanh** |
 | `contracts/openapi.yaml` v0.2 → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
 | `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh |
 | Chạy thật đầu-cuối: API + site, hai locale, hai market | ✔ |
 | `.github/workflows/`: `api.yml`, `web.yml`, `tai-lieu.yml` | ✔ đã dựng |
-| CI chạy trên một PR thật | ✗ **chưa đẩy lên GitHub lần nào** |
+| CI chạy trên một PR thật | ✗ **chưa mở PR nào** — điều kiện treo số 1 của G2 |
 | API đọc: `GET /{market}/products` và `/products/{slug}` | ✔ 20 test tích hợp xanh |
 | Site khách: trang danh sách + trang chi tiết, ba trạng thái, bộ lọc trong URL | ✔ chạy thật đầu-cuối |
 | Sắp sản phẩm theo ngày khởi hành gần nhất | ✗ `13` mục 12 |
@@ -124,6 +127,9 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Đọc và ghi bốn nhóm bảng đó qua API | ✗ lược đồ đã có, chưa có endpoint nào chạm tới |
 | `product.hero_image` và `map_image` trỏ tới `media_asset` | ✗ đổi phá vỡ tương thích, phải tách hai lần triển khai — `12` mục 10 |
 | Chuyển hướng 301 đọc `slug_history` ở tầng web | ✗ bảng đã có dữ liệu, `20` chưa dùng |
+| Danh sách sản phẩm quản trị, hàng đợi dịch, bảng độ phủ | ✔ 12 test — `22` M2, M10, M12 |
+| Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10 |
+| Tạo và sửa sản phẩm, gán thị trường, nhập giá, ngày khởi hành ở quản trị | ✗ đợt 5b |
 
 ---
 
@@ -152,16 +158,20 @@ Số ngày treo tính từ 31/08/2026.
 
 Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phần còn lại của G3.
 
-1. **Đẩy lên GitHub và mở một PR thật** — điều kiện treo số 1 của G2. Cần thấy:
-   sửa `web/` **không** kích hoạt build Gradle, sửa `contracts/` kích hoạt **cả
-   hai**, sửa `docs/` chỉ kích hoạt `tai-lieu.yml`
-2. **Viết `34-cicd-va-moi-truong` bản nháp** — điều kiện treo số 2
-3. **Sửa câu chữ tiêu chí 5 của `40`** — điều kiện treo số 3
+1. **Mở một PR thật** — điều kiện treo số 1 của G2, và là cái **duy nhất** còn
+   lại. Cần thấy: sửa `web/` **không** kích hoạt build Gradle, sửa `contracts/`
+   kích hoạt **cả hai**, sửa `docs/` chỉ kích hoạt `tai-lieu.yml`.
+   Nhánh đã đẩy; `gh` chưa cài trên máy này nên PR phải mở bằng tay
+2. ~~Viết `34-cicd-va-moi-truong` bản nháp~~ — **xong** 02/09/2026
+3. ~~Sửa câu chữ tiêu chí 5 của `40`~~ — **xong** 02/09/2026
 4. **Nội dung thật cho G3**: ít nhất 3 tour đủ hai ngôn ngữ. Đang chặn ở **Q-1**;
    không có người viết bản tiếng Đan thì hệ thống xong mà không có gì để bán
 5. Trả lời Q-8, và **duyệt `20`, `21`, `05`** — cổng G3 đòi cả ba ở `Đã duyệt`
 6. Phần G3 còn thiếu ở tầng code: trang điểm đến, trang tìm kiếm, sitemap theo
    locale, chuyển hướng 301 đọc `slug_history`
+7. **Đợt 5b** — tạo và sửa sản phẩm, gán thị trường, nhập giá, ngày khởi hành.
+   Đây là thứ quyết định tiêu chí ra số 7 của G4: nhân viên mở bán được một tour
+   mà không cần lập trình viên
 
 ---
 
@@ -359,15 +369,21 @@ không áp plugin Flyway của Gradle: migration chạy lúc **ứng dụng kh�
 `spring-boot-flyway` (`api/CLAUDE.md` mục 0). Nội dung tiêu chí — dựng xong lược
 đồ trên CSDL sạch và nạp được dữ liệu mồi — đã kiểm đầy đủ bằng cơ chế thật, trên
 một cơ sở dữ liệu mới tạo rồi xoá đi. Câu chữ của `40` cần sửa cho khớp; đó là
-điều kiện treo số 3.
+điều kiện treo số 3 — **đã sửa ngày 02/09/2026**.
 
 **Ba điều kiện treo**
 
-| # | Điều kiện | Ai chịu trách nhiệm | Hạn |
+| # | Điều kiện | Ai chịu trách nhiệm | Trạng thái |
 |---|---|---|---|
-| 1 | Đẩy repo lên GitHub, mở một PR thật, xác nhận bộ lọc đường dẫn trên runner | KTS (đẩy) + VH (`A` của dòng CI/CD ở `40` mục 5) | Trước khi chạy cổng G3 |
-| 2 | Viết `34-cicd-va-moi-truong` bản nháp — nằm trong danh sách **Bàn giao** của G2 mà chưa có file | VH | Trước khi chạy cổng G3 |
-| 3 | Sửa câu chữ tiêu chí 5 của `40` cho khớp cơ chế thật (`40` mục 7 dòng 1: làm rõ câu chữ, không cần PTĐ) | KTS | Trước khi chạy cổng G3 |
+| 1 | Đẩy repo lên GitHub, mở một PR thật, xác nhận bộ lọc đường dẫn trên runner | KTS (đẩy) + VH (`A` của dòng CI/CD ở `40` mục 5) | **Còn treo.** Repo đã đẩy 01/09; PR chưa mở — `gh` chưa cài trên máy đang làm |
+| 2 | Viết `34-cicd-va-moi-truong` bản nháp — nằm trong danh sách **Bàn giao** của G2 mà chưa có file | VH | **Xong** 02/09/2026 |
+| 3 | Sửa câu chữ tiêu chí 5 của `40` cho khớp cơ chế thật (`40` mục 7 dòng 1: làm rõ câu chữ, không cần PTĐ) | KTS | **Xong** 02/09/2026 |
+
+> Điều kiện 1 hoá ra còn đắt hơn tưởng: `api.yml` vẫn gọi `./gradlew archTest` và
+> `./gradlew :web:contractsGenerate`, hai thứ ADR-010 đã xoá. Nghĩa là pipeline
+> backend **sẽ đỏ ngay bước đầu** nếu chạy thật. Đã sửa ngày 02/09, nhưng nó nhắc
+> đúng điều mà tiêu chí này tồn tại để nhắc: CI chưa chạy lần nào thì CI chưa
+> tồn tại, dù ba file YAML trông rất hợp lý.
 
 **Chưa ai ký.** `40` mục 5: cổng G2 cần **CSH** (bắt buộc, mọi cổng) và **KTS**.
 Biên bản này chỉ chuẩn bị bằng chứng, không thay chữ ký.

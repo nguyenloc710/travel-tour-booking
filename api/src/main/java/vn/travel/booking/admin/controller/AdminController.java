@@ -21,12 +21,28 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import vn.travel.booking.admin.service.AdminCatalogService;
 import vn.travel.booking.admin.service.AdminProductTranslationService;
+import vn.travel.booking.admin.service.TranslationWorkService;
+import vn.travel.booking.admin.dto.AdminProductQuery;
+import vn.travel.booking.admin.dto.AdminProductRow;
+import vn.travel.booking.admin.dto.CoverageRow;
 import vn.travel.booking.admin.dto.ProductTranslationInput;
 import vn.travel.booking.admin.dto.ProductTranslationView;
+import vn.travel.booking.admin.dto.QueueItem;
+import vn.travel.booking.common.dto.PagedResult;
 import vn.travel.booking.web.generated.api.AdminApi;
+import vn.travel.booking.web.generated.model.AdminProductMarketState;
+import vn.travel.booking.web.generated.model.AdminProductPage;
+import vn.travel.booking.web.generated.model.AdminProductSummary;
 import vn.travel.booking.web.generated.model.AdminProductTranslation;
 import vn.travel.booking.web.generated.model.AdminProductTranslationInput;
+import vn.travel.booking.web.generated.model.AdminTranslationState;
+import vn.travel.booking.web.generated.model.ProductType;
+import vn.travel.booking.web.generated.model.TranslationCoverageRow;
+import vn.travel.booking.web.generated.model.TranslationEntityType;
+import vn.travel.booking.web.generated.model.TranslationGap;
+import vn.travel.booking.web.generated.model.TranslationQueueItem;
 import vn.travel.booking.web.generated.model.LoginRequest;
 import vn.travel.booking.web.generated.model.StaffProfile;
 import vn.travel.booking.web.generated.model.TranslationStatus;
@@ -47,11 +63,18 @@ public class AdminController implements AdminApi {
 
     private final AuthenticationManager xacThuc;
     private final AdminProductTranslationService banDich;
+    private final AdminCatalogService danhMuc;
+    private final TranslationWorkService congViecDich;
     private final SecurityContextRepository khoPhien = new HttpSessionSecurityContextRepository();
 
-    public AdminController(AuthenticationManager xacThuc, AdminProductTranslationService banDich) {
+    public AdminController(AuthenticationManager xacThuc,
+                           AdminProductTranslationService banDich,
+                           AdminCatalogService danhMuc,
+                           TranslationWorkService congViecDich) {
         this.xacThuc = xacThuc;
         this.banDich = banDich;
+        this.danhMuc = danhMuc;
+        this.congViecDich = congViecDich;
     }
 
     // ------------------------------------------------------------ phiên
@@ -144,6 +167,83 @@ public class AdminController implements AdminApi {
                         input.getHeroImageAlt(), input.getStatus().getValue()));
 
         return khongCache().body(sang(daLuu));
+    }
+
+    // ------------------------------------------------------------ danh mục
+
+    /**
+     * Danh sách sản phẩm (docs/22 M2). Cả bốn vai trò đều <b>đọc</b> được — ma
+     * trận quyền ở docs/22 mục 2.1 cho `CONSULTANT` và `TRANSLATOR` quyền R với
+     * bản `da`. Quyền <b>ghi</b> mới phân theo vai trò và theo locale.
+     */
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminProductPage> danhSachSanPhamQuanTri(
+            ProductType productType, String market, TranslationGap gap,
+            String q, Integer page, Integer size) {
+
+        PagedResult<AdminProductRow> ket_qua = danhMuc.danhSach(new AdminProductQuery(
+                productType == null ? null : productType.getValue(),
+                market, gap == null ? null : gap.getValue(), q, page, size));
+
+        return khongCache().body(new AdminProductPage(
+                ket_qua.items().stream().map(AdminController::sang).toList(),
+                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
+    }
+
+    // ------------------------------------------------------------ việc dịch
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<List<TranslationQueueItem>> hangDoiDich(
+            TranslationEntityType entityType, Integer limit) {
+
+        return khongCache().body(congViecDich
+                .hangDoi(entityType == null ? null : entityType.getValue(), limit)
+                .stream()
+                .map(AdminController::sang)
+                .toList());
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<List<TranslationCoverageRow>> doPhuDich(String locale) {
+        return khongCache().body(congViecDich.doPhu(locale).stream()
+                .map(AdminController::sang)
+                .toList());
+    }
+
+    // ------------------------------------------------------------ ánh xạ
+
+    private static AdminProductSummary sang(AdminProductRow r) {
+        return new AdminProductSummary(
+                r.id(), ProductType.fromValue(r.productType()), r.sourceTitle(),
+                TranslationStatus.fromValue(r.sourceStatus()),
+                r.markets().stream()
+                        .map(m -> new AdminProductMarketState(
+                                AdminProductMarketState.MarketEnum.fromValue(m.market()),
+                                m.published()))
+                        .toList(),
+                r.translations().stream()
+                        .map(t -> new AdminTranslationState(
+                                t.locale(), TranslationStatus.fromValue(t.status()),
+                                t.isSource(), t.outdated()))
+                        .toList())
+                .lastModifiedAt(r.lastModifiedAt());
+    }
+
+    private static TranslationQueueItem sang(QueueItem q) {
+        return new TranslationQueueItem(
+                TranslationEntityType.fromValue(q.entityType()), q.id(), q.locale(),
+                TranslationGap.fromValue(q.gap()), q.priority(), q.sourceTitle(),
+                q.sourceLastModifiedAt())
+                .translatedAt(q.translatedAt());
+    }
+
+    private static TranslationCoverageRow sang(CoverageRow c) {
+        return new TranslationCoverageRow(
+                TranslationEntityType.fromValue(c.entityType()), c.locale(),
+                c.total(), c.translated(), c.upToDate());
     }
 
     private static AdminProductTranslation sang(ProductTranslationView v) {

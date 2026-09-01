@@ -1,13 +1,15 @@
 # api/CLAUDE.md
 
-Backend: Java 21, Spring Boot, Gradle multi-module, PostgreSQL.
+Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, PostgreSQL.
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: đọc xong, ghi vừa bắt đầu** (01/09/2026). Bốn module Gradle,
-> migration `V1`–`V3`, đủ danh mục đọc của `docs/13` mục 9.1 trừ `/site-info`,
-> và bề mặt quản trị đầu tiên: đăng nhập phiên cookie, ma trận quyền, sửa bản
-> dịch sản phẩm. Chưa có tồn kho, giữ chỗ, đặt tour — đó là G4.
+> **Trạng thái: đọc xong, ghi và đặt tour đã chạy** (01/09/2026). Một module
+> Gradle chia theo feature (ADR-010), migration `V1`–`V4`, đủ danh mục đọc của
+> `docs/13` mục 9.1 trừ `/site-info`; engine giá, giữ chỗ, đặt tour và tính bất
+> biến khi gọi lại; bề mặt quản trị: đăng nhập phiên cookie, ma trận quyền, sửa
+> bản dịch, danh sách sản phẩm, hàng đợi dịch, bảng độ phủ. Chưa có: CRUD sản
+> phẩm, media, thanh toán.
 
 ## 0b. Bố cục package
 
@@ -80,8 +82,8 @@ nhất còn lại.
 
 ### Ngày giờ
 
-`domain` **không đọc đồng hồ hệ thống**. Hàm cần "hôm nay" thì nhận `LocalDate`
-làm tham số; `application` truyền vào từ `Clock` được tiêm.
+**Ba lõi tính toán không đọc đồng hồ hệ thống.** Hàm cần "hôm nay" thì nhận
+`LocalDate` làm tham số; service truyền vào từ `Clock` được tiêm.
 
 Giảm giá đặt sớm phụ thuộc khoảng cách tới ngày khởi hành. Test đọc đồng hồ thật
 sẽ đỏ vào một ngày nào đó trong tương lai mà không ai hiểu vì sao.
@@ -213,7 +215,7 @@ cố tình không có: `docs/11` mục 11.2.
 | `created_by`, `last_modified_by` | **Ứng dụng** — CSDL không biết ai đang thao tác |
 | `soft_delete` | Ứng dụng |
 
-`BaseEntity` ở `infrastructure/shared` mang bốn cột kiểm toán và cờ xoá mềm.
+`BaseEntity` ở `common/entity` mang bốn cột kiểm toán và cờ xoá mềm.
 Nó **cố tình không có `@CreatedDate` lẫn `@LastModifiedDate`**: hai cột thời gian
 do CSDL sở hữu, hai cột "ai" do `AuditorAware` điền.
 
@@ -242,7 +244,7 @@ Spec-first. **Không sửa controller trước.**
 ```
 
 Interface sinh ra **không commit**, sinh lúc build — vào
-`web/build/generated/openapi`. Hook `.claude/hooks/chan-file-sinh-ra.py` chặn
+`api/build/generated/openapi`. Hook `.claude/hooks/chan-file-sinh-ra.py` chặn
 sửa tay chỗ đó.
 
 Ví dụ đang chạy: `RegionController implements RegionsApi`. Đổi
@@ -255,13 +257,13 @@ build đỏ ngay ở bước biên dịch.
 
 | Loại | Công cụ | Chạy ở |
 |---|---|---|
-| Quy tắc nghiệp vụ | JUnit 5 thuần | `domain` — nhanh, không context |
-| Quy tắc thuần | JUnit 5 thuần | `pricing`, `departure`, `booking` |
-| Truy cập dữ liệu | Testcontainers + Postgres thật | `infrastructure` |
-| Controller | `@WebMvcTest` | `web` |
+| Quy tắc thuần | JUnit 5 thuần, không dựng context | `pricing`, `departure`, `booking`, `common/money` |
+| Đầu-cuối qua HTTP | Testcontainers + Postgres thật | `it/` |
 
-Engine giá và giải trạng thái **phải có test ở `domain`**, không phải test qua
-controller. Bản demo có 24 test cho riêng engine giá — giữ mức đó.
+Engine giá và giải trạng thái **phải có test JUnit thuần**, không phải test qua
+controller. Bản demo có 24 test cho riêng engine giá; hiện là 31 — giữ mức đó.
+
+Từ ADR-010 thì không còn `archTest`: `./gradlew test` chạy cả hai loại trên.
 
 ---
 
@@ -285,7 +287,7 @@ Chú thích viết **tiếng Việt**. Bảng thuật ngữ đầy đủ: `docs/
 - `double` / `float` cho tiền
 - `@Filter` của Hibernate cho locale
 - Trả câu tiếng người từ API
-- Đọc `LocalDate.now()` trong `domain`
+- Đọc `LocalDate.now()` trong ba lõi tính toán (`pricing`, `departure`, `booking`)
 - H2 trong test
 - Sửa code sinh từ `openapi.yaml`
 - Cột `exchange_rate` — không tồn tại trong hệ thống này
