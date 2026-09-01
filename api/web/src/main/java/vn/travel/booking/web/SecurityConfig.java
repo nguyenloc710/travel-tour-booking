@@ -43,10 +43,18 @@ class SecurityConfig {
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .csrfTokenRequestHandler(csrf)
                         .ignoringRequestMatchers(
-                                // Bề mặt công khai: chỉ đọc, không cookie phiên.
+                                // Bề mặt công khai: không dùng cookie phiên, nên
+                                // CSRF không áp dụng. CSRF chống việc một trang
+                                // khác lừa TRÌNH DUYỆT gửi kèm cookie của nạn
+                                // nhân; ở đây không có cookie nào để lừa gửi.
                                 "/api/v1/*/products/**", "/api/v1/*/regions",
                                 "/api/v1/*/destinations/**", "/api/v1/*/themes",
                                 "/api/v1/*/posts/**", "/api/v1/*/lectures",
+                                // Đường GHI của khách cũng vậy: khách không đăng
+                                // nhập ở v1, và chống gọi lại là việc của
+                                // Idempotency-Key chứ không phải của CSRF.
+                                "/api/v1/*/pricing/**", "/api/v1/*/seat-holds/**",
+                                "/api/v1/*/bookings/**",
                                 // Chính lời gọi đăng nhập: lúc đó chưa có phiên
                                 // nên chưa có thẻ nào để gửi, và đòi thẻ ở đây tạo
                                 // ra một bước lấy thẻ mà spec không có. Rủi ro còn

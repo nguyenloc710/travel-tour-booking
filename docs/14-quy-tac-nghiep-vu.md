@@ -360,12 +360,12 @@ Bản demo có 24 test cho riêng engine giá. Giữ mức đó, và thêm phầ
 
 ### 9.3. Tồn kho — `infrastructure`, Testcontainers với Postgres thật
 
-- [ ] **Hai luồng cùng giữ chỗ cuối cùng: đúng một luồng thành công**
-- [ ] Chỗ khả dụng trừ cả giữ chỗ còn hạn
-- [ ] Giữ chỗ quá hạn không còn được tính, **kể cả trước khi job quét chạy**
-- [ ] Chuyển giữ chỗ đã hết hạn thành đơn → `SEAT_HOLD_EXPIRED`
+- [x] **Hai luồng cùng giữ chỗ cuối cùng: đúng một luồng thành công**
+- [x] Chỗ khả dụng trừ cả giữ chỗ còn hạn
+- [x] Giữ chỗ quá hạn không còn được tính, **kể cả trước khi job quét chạy**
+- [x] Chuyển giữ chỗ đã hết hạn thành đơn → `SEAT_HOLD_EXPIRED`
 - [ ] Huỷ đơn trả chỗ về kho ngay
-- [ ] Job quét chạy hai lần cho cùng kết quả
+- [x] Job quét chạy hai lần cho cùng kết quả
 
 Test đầu của 9.3 là test quan trọng nhất của cả dự án. Nó phải chạy **hai
 transaction thật song song**, không phải mô phỏng.

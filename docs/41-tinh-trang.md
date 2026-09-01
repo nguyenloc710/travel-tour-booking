@@ -111,7 +111,11 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Đăng nhập nhân viên, phiên cookie `HttpOnly`, ma trận quyền `22` mục 2.1 | ✔ 12 test |
 | Đường **ghi** đầu tiên: sửa bản dịch sản phẩm qua JPA + MapStruct, cột kiểm toán tự điền | ✔ |
 | Engine giá ở `domain`: tám bước cộng dồn, làm tròn từng dòng, bậc giá, giảm đặt sớm, nâng hạng cabin | ✔ **31 test** JUnit thuần — `14` mục 9.1 tick đủ |
-| Engine giá gắn vào endpoint `POST /pricing/preview` | ✗ đợt 4 |
+| Tính giá, giữ chỗ, đặt tour, tra đơn — `POST /pricing/preview`, `/seat-holds`, `/bookings` | ✔ 19 test, gồm **test hai luồng giành chỗ cuối** |
+| Máy trạng thái đơn ở `domain` | ✔ 9 test |
+| Tính bất biến khi gọi lại (`Idempotency-Key`) và job quét hạn có ShedLock | ✔ `V4` |
+| Thanh toán thật, webhook, email | ✗ đợt 5 — **Q-3** |
+| Khách tự huỷ đơn | ✗ có chủ ý: bậc huỷ và tỷ lệ hoàn chưa chốt (**Q-2**), `23` mục 8 |
 | Con số nghiệp vụ thị trường `VN` | ✗ **Q-2** — engine chạy được, chỉ thiếu dữ liệu cấu hình |
 | `GET /site-info` | ✗ `13` mục 9.1 mới nói bốn chữ — chưa đủ để dựng bảng, ghi ở `12` mục 10 |
 | Trang điểm đến ở `web/` | ✗ API đã có, frontend chưa dùng |
@@ -260,6 +264,19 @@ Ba cái từ lần thêm `V2`:
 - **`AFTER UPDATE OF slug`** chứ không phải `AFTER UPDATE`: sửa tiêu đề không
   được sinh dòng lịch sử slug
 
+Ba cái từ đợt 4:
+
+- **CSRF chặn cả đường ghi CÔNG KHAI.** Khách không đăng nhập, không có cookie
+  phiên, nên CSRF không bảo vệ gì ở đó — nhưng bật mặc định thì mọi lời gọi giữ
+  chỗ và đặt tour trả **401**. Chống gọi lại ở đường công khai là việc của
+  `Idempotency-Key`, không phải của CSRF
+- **`findAndAddModules()` của Jackson im lặng không tìm thấy gì.** Lỗi chỉ lộ ra
+  lúc chạy, ở đúng dòng có kiểu ngày giờ đầu tiên. Đăng ký thẳng `JavaTimeModule`
+- **Spring Boot 4 không còn bean `ObjectMapper` để tiêm.** Lớp cần JSON riêng thì
+  tự dựng — và với chỗ băm vân tay yêu cầu thì tự dựng còn **đúng hơn**: dùng
+  chung cấu hình với tầng web nghĩa là đổi cách trả JSON sẽ làm mọi vân tay cũ
+  hết khớp, và mọi khoá đang sống mất tác dụng
+
 Ba cái từ đợt 2:
 
 - **CSRF chặn lời gọi của người CHƯA đăng nhập thì ra 401, không phải 403.**
@@ -387,3 +404,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Đợt 1b: spec v0.4, 7 endpoint đọc còn thiếu, giải trạng thái ngày khởi hành ở `domain` | Xong danh mục đọc của `13` mục 9.1 trừ `/site-info`. Tổng 102 test |
 | 01/09/2026 | Đợt 2: spec v0.5, Spring Security phiên cookie, entity JPA đầu tiên, MapStruct, `AuditorAware` | Tổng 114 test. Ba dependency mới, đều do tài liệu đã chốt |
 | 01/09/2026 | Đợt 3: engine giá thuần `domain` — 31 test, không context, không CSDL, không đồng hồ | Tổng 145 test. Chưa có endpoint tính giá; `VN` vẫn chờ Q-2 |
+| 01/09/2026 | Đợt 4: spec v0.6, `V4`, khoá bi quan, `Idempotency-Key`, máy trạng thái đơn, job quét có ShedLock | Tổng 173 test. `docs/14` mục 9.3 tick đủ |

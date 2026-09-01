@@ -20,6 +20,8 @@ openapi: 3.0.3
 # Phiên bản 0.3: điểm đến, và bộ lọc sản phẩm theo điểm đến.
 # Phiên bản 0.4: chủ đề, lịch trình, khách sạn, ngày khởi hành, bài viết,
 #                buổi thuyết trình — đủ danh mục đọc của docs/13 mục 9.1.
+# Phiên bản 0.6: đường GHI của khách — tính giá xem trước, giữ chỗ, đặt tour,
+#                tra đơn. Ba endpoint đầu đòi Idempotency-Key (docs/13 mục 7).
 # Phiên bản 0.5: bề mặt QUẢN TRỊ — phiên đăng nhập và sửa bản dịch sản phẩm.
 #                Khác bề mặt công khai ở bốn điểm (docs/13 mục 2): không có
 #                market trong đường dẫn, trả MỌI bản dịch chứ không một, thấy cả
@@ -27,7 +29,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -49,6 +51,10 @@ tags:
     description: Bài viết
   - name: lectures
     description: Buổi thuyết trình
+  - name: booking
+    description: |
+      Giữ chỗ, tính giá và đặt tour. Mọi endpoint ở đây **không bao giờ được
+      cache** và endpoint tạo ra hệ quả tính tiền đều đòi `Idempotency-Key`.
   - name: admin
     description: |
       Bề mặt quản trị. Yêu cầu phiên đăng nhập; quyền theo bốn vai trò của
@@ -617,6 +623,169 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/{market}/pricing/preview:
+    post:
+      tags: [booking]
+      operationId: xemTruocGia
+      summary: Tính giá, không lưu gì
+      description: |
+        **Không có tác dụng phụ nào.** Màn hình đặt tour gọi endpoint này mỗi lần
+        khách đổi lựa chọn, nên nó phải gọi lại được vô số lần mà không tạo ra gì
+        (`docs/13` mục 9.2). Vì thế nó **không** đòi `Idempotency-Key`.
+
+        Trả **bảng phân rã từng dòng**. Dòng bằng 0 không xuất hiện — thứ tự cộng
+        dồn và quy tắc làm tròn ở `docs/14` mục 2 và 3.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PricingRequest'
+      responses:
+        '200':
+          description: Bảng phân rã giá
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceBreakdown'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/seat-holds:
+    post:
+      tags: [booking]
+      operationId: giuCho
+      summary: Giữ chỗ có hạn
+      description: |
+        Tạo ngay khi khách chọn xong ngày khởi hành, **không phải ở bước cuối**
+        (`docs/23` mục 3.1): khách điền xong bốn bước rồi mới biết hết chỗ là mất
+        công vô ích, và đó là lúc họ bực nhất.
+
+        Chỗ khả dụng đã trừ **chỗ đang giữ còn hạn**. Không đủ chỗ →
+        `409 DEPARTURE_SOLD_OUT`.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeatHoldRequest'
+      responses:
+        '201':
+          description: Đã giữ chỗ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeatHold'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/seat-holds/{id}:
+    delete:
+      tags: [booking]
+      operationId: boGiuCho
+      summary: Trả chỗ về kho khi khách quay lại bước trước
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Đã trả chỗ về kho
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/bookings:
+    post:
+      tags: [booking]
+      operationId: datTour
+      summary: Tạo đơn đặt
+      description: |
+        Loại sản phẩm có tồn kho thì **bắt buộc** có `seatHoldId` còn hạn; giữ
+        chỗ đã hết hạn → `409 SEAT_HOLD_EXPIRED`.
+
+        Đơn **chụp lại** giá và tên sản phẩm tại thời điểm đặt: đổi bảng giá
+        không làm đổi đơn cũ (`docs/23` mục 4.1).
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '201':
+          description: Đã tạo đơn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/bookings/{reference}:
+    get:
+      tags: [booking]
+      operationId: traDon
+      summary: Tra đơn bằng mã và email
+      description: |
+        Không có đăng nhập cho khách ở v1, nên tra đơn cần **mã + email khớp**.
+        Giới hạn 10 lượt/giờ mỗi IP — thiếu giới hạn thì đây là kênh dò mã đơn
+        (`docs/13` mục 11).
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: reference
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: Đơn đặt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /api/v1/{market}/products/{slug}:
     get:
       tags: [products]
@@ -674,6 +843,21 @@ components:
       schema:
         type: string
         enum: [dk, vn]
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        UUID do **client sinh một lần cho một lần đặt**, không sinh lại ở mỗi
+        lần thử. Gọi lại cùng khoá trong 24 giờ trả về **cùng kết quả cũ**, không
+        tạo bản ghi thứ hai (`docs/13` mục 7).
+
+        Chống ba thứ có thật: khách bấm nút hai lần, mạng di động gửi lại yêu cầu
+        sau khi máy chủ đã xử lý xong, và khách bấm Back rồi bấm lại.
+      schema:
+        type: string
+        format: uuid
 
     AdminId:
       name: id
@@ -827,6 +1011,154 @@ components:
             với chính bản nguồn.
         lastModifiedAt: { type: string, format: date-time }
         lastModifiedBy: { type: string, format: uuid }
+
+    PaxCount:
+      type: object
+      required: [paxTypeCode, count]
+      properties:
+        paxTypeCode:
+          type: string
+          example: ADULT
+        count:
+          type: integer
+          format: int32
+          minimum: 0
+
+    PricingRequest:
+      type: object
+      required: [departureId, pax]
+      properties:
+        departureId:
+          type: string
+          format: uuid
+        pax:
+          type: array
+          items: { $ref: '#/components/schemas/PaxCount' }
+          minItems: 1
+        singleTravellers:
+          type: integer
+          format: int32
+          minimum: 0
+          default: 0
+          description: Số khách ở một mình — mỗi người sinh một phần phụ thu phòng đơn.
+        departureOriginId:
+          type: string
+          format: uuid
+          description: Chỉ thị trường có nhiều điểm khởi hành.
+
+    PriceLine:
+      type: object
+      required: [kind, labelKey, amount]
+      properties:
+        kind:
+          type: string
+          enum: [BASE, SINGLE_SUPPLEMENT, CABIN_UPGRADE, DEPARTURE_ORIGIN,
+                 INSURANCE, PRE_TOUR_HOTEL, EARLY_BIRD_DISCOUNT, PROCESSING_FEE]
+        labelKey:
+          type: string
+          description: |
+            **Khoá chuỗi, không phải câu tiếng người.** Frontend dịch — cùng một
+            đơn in ra được ở cả hai ngôn ngữ (`docs/13` mục 5).
+        quantity:
+          type: string
+          description: Số lượng dạng chuỗi, cùng lý do với tiền.
+        unitAmount:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+        amount:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+
+    PriceBreakdown:
+      type: object
+      required: [lines, total, deposit, balance]
+      properties:
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PriceLine' }
+          description: Dòng bằng 0 **không xuất hiện** — `docs/14` mục 2.2.
+        total: { $ref: '#/components/schemas/Money' }
+        deposit:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          description: Làm tròn **xuống**; `deposit + balance` luôn bằng `total`.
+        balance: { $ref: '#/components/schemas/Money' }
+
+    SeatHoldRequest:
+      type: object
+      required: [departureId, seats]
+      properties:
+        departureId: { type: string, format: uuid }
+        seats: { type: integer, format: int32, minimum: 1, maximum: 20 }
+
+    SeatHold:
+      type: object
+      required: [id, departureId, seats, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        departureId: { type: string, format: uuid }
+        seats: { type: integer, format: int32 }
+        expiresAt:
+          type: string
+          format: date-time
+          description: |
+            Frontend hiện bằng **chữ** — "Chúng tôi giữ chỗ cho bạn tới 14:32" —
+            không dùng đồng hồ đếm ngược nhấp nháy (`docs/23` mục 3.2).
+
+    PassengerInput:
+      type: object
+      required: [paxTypeCode, fullName]
+      properties:
+        paxTypeCode: { type: string }
+        fullName: { type: string, minLength: 1, maxLength: 160 }
+        dateOfBirth: { type: string, format: date }
+        nationality: { type: string, minLength: 2, maxLength: 2 }
+
+    BookingRequest:
+      type: object
+      required: [departureId, pax, passengers, contactEmail, contactPhone]
+      properties:
+        departureId: { type: string, format: uuid }
+        seatHoldId:
+          type: string
+          format: uuid
+          description: Bắt buộc với loại sản phẩm có tồn kho.
+        pax:
+          type: array
+          items: { $ref: '#/components/schemas/PaxCount' }
+          minItems: 1
+        singleTravellers: { type: integer, format: int32, minimum: 0, default: 0 }
+        departureOriginId: { type: string, format: uuid }
+        passengers:
+          type: array
+          items: { $ref: '#/components/schemas/PassengerInput' }
+          minItems: 1
+        contactEmail: { type: string, format: email }
+        contactPhone: { type: string, minLength: 5, maxLength: 32 }
+
+    BookingStatus:
+      type: string
+      description: Máy trạng thái ở `docs/23` mục 4. Không có bước lùi.
+      enum: [DRAFT, PENDING_PAYMENT, PENDING_CONFIRMATION, CONFIRMED,
+             COMPLETED, CANCELLED, REFUNDED, EXPIRED]
+
+    Booking:
+      type: object
+      required: [reference, status, productTitle, total, deposit, balance, lines]
+      properties:
+        reference:
+          type: string
+          description: Mã tra cứu khách đọc qua điện thoại cho tổng đài.
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        productTitle:
+          type: string
+          description: |
+            **Chụp lại lúc đặt.** Sửa tên tour sau này không làm đổi đơn cũ
+            (`docs/23` mục 4.1).
+        departDate: { type: string, format: date }
+        total: { $ref: '#/components/schemas/Money' }
+        deposit: { $ref: '#/components/schemas/Money' }
+        balance: { $ref: '#/components/schemas/Money' }
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/PriceLine' }
 
     Theme:
       type: object

@@ -14,6 +14,9 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import vn.travel.booking.application.admin.ForbiddenException;
+import vn.travel.booking.application.booking.BookingErrors;
+import vn.travel.booking.application.shared.IdempotencyConflictException;
+import vn.travel.booking.domain.pricing.PartySizeOutOfRangeException;
 import vn.travel.booking.application.shared.NotFoundException;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 
@@ -105,6 +108,57 @@ class ApiErrorHandler {
     ResponseEntity<ErrorResponse> dauVaoSai(Exception ex) {
         log.debug("400 VALIDATION_FAILED: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(loi("VALIDATION_FAILED"));
+    }
+
+    /**
+     * Bốn tình huống nghiệp vụ của đường đặt tour — docs/13 mục 5.1.
+     *
+     * <p>Tất cả là <b>409</b>: yêu cầu hợp lệ, nhưng trạng thái hiện tại của hệ
+     * thống không cho phép. Khác 422 ở chỗ đó — 422 là "yêu cầu này không bao giờ
+     * hợp lệ", 409 là "lúc khác thì được".
+     */
+    @ExceptionHandler(BookingErrors.DepartureSoldOut.class)
+    ResponseEntity<ErrorResponse> hetCho(BookingErrors.DepartureSoldOut ex) {
+        log.debug("409 DEPARTURE_SOLD_OUT: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DEPARTURE_SOLD_OUT"));
+    }
+
+    @ExceptionHandler(BookingErrors.SeatHoldExpired.class)
+    ResponseEntity<ErrorResponse> giuChoHetHan(BookingErrors.SeatHoldExpired ex) {
+        log.debug("409 SEAT_HOLD_EXPIRED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("SEAT_HOLD_EXPIRED"));
+    }
+
+    @ExceptionHandler(BookingErrors.DepartureClosed.class)
+    ResponseEntity<ErrorResponse> daDongBan(BookingErrors.DepartureClosed ex) {
+        log.debug("409 DEPARTURE_CLOSED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DEPARTURE_CLOSED"));
+    }
+
+    /**
+     * Cùng khoá gọi lại nhưng thân yêu cầu khác — client dùng lại khoá cho việc
+     * khác. Trả kết quả cũ trong tình huống đó là im lặng nuốt mất một đơn thật.
+     */
+    @ExceptionHandler(IdempotencyConflictException.class)
+    ResponseEntity<ErrorResponse> trungKhoa(IdempotencyConflictException ex) {
+        log.warn("409 IDEMPOTENCY_KEY_REUSED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("IDEMPOTENCY_KEY_REUSED"));
+    }
+
+    /**
+     * Hai tình huống 422: yêu cầu đúng cú pháp nhưng nghiệp vụ không cho phép,
+     * và lúc khác cũng vẫn không cho phép.
+     */
+    @ExceptionHandler(BookingErrors.ProductNotBookable.class)
+    ResponseEntity<ErrorResponse> khongDatDuoc(BookingErrors.ProductNotBookable ex) {
+        log.debug("422 PRODUCT_NOT_BOOKABLE: {}", ex.getMessage());
+        return ResponseEntity.unprocessableEntity().body(loi("PRODUCT_NOT_BOOKABLE"));
+    }
+
+    @ExceptionHandler(PartySizeOutOfRangeException.class)
+    ResponseEntity<ErrorResponse> soKhachNgoaiBac(PartySizeOutOfRangeException ex) {
+        log.debug("422 PARTY_SIZE_OUT_OF_RANGE: {}", ex.getMessage());
+        return ResponseEntity.unprocessableEntity().body(loi("PARTY_SIZE_OUT_OF_RANGE"));
     }
 
     /** Đường dẫn không tồn tại — vẫn phải là JSON, không phải trang lỗi HTML. */

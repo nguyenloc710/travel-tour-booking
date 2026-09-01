@@ -17,6 +17,9 @@ dependencies {
     // MapStruct sinh mapper lúc biên dịch: entity sang bản ghi của tầng
     // application. Không map tay trong service — quên một trường thì lỗi hiện
     // ra lúc chạy, còn để mapper sinh thì nó không quên.
+    implementation(libs.shedlock.spring)
+    implementation(libs.shedlock.jdbc)
+
     implementation(libs.mapstruct)
     annotationProcessor(libs.mapstruct.processor)
     implementation(libs.spring.boot.flyway)

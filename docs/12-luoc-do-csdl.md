@@ -985,6 +985,52 @@ Không xoá dòng hành khách khỏi một đơn đã xác nhận: đơn hỏng
 (`23` mục 4). Đây là **dữ liệu cá nhân** — thời hạn lưu và việc mã hoá số hộ
 chiếu còn để ngỏ ở mục 10, và `32` chịu trách nhiệm phần pháp lý.
 
+### 6.2. Tính bất biến khi gọi lại
+
+`13` mục 7: gọi lại cùng `Idempotency-Key` trong 24 giờ trả về **cùng kết quả
+cũ**. Muốn vậy phải nhớ kết quả đã trả.
+
+```sql
+CREATE TABLE idempotency_key (
+  key          UUID         PRIMARY KEY,
+  market       VARCHAR(2)   NOT NULL REFERENCES market (code),
+  endpoint     VARCHAR(64)  NOT NULL,
+  request_hash CHAR(64)     NOT NULL,     -- vân tay thân yêu cầu
+  status_code  SMALLINT     NOT NULL,
+  response     JSONB        NOT NULL,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  expires_at   TIMESTAMPTZ  NOT NULL,
+  CONSTRAINT ck_idem_status CHECK (status_code BETWEEN 100 AND 599)
+);
+```
+
+Nhóm D — chỉ ghi thêm rồi hết hạn. **Không sửa**: một khoá đã trả kết quả nào
+thì vĩnh viễn trả kết quả đó, nếu không thì lần gọi lại thứ hai và thứ ba cho ra
+hai câu trả lời khác nhau — đúng cái mà cơ chế này sinh ra để ngăn.
+
+**`request_hash` là chỗ dễ bỏ sót.** Cùng khoá nhưng thân yêu cầu **khác** không
+phải là một lần gọi lại, mà là lỗi phía client dùng lại khoá cho việc khác. Trả
+kết quả cũ trong tình huống đó là im lặng nuốt mất một đơn hàng thật.
+
+### 6.3. Khoá cho job nền
+
+`14` mục 6.4 đòi khoá ngay từ job đầu tiên. Lược đồ theo đúng yêu cầu của
+ShedLock, tên cột không đổi được:
+
+```sql
+CREATE TABLE shedlock (
+  name       VARCHAR(64)  PRIMARY KEY,
+  lock_until TIMESTAMPTZ  NOT NULL,
+  locked_at  TIMESTAMPTZ  NOT NULL,
+  locked_by  VARCHAR(255) NOT NULL
+);
+```
+
+Job quét hạn giữ chỗ là `UPDATE` bất biến khi lặp, nên chạy hai lần không hại gì.
+Nhưng **cùng cơ chế** còn dùng cho gửi email nhắc và cho hết hạn báo giá — hai
+việc không bất biến. Đặt khoá từ job đầu tiên rẻ hơn nhiều so với nhớ ra ở job
+thứ ba.
+
 ---
 
 ## 7. Index cho tìm kiếm và sắp xếp
