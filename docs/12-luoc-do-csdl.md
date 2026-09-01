@@ -441,7 +441,7 @@ CREATE TABLE product_market (
   product_id   UUID          NOT NULL REFERENCES product (id) ON DELETE CASCADE,
   market       VARCHAR(2)    NOT NULL REFERENCES market (code),
   is_published BOOLEAN       NOT NULL DEFAULT FALSE,
-  price_from   NUMERIC(12,2),                          -- vật chất hoá, trigger
+  price_from   NUMERIC(12,2),                          -- vật chất hoá, trigger V5
   published_at TIMESTAMPTZ,
   PRIMARY KEY (product_id, market)
 );
@@ -1115,7 +1115,7 @@ rào chính". Chạy trong CI và chạy được tay trên bất kỳ môi trư
 | 2 | Mọi `product` có bản dịch `da` với `status = 'PUBLISHED'` khi `product_market.is_published` | Xuất bản sản phẩm chưa có nội dung |
 | 3 | `COUNT(itinerary_day) = product.duration_days` cho bốn loại tour dài | Lịch trình thủng ngày |
 | 4 | Tổng `product_hotel_stay.nights` khớp số đêm có khách sạn trong lịch trình, **theo từng khách sạn** | Ghi 3 đêm Hội An mà lịch trình có 2 |
-| 5 | `product_market.price_from` khớp `MIN(departure_price)` của thị trường đó | Cột vật chất hoá lệch thực tế |
+| 5 | `product_market.price_from` khớp `MIN(departure_price.amount)` của thị trường đó, chỉ dòng `occupancy = 'DOUBLE'` của loại khách `ADULT`, trên `departure` chưa xoá mềm | Cột vật chất hoá lệch thực tế |
 | 6 | Giá **dao động** giữa các ngày khởi hành của cùng sản phẩm và thị trường | Dữ liệu nhập ẩu — `04` mục 4.1 |
 | 7 | `CRUISE`: mỗi ngày khởi hành đủ bốn hạng cabin, chênh giá 20–45% | `04` mục 4.4 |
 | 8 | `PRIVATE_TOUR`: bậc giá liên tục, không chồng lấn, giá giảm dần theo bậc | `04` mục 4.3 |
@@ -1151,6 +1151,8 @@ hằng đêm trong CI, không chạy ở mỗi lần build.
 | Ai được phép cấp vai trò `ADMIN`, và có cần hai người duyệt không | `22` mục 9 |
 | **Chưa có bảng `site_info`** — `13` mục 9.1 mới nói đúng bốn chữ "thị thực, mùa, tiền tệ, lệch giờ". Chưa đủ để dựng bảng; cần đặc tả nội dung trước | `GET /{market}/site-info` |
 | **`destination_translation` và `lecture_translation` không có `status` lẫn `translated_at`** — nên với hai thứ này thì "bản nguồn đã xuất bản chưa" và "dịch từ lúc nào" đều không trả lời được | Hàng đợi dịch (`22` mục 4.1) hiện chỉ phủ sản phẩm và bài viết. Thêm hai cột là định nghĩa một vòng đời xuất bản cho điểm đến — thứ chưa tài liệu nào mô tả, và nó đụng thẳng vào chính sách không-fallback của `02` |
+| **Loại khách nào là loại tính "giá từ"** — trigger của `V5` đang khoá cứng `code = 'ADULT'` vì không tài liệu nào chốt. Đã thử `discount_rate = 0` và bỏ: `seed-dev.sql` đặt `0` cho cả `CHILD` lẫn `INFANT`, nên điều kiện đó không loại được gì | `price_from` của mọi thị trường. Đi cùng **Q-2** |
+| **Loại không có lịch khởi hành thì `price_from` lấy ở đâu** — `INDIVIDUAL_PACKAGE` và `COMBO` không có `departure`, nên chúng không có giá từ và website hiện "Liên hệ" | `04`, listing của hai loại đó |
 | Số chỗ mặc định `capacity` của `GROUP_TOUR` lấy từ `max_pax` hay nhập riêng | DDL `departure` |
 | Có mã hoá cột số hộ chiếu ở v1 không | `booking_passenger`, `31` |
 | Thời hạn lưu dữ liệu cá nhân | Cột `retention_until`, job xoá |

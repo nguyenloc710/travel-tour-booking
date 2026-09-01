@@ -158,6 +158,13 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 | `LEAD_TIME_NOT_MET` | 422 | Ngày yêu cầu sớm hơn `leadTimeDays` |
 | `PRODUCT_NOT_BOOKABLE` | 422 | Loại sản phẩm không đặt trực tiếp được (`PRIVATE_TOUR`) |
 | `PARTY_SIZE_OUT_OF_RANGE` | 422 | Số khách ngoài bậc giá hoặc ngoài `minPax`/`maxPax` |
+| `PRODUCT_TYPE_BLOCK_MISMATCH` | 400 | Khối riêng của loại thiếu, sai loại, hoặc gửi hai khối |
+| `DURATION_DAYS_RULE_VIOLATED` | 400 | `DAY_TOUR` có `durationDays`, hoặc loại khác thiếu nó |
+| `CABIN_CATEGORY_NOT_ALLOWED` | 400 | Hạng cabin ở loại không phải `CRUISE` |
+| `UNKNOWN_PAX_TYPE` | 400 | Mã loại khách không có ở thị trường này |
+| `PRICE_TIER_NOT_CONTIGUOUS` | 400 | Thang giá hở hoặc chồng |
+| `CAPACITY_BELOW_BOOKED` | 409 | Hạ sức chứa xuống dưới số chỗ đã bán |
+| `PRODUCT_HAS_ACTIVE_BOOKINGS` | 409 | Xoá sản phẩm còn đơn chưa kết thúc |
 | `PAYMENT_FAILED` | 402 | Cổng thanh toán từ chối |
 | `RATE_LIMITED` | 429 | Quá nhiều yêu cầu |
 | `INTERNAL_ERROR` | 500 | Kèm `traceId` |
@@ -291,9 +298,12 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
 ```
 /admin/products            CRUD, mọi trạng thái, mọi locale
 /admin/products/{id}/translations/{locale}
-/admin/departures
-/admin/departures/{id}/prices
-/admin/price-tiers
+/admin/products/{id}/markets/{market}    gán thị trường, bật/tắt bán — CHỈ ADMIN
+/admin/products/{id}/price-tiers         thang giá PRIVATE_TOUR, thay toàn bộ
+/admin/products/{id}/departures          lịch khởi hành của sản phẩm
+/admin/products/{id}/departures/copy     nhân bản LỊCH sang thị trường kia, KHÔNG chép giá
+/admin/departures/{id}
+/admin/departures/{id}/prices            ma trận loại khách × kiểu phòng, thay toàn bộ
 /admin/bookings            xem, đổi trạng thái
 /admin/quotes              dựng báo giá, gửi
 /admin/leads

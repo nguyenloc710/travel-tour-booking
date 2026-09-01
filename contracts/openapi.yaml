@@ -29,7 +29,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.7.0
+  version: 0.8.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -681,6 +681,48 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
 
+    post:
+      tags: [admin]
+      operationId: taoSanPham
+      summary: Tạo sản phẩm — phần chung, phần riêng của loại, và bản dịch nguồn
+      description: |
+        **Một lời gọi tạo ba thứ trong một transaction**: dòng `product`, dòng
+        bảng con của loại, và bản dịch **ngôn ngữ nguồn**. Không tách được thành
+        ba lời gọi, và đó không phải lựa chọn thiết kế:
+
+        - Ràng buộc `ct_product_source_translation` là `DEFERRABLE INITIALLY
+          DEFERRED` — một `product` không có bản dịch nguồn không tồn tại được
+          qua hết transaction.
+        - Cột của bảng con đều `NOT NULL` và không có mặc định — một `GROUP_TOUR`
+          không có `min_pax` cũng không tồn tại được.
+
+        Gửi đúng **một** khối riêng của loại, khớp với `productType`. Gửi sai
+        khối hoặc gửi hai khối là `400 PRODUCT_TYPE_BLOCK_MISMATCH` — nói rõ
+        thiếu khối nào, chứ không phải một lỗi ràng buộc CSDL mà người dùng
+        không đọc được.
+
+        Bản dịch nguồn tạo ra ở trạng thái do client đặt, mặc định `DRAFT`. Nó
+        **chưa** vào hàng đợi dịch cho tới khi được xuất bản — `docs/22` mục 4.1.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductCreate'
+      responses:
+        '201':
+          description: Sản phẩm vừa tạo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
   /api/v1/admin/translations/queue:
     get:
       tags: [admin]
@@ -753,6 +795,385 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
 
+
+  /api/v1/admin/products/{id}:
+    get:
+      tags: [admin]
+      operationId: chiTietSanPhamQuanTri
+      summary: Một sản phẩm, đủ mọi bản dịch và mọi thị trường
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      responses:
+        '200':
+          description: Sản phẩm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductDetail'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    patch:
+      tags: [admin]
+      operationId: suaSanPham
+      summary: Sửa phần chung và phần riêng của loại
+      description: |
+        **Không đổi được `productType`.** Mỗi loại một bảng con, đổi loại là mất
+        dữ liệu riêng của loại cũ (`docs/22` mục 7). Cần đổi thì tạo sản phẩm
+        mới. Trường đó vì thế không có trong thân yêu cầu — không phải bị bỏ
+        qua, mà là **không tồn tại**.
+
+        Trường vắng mặt thì giữ nguyên; trường có mặt thì ghi đè. `null` không
+        dùng để xoá — dùng chuỗi rỗng hoặc endpoint riêng.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductPatch'
+      responses:
+        '200':
+          description: Sản phẩm sau khi sửa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [admin]
+      operationId: xoaSanPham
+      summary: Xoá mềm sản phẩm và cả chùm dữ liệu của nó
+      description: |
+        **Xoá mềm, không xoá cứng** (`docs/22` mục 7). Xoá nhầm một tour đang bán
+        là sự cố không hoàn tác được.
+
+        Xoá mềm **không lan xuống dưới** như `ON DELETE CASCADE`: đặt
+        `product.soft_delete = TRUE` không đụng gì tới bản dịch, ngày khởi hành
+        hay bậc giá của nó. Vì thế endpoint này xoá mềm **cả chùm trong một
+        transaction** — bỏ sót một bảng là để lại dữ liệu mồ côi mà không truy
+        vấn nào lọc ra.
+
+        Sản phẩm còn đơn đặt **chưa kết thúc** thì bị từ chối: đó là dữ liệu của
+        khách đang chờ đi, không phải nội dung biên tập.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      responses:
+        '204':
+          description: Đã xoá mềm
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/products/{id}/markets/{market}:
+    put:
+      tags: [admin]
+      operationId: ganThiTruong
+      summary: Gán sản phẩm vào một thị trường, và bật hoặc tắt bán
+      description: |
+        **Chỉ `ADMIN`** (`docs/22` mục 2.1). Đây là công tắc "bắt đầu bán được"
+        (`docs/01` mục 4.4): dịch xong mà chưa gán thì sản phẩm vẫn không tồn tại
+        với khách. Nó nằm ở tay người chịu trách nhiệm doanh thu, không ở tay
+        người viết nội dung.
+
+        Gọi lại với cùng giá trị là **bất biến** — không cần `Idempotency-Key`,
+        vì kết quả không phụ thuộc số lần gọi.
+
+        `product_market` cố tình **không có cột kiểm toán** (`docs/11` mục 11.2
+        nhóm C): "ai sửa sản phẩm này" phải có đúng một câu trả lời, và câu đó là
+        `product.last_modified_by`. Nên thao tác này cũng chạm `product` — nếu
+        không thì lần bật công tắc doanh thu là thay đổi duy nhất trong hệ thống
+        không ai đứng tên.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: market
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [DK, VN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminMarketAssignment'
+      responses:
+        '200':
+          description: Trạng thái sau khi gán
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductMarketState'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/products/{id}/price-tiers:
+    put:
+      tags: [admin]
+      operationId: luuBacGia
+      summary: Thay toàn bộ bậc giá của một thị trường
+      description: |
+        Chỉ `PRIVATE_TOUR` (`docs/14` mục 4). Thay **toàn bộ** bậc giá của thị
+        trường đó, không sửa từng dòng: bậc giá là một thang liên tục, sửa lẻ một
+        bậc là cách tạo ra khoảng hở giữa hai bậc mà không ai thấy.
+
+        Máy chủ kiểm thang **liền mạch**: bậc sắp theo `minPax`, và bậc sau bắt
+        đầu ngay sau bậc trước. Khoảng hở nghĩa là có số khách mà hệ thống không
+        tính ra giá; chồng lấn thì tệ hơn — hai bậc cùng khớp, và giá phụ thuộc
+        thứ tự dòng trong CSDL.
+
+        Bậc cuối **được phép** bỏ trống `maxPax` (không có trần), và chỉ bậc cuối.
+        Để trần ở bậc cuối cũng hợp lệ: số khách vượt trần thì trả
+        `PARTY_SIZE_OUT_OF_RANGE`.
+
+        Tiền tệ **không nhận từ client** — nó lấy từ cấu hình thị trường. Cho
+        client gửi tiền tệ là mở đường nhập giá DKK vào thị trường `VN`.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: market
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [DK, VN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminPriceTierInput'
+              minItems: 1
+      responses:
+        '200':
+          description: Thang giá sau khi lưu
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminPriceTier'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/products/{id}/departures:
+    get:
+      tags: [admin]
+      operationId: danhSachNgayKhoiHanhQuanTri
+      summary: Ngày khởi hành của một sản phẩm, cả hai thị trường
+      description: |
+        Khác `GET /{market}/products/{slug}/departures` ở hai điểm: không giới hạn
+        một thị trường, và **có cả ngày đã đóng bán**. Nhân viên cần thấy cái đã
+        đóng để mở lại được.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: market
+          in: query
+          schema:
+            type: string
+            enum: [DK, VN]
+      responses:
+        '200':
+          description: Danh sách, sắp theo thị trường rồi tới ngày đi
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminDeparture'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [admin]
+      operationId: taoNgayKhoiHanh
+      summary: Tạo một ngày khởi hành
+      description: |
+        `returnDate` **không nhận từ client**: nó là `departDate + days - 1`, và
+        ràng buộc `ck_dep_dates` cưỡng chế đúng công thức đó. Nhận cả hai đầu là
+        mời gọi hai giá trị mâu thuẫn nhau.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDepartureCreate'
+      responses:
+        '201':
+          description: Ngày khởi hành vừa tạo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDeparture'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/products/{id}/departures/copy:
+    post:
+      tags: [admin]
+      operationId: nhanBanLichKhoiHanh
+      summary: Nhân bản lịch khởi hành sang thị trường kia
+      description: |
+        Một sản phẩm bán ở cả hai thị trường có **hai bộ** `departure` (ADR-006).
+        Nhập tay hai lần là chắc chắn lệch nhau, nên lịch phải nhân bản được.
+
+        **Chỉ nhân bản lịch: ngày đi, số ngày, sức chứa, hạng cabin. KHÔNG nhân
+        bản giá.** Giá của mỗi thị trường là số người nhập, không phải kết quả
+        tính từ thị trường kia — tour bán cho khách Đan gồm vé bay quốc tế, bán
+        cho khách Việt thì không (`CLAUDE.md` điều 4, `docs/22` mục 10). Ngày
+        khởi hành mới vì thế **chưa có giá**, và sản phẩm chưa hiện giá ở thị
+        trường đích cho tới khi có người nhập.
+
+        Ngày đã tồn tại ở thị trường đích thì **bỏ qua**, không ghi đè: gọi lại
+        lần hai không tạo bản sao thứ hai và không xoá giá vừa nhập.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDepartureCopy'
+      responses:
+        '200':
+          description: Kết quả nhân bản
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDepartureCopyResult'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/departures/{id}:
+    patch:
+      tags: [admin]
+      operationId: suaNgayKhoiHanh
+      summary: Sửa hoặc đóng bán một ngày khởi hành
+      description: |
+        Đóng bán là `baseStatus`, không phải xoá — `docs/22` M4.
+
+        `GUARANTEED` **không nhận được**: nó là giá trị tính ra
+        (`seatsBooked >= guaranteedThreshold`, `docs/14` mục 5) và ràng buộc
+        `ck_dep_status` cưỡng chế điều đó ở tầng CSDL. `seatsBooked` cũng không
+        nhận: nó là hệ quả của đơn đặt, không phải thứ ai nhập tay.
+
+        Không hạ `capacity` xuống dưới số chỗ **đã bán**.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDeparturePatch'
+      responses:
+        '200':
+          description: Ngày khởi hành sau khi sửa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDeparture'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/departures/{id}/prices:
+    put:
+      tags: [admin]
+      operationId: luuGiaNgayKhoiHanh
+      summary: Thay toàn bộ bảng giá của một ngày khởi hành
+      description: |
+        Ma trận **loại khách × kiểu phòng** (`docs/22` M5). Thay toàn bộ, không
+        sửa từng ô: bảng giá thiếu một ô là một tổ hợp khách đặt được mà hệ thống
+        không tính ra giá.
+
+        Loại khách nhận bằng `paxTypeCode`, và mã đó tra trong **thị trường của
+        chính ngày khởi hành này** — `pax_type` là dữ liệu riêng từng thị trường.
+
+        Tiền tệ **không nhận từ client**: lấy từ cấu hình thị trường. Cùng lý do
+        với bậc giá.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminDeparturePriceInput'
+              minItems: 1
+      responses:
+        '200':
+          description: Bảng giá sau khi lưu
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminDeparturePrice'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
 
   /api/v1/{market}/pricing/preview:
     post:
@@ -1284,6 +1705,286 @@ components:
           minimum: 0
           description: Đã dịch **và** không `OUTDATED`. Luôn `<= translated`.
 
+
+    GroupTourFields:
+      type: object
+      required: [minPax, maxPax, guaranteedThreshold, tourLeaderLanguage, fitnessLevel]
+      properties:
+        minPax: { type: integer, format: int32, minimum: 10, maximum: 25 }
+        maxPax: { type: integer, format: int32, minimum: 10, maximum: 25 }
+        guaranteedThreshold:
+          type: integer
+          format: int32
+          minimum: 1
+          description: |
+            Số khách để chuyến **chắc chắn khởi hành**. Không lớn hơn `minPax`.
+            Trạng thái `GUARANTEED` tính từ ngưỡng này, không ai nhập tay.
+        tourLeaderLanguage:
+          type: string
+          enum: [da, vi]
+          description: |
+            Ngôn ngữ của trưởng đoàn. **Không phải** locale khách đang đọc —
+            khách Việt ở Đan Mạch đọc `vi` nhưng đi đoàn có trưởng đoàn nói `da`.
+        fitnessLevel: { type: integer, format: int32, minimum: 1, maximum: 4 }
+
+    IndividualPackageFields:
+      type: object
+      required: [minPartySize, flexibleDateWindowDays]
+      properties:
+        minPartySize: { type: integer, format: int32, minimum: 1 }
+        flexibleDateWindowDays: { type: integer, format: int32, minimum: 0, maximum: 30 }
+
+    PrivateTourFields:
+      type: object
+      required: [leadTimeDays, quoteValidDays]
+      properties:
+        leadTimeDays: { type: integer, format: int32, minimum: 1, maximum: 90 }
+        quoteValidDays: { type: integer, format: int32, minimum: 1, maximum: 30 }
+
+    CruiseFields:
+      type: object
+      required: [shipName, portCount]
+      properties:
+        shipName: { type: string, maxLength: 120 }
+        portCount: { type: integer, format: int32, minimum: 1 }
+
+    ComboFields:
+      type: object
+      required: [nights, validFrom, validTo]
+      properties:
+        nights: { type: integer, format: int32, minimum: 1, maximum: 14 }
+        validFrom: { type: string, format: date }
+        validTo: { type: string, format: date }
+
+    DayTourFields:
+      type: object
+      required: [durationHours, cutoffHours]
+      properties:
+        durationHours: { type: integer, format: int32, minimum: 1, maximum: 24 }
+        cutoffHours: { type: integer, format: int32, minimum: 0 }
+
+    AdminProductCreate:
+      type: object
+      description: |
+        Sáu khối riêng của loại đều **không bắt buộc ở tầng schema**, và đúng một
+        khối bắt buộc ở tầng nghiệp vụ — khối khớp với `productType`.
+
+        **Phương án đã cân nhắc và bị loại:** `oneOf` kèm discriminator. Nó tự mô
+        tả hơn, nhưng bộ sinh mã phải sinh cả nhánh giải mã đa hình cho thân yêu
+        cầu, và ở dự án này thì `productType` đã một lần buộc phải hạ xuống
+        `string` trần vì bộ sinh mã đối xử khác nhau giữa lớp cha và lớp con.
+        Một trường lỗi rõ ràng đọc được đáng giá hơn một schema đẹp hơn.
+      required: [productType, primaryDestinationId, heroImage, source]
+      properties:
+        productType: { $ref: '#/components/schemas/ProductType' }
+        primaryDestinationId: { type: string, format: uuid }
+        durationDays:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 60
+          description: |
+            Bỏ trống với `DAY_TOUR` và **chỉ** với `DAY_TOUR` — ràng buộc
+            `ck_product_duration` cưỡng chế cả hai chiều.
+        heroImage: { type: string, maxLength: 500 }
+        mapImage: { type: string, maxLength: 500 }
+        isNew: { type: boolean, default: false }
+        consultantId: { type: string, format: uuid }
+        source:
+          allOf: [{ $ref: '#/components/schemas/AdminProductTranslationInput' }]
+          description: Bản dịch **ngôn ngữ nguồn** — ADR-004, hiện là `da`.
+        groupTour: { $ref: '#/components/schemas/GroupTourFields' }
+        individualPackage: { $ref: '#/components/schemas/IndividualPackageFields' }
+        privateTour: { $ref: '#/components/schemas/PrivateTourFields' }
+        cruise: { $ref: '#/components/schemas/CruiseFields' }
+        combo: { $ref: '#/components/schemas/ComboFields' }
+        dayTour: { $ref: '#/components/schemas/DayTourFields' }
+
+    AdminProductPatch:
+      type: object
+      description: |
+        Không có `productType` và không có `source`: loại không đổi được sau khi
+        tạo (`docs/22` mục 7), còn bản dịch sửa qua
+        `PUT /admin/products/{id}/translations/{locale}` — nơi quyền phụ thuộc
+        locale đang sửa.
+      properties:
+        primaryDestinationId: { type: string, format: uuid }
+        durationDays: { type: integer, format: int32, minimum: 1, maximum: 60 }
+        heroImage: { type: string, maxLength: 500 }
+        mapImage: { type: string, maxLength: 500 }
+        isNew: { type: boolean }
+        consultantId: { type: string, format: uuid }
+        groupTour: { $ref: '#/components/schemas/GroupTourFields' }
+        individualPackage: { $ref: '#/components/schemas/IndividualPackageFields' }
+        privateTour: { $ref: '#/components/schemas/PrivateTourFields' }
+        cruise: { $ref: '#/components/schemas/CruiseFields' }
+        combo: { $ref: '#/components/schemas/ComboFields' }
+        dayTour: { $ref: '#/components/schemas/DayTourFields' }
+
+    AdminProductDetail:
+      type: object
+      required: [id, productType, primaryDestinationId, heroImage, isNew, reviewCount, markets, translations]
+      properties:
+        id: { type: string, format: uuid }
+        productType: { $ref: '#/components/schemas/ProductType' }
+        primaryDestinationId: { type: string, format: uuid }
+        durationDays: { type: integer, format: int32 }
+        heroImage: { type: string }
+        mapImage: { type: string }
+        isNew: { type: boolean }
+        rating: { type: number, format: double }
+        reviewCount: { type: integer, format: int32 }
+        consultantId: { type: string, format: uuid }
+        markets:
+          type: array
+          items: { $ref: '#/components/schemas/AdminProductMarketState' }
+        translations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminTranslationState' }
+        groupTour: { $ref: '#/components/schemas/GroupTourFields' }
+        individualPackage: { $ref: '#/components/schemas/IndividualPackageFields' }
+        privateTour: { $ref: '#/components/schemas/PrivateTourFields' }
+        cruise: { $ref: '#/components/schemas/CruiseFields' }
+        combo: { $ref: '#/components/schemas/ComboFields' }
+        dayTour: { $ref: '#/components/schemas/DayTourFields' }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string, format: uuid }
+
+    AdminMarketAssignment:
+      type: object
+      required: [published]
+      properties:
+        published:
+          type: boolean
+          description: |
+            Bật là **bắt đầu bán**. Tắt là ngừng bán ngay: sản phẩm biến khỏi
+            listing của thị trường đó, nhưng đơn đã đặt không bị ảnh hưởng.
+
+    AdminPriceTierInput:
+      type: object
+      required: [minPax, pricePerPerson]
+      properties:
+        minPax: { type: integer, format: int32, minimum: 1 }
+        maxPax:
+          type: integer
+          format: int32
+          minimum: 1
+          description: |
+            Bỏ trống = không có trần. Chỉ **bậc cuối** được bỏ trống; để trần ở
+            bậc cuối cũng hợp lệ.
+        pricePerPerson:
+          type: string
+          pattern: '^\d+(\.\d+)?$'
+          description: Chuỗi, không phải số JSON — cùng lý do với `Money`.
+
+    AdminPriceTier:
+      type: object
+      required: [id, market, minPax, pricePerPerson]
+      properties:
+        id: { type: string, format: uuid }
+        market: { type: string, enum: [DK, VN] }
+        minPax: { type: integer, format: int32 }
+        maxPax: { type: integer, format: int32 }
+        pricePerPerson: { $ref: '#/components/schemas/Money' }
+
+    AdminDepartureCreate:
+      type: object
+      required: [market, departDate, days, capacity]
+      properties:
+        market: { type: string, enum: [DK, VN] }
+        departDate: { type: string, format: date }
+        days: { type: integer, format: int32, minimum: 1, maximum: 60 }
+        capacity: { type: integer, format: int32, minimum: 1 }
+        cabinCategory:
+          type: string
+          enum: [INSIDE, OUTSIDE, BALCONY, AQUA]
+          description: Chỉ `CRUISE`. Loại khác gửi lên là `400`.
+        baseStatus:
+          type: string
+          enum: [OPEN, FEW_SEATS, SOLD_OUT, PENDING]
+          default: OPEN
+        departureOriginId: { type: string, format: uuid }
+
+    AdminDeparturePatch:
+      type: object
+      description: |
+        Không có `returnDate` (tính ra), không có `seatsBooked` (hệ quả của đơn
+        đặt), không có `market` (đổi thị trường của một ngày đã có đơn là đổi cả
+        tiền tệ của những đơn đó).
+      properties:
+        departDate: { type: string, format: date }
+        days: { type: integer, format: int32, minimum: 1, maximum: 60 }
+        capacity: { type: integer, format: int32, minimum: 1 }
+        cabinCategory: { type: string, enum: [INSIDE, OUTSIDE, BALCONY, AQUA] }
+        baseStatus: { type: string, enum: [OPEN, FEW_SEATS, SOLD_OUT, PENDING] }
+        departureOriginId: { type: string, format: uuid }
+
+    AdminDeparture:
+      type: object
+      required: [id, market, departDate, returnDate, days, baseStatus, capacity, seatsBooked, prices]
+      properties:
+        id: { type: string, format: uuid }
+        market: { type: string, enum: [DK, VN] }
+        departDate: { type: string, format: date }
+        returnDate: { type: string, format: date }
+        days: { type: integer, format: int32 }
+        cabinCategory: { type: string }
+        baseStatus: { type: string }
+        capacity: { type: integer, format: int32 }
+        seatsBooked: { type: integer, format: int32 }
+        departureOriginId: { type: string, format: uuid }
+        prices:
+          type: array
+          items: { $ref: '#/components/schemas/AdminDeparturePrice' }
+          description: |
+            Rỗng nghĩa là **chưa có giá** — ngày khởi hành tồn tại nhưng chưa bán
+            được. Trang quản trị phải hiện rõ điều đó (`docs/22` mục 5).
+
+    AdminDeparturePriceInput:
+      type: object
+      required: [paxTypeCode, occupancy, amount]
+      properties:
+        paxTypeCode:
+          type: string
+          maxLength: 16
+          example: ADULT
+          description: Tra trong thị trường của chính ngày khởi hành này.
+        occupancy: { type: string, enum: [DOUBLE, SINGLE] }
+        amount:
+          type: string
+          pattern: '^\d+(\.\d+)?$'
+
+    AdminDeparturePrice:
+      type: object
+      required: [paxTypeCode, occupancy, amount]
+      properties:
+        paxTypeCode: { type: string }
+        occupancy: { type: string }
+        amount: { $ref: '#/components/schemas/Money' }
+
+    AdminDepartureCopy:
+      type: object
+      required: [fromMarket, toMarket]
+      properties:
+        fromMarket: { type: string, enum: [DK, VN] }
+        toMarket: { type: string, enum: [DK, VN] }
+        fromDate:
+          type: string
+          format: date
+          description: Chỉ nhân bản ngày đi từ mốc này trở đi. Bỏ trống là tất cả.
+
+    AdminDepartureCopyResult:
+      type: object
+      required: [created, skipped]
+      properties:
+        created:
+          type: integer
+          format: int32
+          description: Số ngày khởi hành mới, **chưa có giá**.
+        skipped:
+          type: integer
+          format: int32
+          description: Số ngày đã tồn tại ở thị trường đích nên bỏ qua.
 
     PaxCount:
       type: object

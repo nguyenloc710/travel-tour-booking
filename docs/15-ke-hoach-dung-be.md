@@ -113,13 +113,13 @@ Tách hai vì nửa sau chặn ở hai câu hỏi chưa ai trả lời.
 | **Ghi chú** | Hàng đợi chỉ phủ **sản phẩm và bài viết**: bảng dịch của điểm đến và buổi thuyết trình không có `status` lẫn `translated_at` — `12` mục 10 |
 | **Xong khi** | Danh sách quản trị hiện được thứ bề mặt khách giấu đi: bản nguồn còn nháp, và sản phẩm chưa gán thị trường |
 
-#### 5b — nhập được một tour mới
+#### 5b — nhập được một tour mới ✔ 02/09/2026
 
 | | |
 |---|---|
-| **Làm** | Tạo và sửa sản phẩm (M3), gán thị trường và giá (M5), ngày khởi hành (M4); màn hình dịch song song đã có endpoint từ đợt 2 |
-| **Chặn** | Media qua presigned URL chặn ở **Q-6** → ADR-008; `30` chặn ở **Q-3** |
-| **Xong khi** | Nhân viên nhập được một tour mới đủ hai ngôn ngữ **không cần lập trình viên** — tiêu chí ra số 7 của G4 |
+| **Làm** | Tạo, sửa, xoá mềm sản phẩm (M3); gán thị trường — chỉ `ADMIN` (M5); ngày khởi hành, nhân bản lịch, bảng giá (M4, M5); thang giá `PRIVATE_TOUR`; migration `V5` cho `price_from` |
+| **Xong khi** | Một bài test đi hết bảy bước của `22` mục 5 qua API thật, rồi thấy tour đó ở **bề mặt khách** kèm giá — tiêu chí ra số 7 của G4 |
+| **Còn thiếu** | Media qua presigned URL chặn ở **Q-6** → ADR-008; `30` chặn ở **Q-3**; `34` đã viết 02/09 |
 
 ---
 

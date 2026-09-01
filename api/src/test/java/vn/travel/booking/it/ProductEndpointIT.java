@@ -80,6 +80,9 @@ class ProductEndpointIT {
     @BeforeEach
     void chuanBiDuLieu() {
         jdbc.execute("""
+                DELETE FROM departure_price;
+                DELETE FROM departure;
+                DELETE FROM pax_type;
                 DELETE FROM product_market;
                 DELETE FROM product_translation;
                 DELETE FROM product_group_tour;
@@ -190,13 +193,38 @@ class ProductEndpointIT {
                    ARRAY['Hotel i centrum','Morgenmad','Museumsbillet'],
                    'Gadeliv i Hoi An','PUBLISHED');
 
-                INSERT INTO product_market (product_id, market, is_published, price_from) VALUES
-                  ('c0000000-0000-4000-8000-000000000001','DK',TRUE,24990.00),
-                  ('c0000000-0000-4000-8000-000000000001','VN',TRUE,18900000.00),
-                  ('c0000000-0000-4000-8000-000000000002','DK',TRUE,8990.00),
-                  ('c0000000-0000-4000-8000-000000000003','DK',TRUE,NULL),
-                  ('c0000000-0000-4000-8000-000000000004','VN',TRUE,12000000.00),
-                  ('c0000000-0000-4000-8000-000000000005','DK',TRUE,6490.00);
+                -- price_from KHÔNG đặt tay: từ migration V5 nó là cột vật chất hoá
+                -- do trigger sở hữu, tính từ departure_price nguyên giá phòng đôi.
+                -- Đặt tay ở đây thì trigger ghi đè ngay lúc INSERT, và bài test
+                -- kiểm một giá trị mà hệ thống thật không bao giờ sinh ra.
+                INSERT INTO product_market (product_id, market, is_published) VALUES
+                  ('c0000000-0000-4000-8000-000000000001','DK',TRUE),
+                  ('c0000000-0000-4000-8000-000000000001','VN',TRUE),
+                  ('c0000000-0000-4000-8000-000000000002','DK',TRUE),
+                  ('c0000000-0000-4000-8000-000000000003','DK',TRUE),
+                  ('c0000000-0000-4000-8000-000000000004','VN',TRUE),
+                  ('c0000000-0000-4000-8000-000000000005','DK',TRUE);
+
+                -- pax_type không có trong migration R__: loại khách của từng thị
+                -- trường là dữ liệu nghiệp vụ chưa chốt (Q-2).
+                INSERT INTO pax_type (id, market, code, min_age, max_age, discount_rate, sort_order) VALUES
+                  ('c0000000-0000-4000-8000-0000000000a1','DK','ADULT',18,NULL,0.0000,1),
+                  ('c0000000-0000-4000-8000-0000000000a2','VN','ADULT',18,NULL,0.0000,1);
+
+                INSERT INTO departure (id, product_id, market, depart_date, return_date,
+                                       days, capacity) VALUES
+                  ('c0000000-0000-4000-8000-0000000000d1','c0000000-0000-4000-8000-000000000001','DK','2027-03-14','2027-03-27',14,20),
+                  ('c0000000-0000-4000-8000-0000000000d2','c0000000-0000-4000-8000-000000000001','VN','2027-03-14','2027-03-27',14,20),
+                  ('c0000000-0000-4000-8000-0000000000d3','c0000000-0000-4000-8000-000000000002','DK','2027-04-02','2027-04-08',7,16),
+                  ('c0000000-0000-4000-8000-0000000000d4','c0000000-0000-4000-8000-000000000004','VN','2027-04-02','2027-04-08',7,16),
+                  ('c0000000-0000-4000-8000-0000000000d5','c0000000-0000-4000-8000-000000000005','DK','2027-05-02','2027-05-06',5,24);
+
+                INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, currency) VALUES
+                  ('c0000000-0000-4000-8000-0000000000d1','c0000000-0000-4000-8000-0000000000a1','DOUBLE',24990.00,'DKK'),
+                  ('c0000000-0000-4000-8000-0000000000d2','c0000000-0000-4000-8000-0000000000a2','DOUBLE',18900000,'VND'),
+                  ('c0000000-0000-4000-8000-0000000000d3','c0000000-0000-4000-8000-0000000000a1','DOUBLE',8990.00,'DKK'),
+                  ('c0000000-0000-4000-8000-0000000000d4','c0000000-0000-4000-8000-0000000000a2','DOUBLE',12000000,'VND'),
+                  ('c0000000-0000-4000-8000-0000000000d5','c0000000-0000-4000-8000-0000000000a1','DOUBLE',6490.00,'DKK');
                 """);
     }
 

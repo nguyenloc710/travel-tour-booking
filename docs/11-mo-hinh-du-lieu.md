@@ -262,12 +262,19 @@ Không có cột nào trong CSDL cho những thứ này. Có cột là có ai đ
 | `seats_available` | `capacity − seats_booked − Σ seat_hold còn hạn` |
 | Số chỗ còn của buổi thuyết trình | `seats − seats_taken` |
 | `OUTDATED` của bản dịch | `translation(da).last_modified_at > translation(vi).translated_at` |
-| `price_from` của một thị trường | `MIN(departure_price)` của thị trường đó |
+| `price_from` của một thị trường | `MIN(departure_price.amount)` của thị trường đó, **chỉ** dòng `occupancy = 'DOUBLE'` của loại khách `ADULT`, và chỉ trên `departure` chưa xoá mềm |
 
 **`price_from` là ngoại lệ được vật chất hoá**: nó nằm ở `product_market` như một
 cột thật, vì mọi trang listing đều cần và tính lại mỗi lần thì quá đắt. Nhưng nó
 được **cập nhật bằng trigger** khi `departure_price` đổi, không cập nhật bằng tay
 ở tầng ứng dụng. Kiểm dữ liệu phải có một quy tắc đối chiếu lại cột này với thực tế.
+
+Hai điều kiện thu hẹp trong công thức là **định nghĩa của `03`**, không phải tối
+ưu: "Giá từ" là giá thấp nhất *cho 1 người khi 2 người ở phòng đôi*. Bỏ
+`occupancy = 'DOUBLE'` thì phụ thu phòng đơn lọt vào; bỏ điều kiện loại khách thì
+`min()` vớ phải **giá trẻ em**, và website quảng cáo giá trẻ em như giá tour —
+chuyện pháp lý (`32`), không phải chuyện hiển thị. Loại khách nào là loại tính giá
+niêm yết thì chưa tài liệu nào chốt; hiện khoá cứng `ADULT`, ghi ở `12` mục 10.
 
 Kiểu enum **lưu** trong CSDL loại trừ `GUARANTEED`:
 

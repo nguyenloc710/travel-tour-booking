@@ -4,12 +4,13 @@ Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, Postgr
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: đọc xong, ghi và đặt tour đã chạy** (01/09/2026). Một module
-> Gradle chia theo feature (ADR-010), migration `V1`–`V4`, đủ danh mục đọc của
+> **Trạng thái: đọc, ghi, đặt tour và quản trị đã chạy** (02/09/2026). Một module
+> Gradle chia theo feature (ADR-010), migration `V1`–`V5`, đủ danh mục đọc của
 > `docs/13` mục 9.1 trừ `/site-info`; engine giá, giữ chỗ, đặt tour và tính bất
-> biến khi gọi lại; bề mặt quản trị: đăng nhập phiên cookie, ma trận quyền, sửa
-> bản dịch, danh sách sản phẩm, hàng đợi dịch, bảng độ phủ. Chưa có: CRUD sản
-> phẩm, media, thanh toán.
+> biến khi gọi lại; bề mặt quản trị đủ để **mở bán một tour mà không cần lập
+> trình viên**: đăng nhập, ma trận quyền, bản dịch, danh sách, hàng đợi dịch,
+> bảng độ phủ, CRUD sản phẩm, gán thị trường, ngày khởi hành, bảng giá.
+> Chưa có: media (**Q-6**), thanh toán (**Q-3**).
 
 ## 0b. Bố cục package
 
@@ -34,6 +35,19 @@ Hai đường, hai công nghệ, `docs/10` mục 6 đã chốt:
 
 Lược đồ do Flyway sở hữu, Hibernate chạy `ddl-auto: validate` — không được tạo
 hay sửa bảng nào.
+
+### Cột do CSDL sở hữu
+
+Ba cột Java **đọc được, không ghi được** (`insertable = false, updatable = false`):
+
+| Cột | Ai ghi | Ở đâu |
+|---|---|---|
+| `created_at` | `DEFAULT now()` | mọi bảng nhóm A |
+| `last_modified_at` | trigger `tg_*_last_modified` | mọi bảng nhóm A |
+| `product_market.price_from` | trigger của `V5`, tính từ `departure_price` | `ProductMarketEntity` |
+
+Một cột, một chủ sở hữu. Để Java ghi thêm là hai chỗ cùng ghi, và chỗ nào thắng
+thì phụ thuộc thứ tự.
 
 **Ba lõi tính toán phải giữ là hàm thuần**: `pricing/service/PricingEngine`,
 `departure/service/DepartureStatuses`, `booking/service/BookingStatuses`. Không

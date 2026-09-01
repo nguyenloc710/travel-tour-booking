@@ -37,7 +37,12 @@ UPDATE market SET is_active = TRUE WHERE code = 'VN';
 INSERT INTO pax_type (id, market, code, min_age, max_age, discount_rate, sort_order) VALUES
   ('a0000000-0000-4000-8000-000000000001', 'DK', 'ADULT',      12, NULL, 0, 1),
   ('a0000000-0000-4000-8000-000000000002', 'DK', 'CHILD',       2,   11, 0, 2),
-  ('a0000000-0000-4000-8000-000000000003', 'DK', 'INFANT',      0,    1, 0, 3)
+  ('a0000000-0000-4000-8000-000000000003', 'DK', 'INFANT',      0,    1, 0, 3),
+  -- Thị trường VN có bộ loại khách RIÊNG, không dùng chung với DK: khoá duy nhất
+  -- là (market, code), và mức giảm của từng thị trường do người của thị trường
+  -- đó quyết định. Con số dưới đây là giả — sáu con số thật của VN chặn ở Q-2.
+  ('a0000000-0000-4000-8000-000000000004', 'VN', 'ADULT',      12, NULL, 0, 1),
+  ('a0000000-0000-4000-8000-000000000005', 'VN', 'CHILD',       2,   11, 0, 2)
 -- Khoá duy nhất là index BỘ PHẬN, nên ON CONFLICT phải nhắc lại điều kiện của
 -- index thì Postgres mới nhận ra nó — docs/12 mục 2.2.
 ON CONFLICT (market, code) WHERE NOT soft_delete DO NOTHING;
@@ -121,9 +126,12 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['Hướng dẫn viên tiếng Việt','Đoàn nhỏ','Bao trọn bữa ăn'],
    'Hoàng hôn trên Vịnh Hạ Long', 'PUBLISHED', now());
 
-INSERT INTO product_market (product_id, market, is_published, price_from, published_at) VALUES
-  ('f0000000-0000-4000-8000-000000000001', 'DK', TRUE, 24990.00, now()),
-  ('f0000000-0000-4000-8000-000000000001', 'VN', TRUE, 18900000.00, now());
+-- price_from KHÔNG đặt tay từ migration V5: nó là cột vật chất hoá do trigger
+-- sở hữu, tính từ departure_price của khách ADULT ở phòng đôi. Đặt tay ở đây thì
+-- trigger ghi đè ngay lúc INSERT, và dữ liệu mồi sẽ nói dối về cách hệ thống chạy.
+INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
+  ('f0000000-0000-4000-8000-000000000001', 'DK', TRUE, now()),
+  ('f0000000-0000-4000-8000-000000000001', 'VN', TRUE, now());
 
 -- P2 — CRUISE, CHỈ có bản dịch `da`. Phải BIẾN MẤT khỏi mọi thứ của locale vi:
 -- listing, tìm kiếm, sitemap; URL trả 404. Không hiện bản da thay thế.
@@ -143,8 +151,8 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['Fire kabinekategorier','Alle måltider','Kajak'],
    'Skib i Halong-bugten', 'PUBLISHED', now());
 
-INSERT INTO product_market (product_id, market, is_published, price_from, published_at) VALUES
-  ('f0000000-0000-4000-8000-000000000002', 'DK', TRUE, 6490.00, now());
+INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
+  ('f0000000-0000-4000-8000-000000000002', 'DK', TRUE, now());
 
 -- P3 — INDIVIDUAL_PACKAGE, dịch đủ nhưng KHÔNG có dòng product_market cho VN.
 -- Cổng chặn thị trường: sản phẩm này không tồn tại ở VN dù đã dịch xong.
@@ -169,8 +177,11 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['Tự chọn lịch trình','Xe riêng','Ở trung tâm'],
    'Đèn lồng Hội An', 'PUBLISHED', now());
 
-INSERT INTO product_market (product_id, market, is_published, price_from, published_at) VALUES
-  ('f0000000-0000-4000-8000-000000000003', 'DK', TRUE, 12900.00, now());
+-- P3 KHÔNG có ngày khởi hành nào, nên nó cũng không có price_from và website
+-- hiện "Liên hệ". Đó không phải thiếu sót của dữ liệu mồi mà là một câu hỏi thật:
+-- loại không có lịch khởi hành thì "giá từ" lấy ở đâu. Ghi ở docs/12 mục 10.
+INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
+  ('f0000000-0000-4000-8000-000000000003', 'DK', TRUE, now());
 
 -- ------------------------------------------------- ngày khởi hành, đủ trạng thái
 -- GUARANTEED không có ở đây và không bao giờ có: nó tính từ seats_booked >= min_pax.
@@ -219,9 +230,29 @@ INSERT INTO destination_translation (destination_id, locale, slug, name, soft_de
 ON CONFLICT DO NOTHING;
 
 INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, currency) VALUES
+  -- P1 thị trường DK. Bốn ngày cùng giá cho gọn; thực tế mỗi mùa một giá.
   ('11110000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
    'DOUBLE', 24990.00, 'DKK'),
   ('11110000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001',
-   'SINGLE', 29990.00, 'DKK');
+   'SINGLE', 29990.00, 'DKK'),
+  ('11110000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 25990.00, 'DKK'),
+  ('11110000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 25990.00, 'DKK'),
+
+  -- P1 thị trường VN: SỐ KHÁC HẲN, không phải 24990 nhân tỷ giá. Tour bán cho
+  -- khách Đan gồm vé bay quốc tế, bán cho khách Việt thì không — CLAUDE.md điều 4.
+  ('11110000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000004',
+   'DOUBLE', 18900000, 'VND'),
+
+  -- P2 CRUISE: mỗi hạng cabin một dòng departure riêng, nên giá cũng theo dòng đó.
+  ('11110000-0000-4000-8000-000000000011', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 6490.00, 'DKK'),
+  ('11110000-0000-4000-8000-000000000012', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 7490.00, 'DKK'),
+  ('11110000-0000-4000-8000-000000000013', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 8990.00, 'DKK'),
+  ('11110000-0000-4000-8000-000000000014', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 11990.00, 'DKK');
 
 COMMIT;

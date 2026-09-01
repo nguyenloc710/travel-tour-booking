@@ -56,6 +56,68 @@ public class GlobalExceptionHandler {
         return new ErrorResponse(ma).params(null);
     }
 
+    /**
+     * Lỗi <b>kèm tham số</b> — dùng cho đường ghi quản trị.
+     *
+     * <p>Tham số là dữ liệu, không phải câu tiếng người: {@code {"expectedBlock":
+     * "groupTour"}} chứ không phải "Bạn thiếu khối tour đoàn". Frontend vẫn là
+     * chỗ dịch (docs/13 mục 5).
+     */
+    private static ErrorResponse loi(String ma, AdminErrors.CoThamSo ex) {
+        return new ErrorResponse(ma).params(ex.params());
+    }
+
+    // ---------------------------------------------------- ghi quản trị: 400
+    //
+    // Cả bốn là luật LIÊN TRƯỜNG hoặc luật cần tra CSDL — thứ schema của OpenAPI
+    // không diễn đạt được, nên `@Valid` không bắt hộ. Luật một trường vẫn để
+    // `@Valid` bắt và trả VALIDATION_FAILED như cũ.
+
+    @ExceptionHandler(AdminErrors.ProductTypeBlockMismatch.class)
+    public ResponseEntity<ErrorResponse> saiKhoiLoai(AdminErrors.ProductTypeBlockMismatch ex) {
+        log.debug("400 PRODUCT_TYPE_BLOCK_MISMATCH: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(loi("PRODUCT_TYPE_BLOCK_MISMATCH", ex));
+    }
+
+    @ExceptionHandler(AdminErrors.DurationDaysRuleViolated.class)
+    public ResponseEntity<ErrorResponse> saiSoNgay(AdminErrors.DurationDaysRuleViolated ex) {
+        log.debug("400 DURATION_DAYS_RULE_VIOLATED: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(loi("DURATION_DAYS_RULE_VIOLATED", ex));
+    }
+
+    @ExceptionHandler(AdminErrors.CabinCategoryNotAllowed.class)
+    public ResponseEntity<ErrorResponse> cabinSaiLoai(AdminErrors.CabinCategoryNotAllowed ex) {
+        log.debug("400 CABIN_CATEGORY_NOT_ALLOWED: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(loi("CABIN_CATEGORY_NOT_ALLOWED", ex));
+    }
+
+    @ExceptionHandler(AdminErrors.UnknownPaxType.class)
+    public ResponseEntity<ErrorResponse> laLoaiKhach(AdminErrors.UnknownPaxType ex) {
+        log.debug("400 UNKNOWN_PAX_TYPE: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(loi("UNKNOWN_PAX_TYPE", ex));
+    }
+
+    @ExceptionHandler(AdminErrors.PriceTierNotContiguous.class)
+    public ResponseEntity<ErrorResponse> thangGiaHo(AdminErrors.PriceTierNotContiguous ex) {
+        log.debug("400 PRICE_TIER_NOT_CONTIGUOUS: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(loi("PRICE_TIER_NOT_CONTIGUOUS", ex));
+    }
+
+    // ---------------------------------------------------- ghi quản trị: 409
+
+    @ExceptionHandler(AdminErrors.CapacityBelowBooked.class)
+    public ResponseEntity<ErrorResponse> sucChuaThapHonDaBan(AdminErrors.CapacityBelowBooked ex) {
+        log.debug("409 CAPACITY_BELOW_BOOKED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("CAPACITY_BELOW_BOOKED", ex));
+    }
+
+    @ExceptionHandler(AdminErrors.ProductHasActiveBookings.class)
+    public ResponseEntity<ErrorResponse> conDonChuaXong(AdminErrors.ProductHasActiveBookings ex) {
+        log.warn("409 PRODUCT_HAS_ACTIVE_BOOKINGS: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(loi("PRODUCT_HAS_ACTIVE_BOOKINGS", ex));
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> khongTimThay(NotFoundException ex) {
         log.debug("404 NOT_FOUND: {}", ex.getMessage());

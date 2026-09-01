@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,9 +23,25 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import vn.travel.booking.admin.service.AdminCatalogService;
+import vn.travel.booking.admin.service.AdminDepartureService;
+import vn.travel.booking.admin.service.AdminPriceTierService;
+import vn.travel.booking.admin.service.AdminProductService;
 import vn.travel.booking.admin.service.AdminProductTranslationService;
 import vn.travel.booking.admin.service.TranslationWorkService;
 import vn.travel.booking.admin.dto.AdminProductQuery;
+import vn.travel.booking.admin.dto.CopyResult;
+import vn.travel.booking.admin.dto.DepartureCreateInput;
+import vn.travel.booking.admin.dto.DeparturePatchInput;
+import vn.travel.booking.admin.dto.DeparturePriceInput;
+import vn.travel.booking.admin.dto.DeparturePriceView;
+import vn.travel.booking.admin.dto.DepartureView;
+import vn.travel.booking.admin.dto.MarketState;
+import vn.travel.booking.admin.dto.PriceTierInput;
+import vn.travel.booking.admin.dto.PriceTierView;
+import vn.travel.booking.admin.dto.ProductCreateInput;
+import vn.travel.booking.admin.dto.ProductDetailView;
+import vn.travel.booking.admin.dto.ProductPatchInput;
+import vn.travel.booking.product.dto.ProductTypeBlocks;
 import vn.travel.booking.admin.dto.AdminProductRow;
 import vn.travel.booking.admin.dto.CoverageRow;
 import vn.travel.booking.admin.dto.ProductTranslationInput;
@@ -32,7 +49,27 @@ import vn.travel.booking.admin.dto.ProductTranslationView;
 import vn.travel.booking.admin.dto.QueueItem;
 import vn.travel.booking.common.dto.PagedResult;
 import vn.travel.booking.web.generated.api.AdminApi;
+import vn.travel.booking.web.generated.model.AdminDeparture;
+import vn.travel.booking.web.generated.model.AdminDepartureCopy;
+import vn.travel.booking.web.generated.model.AdminDepartureCopyResult;
+import vn.travel.booking.web.generated.model.AdminDepartureCreate;
+import vn.travel.booking.web.generated.model.AdminDeparturePatch;
+import vn.travel.booking.web.generated.model.AdminDeparturePrice;
+import vn.travel.booking.web.generated.model.AdminDeparturePriceInput;
+import vn.travel.booking.web.generated.model.AdminMarketAssignment;
+import vn.travel.booking.web.generated.model.AdminPriceTier;
+import vn.travel.booking.web.generated.model.AdminPriceTierInput;
+import vn.travel.booking.web.generated.model.AdminProductCreate;
+import vn.travel.booking.web.generated.model.AdminProductDetail;
 import vn.travel.booking.web.generated.model.AdminProductMarketState;
+import vn.travel.booking.web.generated.model.AdminProductPatch;
+import vn.travel.booking.web.generated.model.ComboFields;
+import vn.travel.booking.web.generated.model.CruiseFields;
+import vn.travel.booking.web.generated.model.DayTourFields;
+import vn.travel.booking.web.generated.model.GroupTourFields;
+import vn.travel.booking.web.generated.model.IndividualPackageFields;
+import vn.travel.booking.web.generated.model.Money;
+import vn.travel.booking.web.generated.model.PrivateTourFields;
 import vn.travel.booking.web.generated.model.AdminProductPage;
 import vn.travel.booking.web.generated.model.AdminProductSummary;
 import vn.travel.booking.web.generated.model.AdminProductTranslation;
@@ -47,6 +84,7 @@ import vn.travel.booking.web.generated.model.LoginRequest;
 import vn.travel.booking.web.generated.model.StaffProfile;
 import vn.travel.booking.web.generated.model.TranslationStatus;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -65,16 +103,25 @@ public class AdminController implements AdminApi {
     private final AdminProductTranslationService banDich;
     private final AdminCatalogService danhMuc;
     private final TranslationWorkService congViecDich;
+    private final AdminProductService sanPham;
+    private final AdminDepartureService ngayKhoiHanh;
+    private final AdminPriceTierService bacGia;
     private final SecurityContextRepository khoPhien = new HttpSessionSecurityContextRepository();
 
     public AdminController(AuthenticationManager xacThuc,
                            AdminProductTranslationService banDich,
                            AdminCatalogService danhMuc,
-                           TranslationWorkService congViecDich) {
+                           TranslationWorkService congViecDich,
+                           AdminProductService sanPham,
+                           AdminDepartureService ngayKhoiHanh,
+                           AdminPriceTierService bacGia) {
         this.xacThuc = xacThuc;
         this.banDich = banDich;
         this.danhMuc = danhMuc;
         this.congViecDich = congViecDich;
+        this.sanPham = sanPham;
+        this.ngayKhoiHanh = ngayKhoiHanh;
+        this.bacGia = bacGia;
     }
 
     // ------------------------------------------------------------ phiên
@@ -213,6 +260,275 @@ public class AdminController implements AdminApi {
                 .toList());
     }
 
+    // ------------------------------------------------------------ sản phẩm: ghi
+    //
+    // Quyền theo ma trận docs/22 mục 2.1:
+    //   nội dung sản phẩm  → EDITOR, ADMIN
+    //   thị trường và giá  → CHỈ ADMIN
+    //
+    // Hai dòng đó là hai câu chuyện khác nhau, không phải hai mức của cùng một
+    // câu chuyện: người viết mô tả tour không nên chạm được vào con số khách
+    // phải trả, và người gán thị trường là người chịu trách nhiệm doanh thu.
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<AdminProductDetail> taoSanPham(AdminProductCreate input) {
+        ProductDetailView daTao = sanPham.tao(new ProductCreateInput(
+                input.getProductType().getValue(),
+                input.getPrimaryDestinationId(),
+                nho(input.getDurationDays()),
+                input.getHeroImage(),
+                input.getMapImage(),
+                input.getIsNew(),
+                input.getConsultantId(),
+                sangBanDich(input.getSource()),
+                khoi(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
+                        input.getCruise(), input.getCombo(), input.getDayTour())));
+
+        return khongCache(HttpStatus.CREATED).body(sang(daTao));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminProductDetail> chiTietSanPhamQuanTri(UUID id) {
+        return khongCache().body(sang(sanPham.chiTiet(id)));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<AdminProductDetail> suaSanPham(UUID id, AdminProductPatch input) {
+        ProductDetailView daSua = sanPham.sua(id, new ProductPatchInput(
+                input.getPrimaryDestinationId(),
+                nho(input.getDurationDays()),
+                input.getHeroImage(),
+                input.getMapImage(),
+                input.getIsNew(),
+                input.getConsultantId(),
+                khoi(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
+                        input.getCruise(), input.getCombo(), input.getDayTour())));
+
+        return khongCache().body(sang(daSua));
+    }
+
+    /** Xoá mềm. Chỉ {@code ADMIN}: xoá nhầm một tour đang bán là sự cố không hoàn tác được. */
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> xoaSanPham(UUID id) {
+        sanPham.xoaMem(id);
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue())
+                .build();
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminProductMarketState> ganThiTruong(
+            UUID id, String market, AdminMarketAssignment input) {
+
+        MarketState daGan = sanPham.ganThiTruong(id, market, input.getPublished());
+        return khongCache().body(sang(daGan));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AdminPriceTier>> luuBacGia(
+            UUID id, String market, List<AdminPriceTierInput> thang) {
+
+        return khongCache().body(bacGia.luu(id, market, thang.stream()
+                        .map(b -> new PriceTierInput(nho(b.getMinPax()), nho(b.getMaxPax()),
+                                new BigDecimal(b.getPricePerPerson())))
+                        .toList())
+                .stream()
+                .map(AdminController::sang)
+                .toList());
+    }
+
+    // ------------------------------------------------------------ ngày khởi hành
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<List<AdminDeparture>> danhSachNgayKhoiHanhQuanTri(UUID id, String market) {
+        return khongCache().body(ngayKhoiHanh.danhSach(id, market).stream()
+                .map(AdminController::sang)
+                .toList());
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminDeparture> taoNgayKhoiHanh(UUID id, AdminDepartureCreate input) {
+        DepartureView daTao = ngayKhoiHanh.tao(id, new DepartureCreateInput(
+                input.getMarket().getValue(),
+                input.getDepartDate(),
+                nho(input.getDays()),
+                nho(input.getCapacity()),
+                input.getCabinCategory() == null ? null : input.getCabinCategory().getValue(),
+                input.getBaseStatus() == null ? null : input.getBaseStatus().getValue(),
+                input.getDepartureOriginId()));
+
+        return khongCache(HttpStatus.CREATED).body(sang(daTao));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminDeparture> suaNgayKhoiHanh(UUID id, AdminDeparturePatch input) {
+        DepartureView daSua = ngayKhoiHanh.sua(id, new DeparturePatchInput(
+                input.getDepartDate(),
+                nho(input.getDays()),
+                nho(input.getCapacity()),
+                input.getCabinCategory() == null ? null : input.getCabinCategory().getValue(),
+                input.getBaseStatus() == null ? null : input.getBaseStatus().getValue(),
+                input.getDepartureOriginId()));
+
+        return khongCache().body(sang(daSua));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminDepartureCopyResult> nhanBanLichKhoiHanh(
+            UUID id, AdminDepartureCopy input) {
+
+        CopyResult ket_qua = ngayKhoiHanh.nhanBan(id,
+                input.getFromMarket().getValue(), input.getToMarket().getValue(),
+                input.getFromDate());
+
+        return khongCache().body(
+                new AdminDepartureCopyResult(ket_qua.created(), ket_qua.skipped()));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AdminDeparturePrice>> luuGiaNgayKhoiHanh(
+            UUID id, List<AdminDeparturePriceInput> gia) {
+
+        return khongCache().body(ngayKhoiHanh.luuGia(id, gia.stream()
+                        .map(g -> new DeparturePriceInput(g.getPaxTypeCode(),
+                                g.getOccupancy().getValue(),
+                                new BigDecimal(g.getAmount())))
+                        .toList())
+                .stream()
+                .map(AdminController::sang)
+                .toList());
+    }
+
+    // ------------------------------------------------------------ ánh xạ đợt 5b
+
+    /**
+     * {@code Integer} sang {@code Short}.
+     *
+     * <p>Spec dùng {@code int32} vì JSON không có kiểu 16 bit, còn cột là
+     * {@code SMALLINT} và Hibernate chạy {@code ddl-auto: validate} nên entity
+     * phải là {@code Short}. Giá trị ngoài dải đã bị {@code @Min}/{@code @Max}
+     * của spec chặn trước khi tới đây.
+     */
+    private static Short nho(Integer so) {
+        return so == null ? null : so.shortValue();
+    }
+
+    private static Integer lon(Short so) {
+        return so == null ? null : so.intValue();
+    }
+
+    private static ProductTypeBlocks khoi(GroupTourFields g, IndividualPackageFields i,
+                                          PrivateTourFields p, CruiseFields c,
+                                          ComboFields cb, DayTourFields d) {
+        return new ProductTypeBlocks(
+                g == null ? null : new ProductTypeBlocks.GroupTour(
+                        nho(g.getMinPax()), nho(g.getMaxPax()), nho(g.getGuaranteedThreshold()),
+                        g.getTourLeaderLanguage().getValue(), nho(g.getFitnessLevel())),
+                i == null ? null : new ProductTypeBlocks.IndividualPackage(
+                        nho(i.getMinPartySize()), nho(i.getFlexibleDateWindowDays())),
+                p == null ? null : new ProductTypeBlocks.PrivateTour(
+                        nho(p.getLeadTimeDays()), nho(p.getQuoteValidDays())),
+                c == null ? null : new ProductTypeBlocks.Cruise(
+                        c.getShipName(), nho(c.getPortCount())),
+                cb == null ? null : new ProductTypeBlocks.Combo(
+                        nho(cb.getNights()), cb.getValidFrom(), cb.getValidTo()),
+                d == null ? null : new ProductTypeBlocks.DayTour(
+                        nho(d.getDurationHours()), nho(d.getCutoffHours())));
+    }
+
+    private static ProductTranslationInput sangBanDich(AdminProductTranslationInput i) {
+        return new ProductTranslationInput(
+                i.getSlug(), i.getTitle(), i.getShortDescription(), i.getLongDescription(),
+                i.getWhyChooseThis(), i.getHeroImageAlt(), i.getStatus().getValue());
+    }
+
+    private static AdminProductDetail sang(ProductDetailView v) {
+        AdminProductDetail ra = new AdminProductDetail(
+                v.id(), ProductType.fromValue(v.productType()), v.primaryDestinationId(),
+                v.heroImage(), v.isNew(), v.reviewCount(),
+                v.markets().stream().map(AdminController::sang).toList(),
+                v.translations().stream()
+                        .map(t -> new AdminTranslationState(t.locale(),
+                                TranslationStatus.fromValue(t.status()), t.isSource(), t.outdated()))
+                        .toList())
+                .durationDays(lon(v.durationDays()))
+                .mapImage(v.mapImage())
+                .rating(v.rating() == null ? null : v.rating().doubleValue())
+                .consultantId(v.consultantId())
+                .lastModifiedAt(v.lastModifiedAt())
+                .lastModifiedBy(v.lastModifiedBy());
+
+        ProductTypeBlocks k = v.blocks();
+        if (k.groupTour() != null) {
+            ra.setGroupTour(new GroupTourFields(lon(k.groupTour().minPax()),
+                    lon(k.groupTour().maxPax()), lon(k.groupTour().guaranteedThreshold()),
+                    GroupTourFields.TourLeaderLanguageEnum.fromValue(k.groupTour().tourLeaderLanguage()),
+                    lon(k.groupTour().fitnessLevel())));
+        }
+        if (k.individualPackage() != null) {
+            ra.setIndividualPackage(new IndividualPackageFields(
+                    lon(k.individualPackage().minPartySize()),
+                    lon(k.individualPackage().flexibleDateWindowDays())));
+        }
+        if (k.privateTour() != null) {
+            ra.setPrivateTour(new PrivateTourFields(lon(k.privateTour().leadTimeDays()),
+                    lon(k.privateTour().quoteValidDays())));
+        }
+        if (k.cruise() != null) {
+            ra.setCruise(new CruiseFields(k.cruise().shipName(), lon(k.cruise().portCount())));
+        }
+        if (k.combo() != null) {
+            ra.setCombo(new ComboFields(lon(k.combo().nights()),
+                    k.combo().validFrom(), k.combo().validTo()));
+        }
+        if (k.dayTour() != null) {
+            ra.setDayTour(new DayTourFields(lon(k.dayTour().durationHours()),
+                    lon(k.dayTour().cutoffHours())));
+        }
+        return ra;
+    }
+
+    private static AdminProductMarketState sang(MarketState m) {
+        return new AdminProductMarketState(
+                AdminProductMarketState.MarketEnum.fromValue(m.market()), m.published());
+    }
+
+    private static AdminDeparture sang(DepartureView d) {
+        return new AdminDeparture(d.id(),
+                AdminDeparture.MarketEnum.fromValue(d.market()),
+                d.departDate(), d.returnDate(), lon(d.days()), d.baseStatus(),
+                lon(d.capacity()), lon(d.seatsBooked()),
+                d.prices().stream().map(AdminController::sang).toList())
+                .cabinCategory(d.cabinCategory())
+                .departureOriginId(d.departureOriginId());
+    }
+
+    private static AdminDeparturePrice sang(DeparturePriceView g) {
+        return new AdminDeparturePrice(g.paxTypeCode(), g.occupancy(), tien(g.amount()));
+    }
+
+    private static AdminPriceTier sang(PriceTierView t) {
+        return new AdminPriceTier(t.id(), AdminPriceTier.MarketEnum.fromValue(t.market()),
+                lon(t.minPax()), tien(t.pricePerPerson()))
+                .maxPax(lon(t.maxPax()));
+    }
+
+    /** {@code amount} là <b>chuỗi</b> trong JSON — số dấu phẩy động của JavaScript làm hỏng tiền. */
+    private static Money tien(vn.travel.booking.common.money.Money m) {
+        return new Money(m.amount().toPlainString(), m.currency());
+    }
+
     // ------------------------------------------------------------ ánh xạ
 
     private static AdminProductSummary sang(AdminProductRow r) {
@@ -260,7 +576,11 @@ public class AdminController implements AdminApi {
     }
 
     private static ResponseEntity.BodyBuilder khongCache() {
-        return ResponseEntity.ok()
+        return khongCache(HttpStatus.OK);
+    }
+
+    private static ResponseEntity.BodyBuilder khongCache(HttpStatus trangThai) {
+        return ResponseEntity.status(trangThai)
                 .header(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
     }
 }

@@ -71,6 +71,8 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Tài liệu tầng 2 | `docs/20` … `docs/24` | Đủ 5 file, tất cả ở `Nháp` — `20`, `21`, `24` phải `Đã duyệt` trước cổng G3; `22`, `23` trước G4 |
 | Migration `V2` | `12` mục 3.1, 4.6, 4.7, 6.1 · `V2__vai_tro_anh_hanh_khach_slug.sql` | 7 bảng: vai trò, ảnh kèm giấy phép, slug cũ, hành khách. 13 test |
 | **Ba màn hình đọc của trang quản trị** | `22` M2, M10, M12 · spec v0.7 · `admin/` | Danh sách sản phẩm, hàng đợi dịch, bảng độ phủ — **12 test** |
+| **Đường ghi của trang quản trị** | `22` M3, M4, M5 · spec v0.8 · `admin/` | Tạo/sửa/xoá mềm sản phẩm, gán thị trường, ngày khởi hành, nhân bản lịch, bảng giá, thang giá — **17 test** |
+| Migration `V5` — `price_from` thành cột trigger sở hữu | `11` mục 12 · `12` mục 6.1 và quy tắc kiểm 5 | Ba trigger; dữ liệu mồi bỏ giá đặt tay, nay suy từ `departure_price` |
 
 ---
 
@@ -96,7 +98,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `api/` dữ liệu tra cứu `R__` và `scripts/seed-dev.sql` | ✔ đã chạy sạch |
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
 | Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc` |
-| Test | ✔ **179/179 xanh** |
+| Test | ✔ **196/196 xanh** |
 | `contracts/openapi.yaml` v0.2 → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
@@ -129,7 +131,11 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Chuyển hướng 301 đọc `slug_history` ở tầng web | ✗ bảng đã có dữ liệu, `20` chưa dùng |
 | Danh sách sản phẩm quản trị, hàng đợi dịch, bảng độ phủ | ✔ 12 test — `22` M2, M10, M12 |
 | Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10 |
-| Tạo và sửa sản phẩm, gán thị trường, nhập giá, ngày khởi hành ở quản trị | ✗ đợt 5b |
+| Tạo, sửa, xoá mềm sản phẩm; gán thị trường; ngày khởi hành; bảng giá; thang giá | ✔ 17 test, gồm **một bài đi hết bảy bước mở bán rồi kiểm bằng bề mặt khách** |
+| Nhân bản lịch khởi hành giữa hai thị trường — **không** chép giá | ✔ `22` M4, ADR-006 |
+| `price_from` tự tính từ `departure_price` | ✔ `V5` — trước đó cột này chưa bao giờ được điền |
+| Đổi loại sản phẩm sau khi tạo | ✗ **có chủ ý cấm** — `22` mục 7; `productType` là `updatable = false` ở entity |
+| Media, ảnh sản phẩm, presigned URL | ✗ **Q-6** → ADR-008 |
 
 ---
 
@@ -169,9 +175,11 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
 5. Trả lời Q-8, và **duyệt `20`, `21`, `05`** — cổng G3 đòi cả ba ở `Đã duyệt`
 6. Phần G3 còn thiếu ở tầng code: trang điểm đến, trang tìm kiếm, sitemap theo
    locale, chuyển hướng 301 đọc `slug_history`
-7. **Đợt 5b** — tạo và sửa sản phẩm, gán thị trường, nhập giá, ngày khởi hành.
-   Đây là thứ quyết định tiêu chí ra số 7 của G4: nhân viên mở bán được một tour
-   mà không cần lập trình viên
+7. ~~Đợt 5b~~ — **xong** 02/09/2026. Tiêu chí ra số 7 của G4 nay có một bài
+   test chứng minh: tạo tour qua API quản trị, dịch, gán thị trường, nhập lịch
+   và giá, rồi tour đó hiện ra ở `GET /api/v1/dk/products` kèm giá
+8. **Trả lời Q-6** rồi viết ADR-008 — media là phần cuối của đợt 5 còn thiếu, và
+   `24` mục 4 đã tả xong việc mà chưa có chỗ lưu ảnh
 
 ---
 
