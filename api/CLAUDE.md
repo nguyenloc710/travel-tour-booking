@@ -4,11 +4,25 @@ Backend: Java 21, Spring Boot, Gradle multi-module, PostgreSQL.
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: lõi danh mục đã chạy** (01/09/2026). Bốn module Gradle, migration
-> `V1` và `V2`, ba endpoint đọc sinh từ spec: `/regions`, `/products`,
-> `/products/{slug}`. `V2` thêm bảng cho vai trò, ảnh kèm giấy phép, slug cũ và
-> hành khách — **chưa endpoint nào chạm tới bốn nhóm bảng đó**. Chưa có tồn kho,
-> giữ chỗ, đặt tour hay trang quản trị — đó là G4.
+> **Trạng thái: đọc xong, ghi vừa bắt đầu** (01/09/2026). Bốn module Gradle,
+> migration `V1`–`V3`, đủ danh mục đọc của `docs/13` mục 9.1 trừ `/site-info`,
+> và bề mặt quản trị đầu tiên: đăng nhập phiên cookie, ma trận quyền, sửa bản
+> dịch sản phẩm. Chưa có tồn kho, giữ chỗ, đặt tour — đó là G4.
+
+## 0b. Đường đọc và đường ghi
+
+Hai đường, hai công nghệ, `docs/10` mục 6 đã chốt:
+
+| Đường | Dùng | Ở đâu |
+|---|---|---|
+| Đọc cho website khách | SQL thuần + `JdbcTemplate` | `infrastructure/<feature>/Jdbc*QueryAdapter` |
+| Ghi cho trang quản trị | Spring Data JPA + MapStruct | `infrastructure/<feature>/{entity,repository,mapper}` |
+
+**Entity chỉ nằm ở `infrastructure`.** `application` khai báo cổng và bản ghi
+thuần; `web` không bao giờ thấy entity. ArchUnit canh cả hai chiều.
+
+Lược đồ do Flyway sở hữu, Hibernate chạy `ddl-auto: validate` — không được tạo
+hay sửa bảng nào.
 
 ## 0. Lệnh
 
@@ -186,6 +200,10 @@ cố tình không có: `docs/11` mục 11.2.
 | `created_at`, `last_modified_at` | **CSDL** — `DEFAULT now()` và trigger `tg_*_last_modified` |
 | `created_by`, `last_modified_by` | **Ứng dụng** — CSDL không biết ai đang thao tác |
 | `soft_delete` | Ứng dụng |
+
+`BaseEntity` ở `infrastructure/shared` mang bốn cột kiểm toán và cờ xoá mềm.
+Nó **cố tình không có `@CreatedDate` lẫn `@LastModifiedDate`**: hai cột thời gian
+do CSDL sở hữu, hai cột "ai" do `AuditorAware` điền.
 
 **Đừng để ứng dụng đặt `last_modified_at`.** Sẽ có chỗ quên, và cột "sửa lần
 cuối" sai còn tệ hơn không có. Nếu dùng JPA auditing thì chỉ bật

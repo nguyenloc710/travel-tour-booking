@@ -20,10 +20,14 @@ openapi: 3.0.3
 # Phiên bản 0.3: điểm đến, và bộ lọc sản phẩm theo điểm đến.
 # Phiên bản 0.4: chủ đề, lịch trình, khách sạn, ngày khởi hành, bài viết,
 #                buổi thuyết trình — đủ danh mục đọc của docs/13 mục 9.1.
+# Phiên bản 0.5: bề mặt QUẢN TRỊ — phiên đăng nhập và sửa bản dịch sản phẩm.
+#                Khác bề mặt công khai ở bốn điểm (docs/13 mục 2): không có
+#                market trong đường dẫn, trả MỌI bản dịch chứ không một, thấy cả
+#                nội dung chưa xuất bản, và không bao giờ cache.
 
 info:
   title: Travel Tour Booking API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -45,6 +49,10 @@ tags:
     description: Bài viết
   - name: lectures
     description: Buổi thuyết trình
+  - name: admin
+    description: |
+      Bề mặt quản trị. Yêu cầu phiên đăng nhập; quyền theo bốn vai trò của
+      `docs/22` mục 2.1.
 
 paths:
   /api/v1/{market}/regions:
@@ -489,6 +497,126 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/session:
+    post:
+      tags: [admin]
+      operationId: dangNhap
+      summary: Đăng nhập
+      description: |
+        Trả về cookie phiên `HttpOnly` + `SameSite=Lax` (`docs/13` mục 10).
+
+        **Không trả token trong thân phản hồi.** Token nằm trong `localStorage`
+        đọc được bằng mã chèn vào trang; cookie `HttpOnly` thì không
+        (`docs/22` mục 9).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '204':
+          description: Đăng nhập thành công, cookie phiên đã đặt
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [admin]
+      operationId: dangXuat
+      summary: Đăng xuất
+      responses:
+        '204':
+          description: Phiên đã huỷ
+
+  /api/v1/admin/me:
+    get:
+      tags: [admin]
+      operationId: hoSoNhanVien
+      summary: Người đang đăng nhập và vai trò của họ
+      responses:
+        '200':
+          description: Hồ sơ nhân viên
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffProfile'
+        '401':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/products/{id}/translations:
+    get:
+      tags: [admin]
+      operationId: danhSachBanDich
+      summary: Mọi bản dịch của một sản phẩm
+      description: |
+        Trả **tất cả** locale, kể cả bản chưa xuất bản — màn hình dịch song song
+        cần bản `da` và bản `vi` cạnh nhau (`docs/22` mục 4.2).
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+      responses:
+        '200':
+          description: Danh sách bản dịch, ngôn ngữ nguồn trước
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminProductTranslation'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/products/{id}/translations/{locale}:
+    put:
+      tags: [admin]
+      operationId: luuBanDich
+      summary: Tạo hoặc sửa một bản dịch
+      description: |
+        Quyền phụ thuộc **locale đang sửa**, không chỉ phụ thuộc vai trò
+        (`docs/22` mục 2.1):
+
+        | Vai trò | Bản `da` (nguồn) | Bản `vi` |
+        |---|---|---|
+        | `EDITOR` | ghi | **403** |
+        | `TRANSLATOR` | **403** | ghi |
+        | `ADMIN` | ghi | ghi |
+
+        Người dịch sửa bản nguồn là làm hai bản lệch nhau mà không ai biết bản
+        nào đúng — và `da` là ngôn ngữ nguồn (ADR-004).
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: locale
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [da, vi]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductTranslationInput'
+      responses:
+        '200':
+          description: Bản dịch sau khi lưu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductTranslation'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /api/v1/{market}/products/{slug}:
     get:
       tags: [products]
@@ -546,6 +674,17 @@ components:
       schema:
         type: string
         enum: [dk, vn]
+
+    AdminId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Định danh nội bộ. Bề mặt quản trị dùng `id`, bề mặt công khai dùng `slug`
+        — `docs/13` mục 4.
+      schema:
+        type: string
+        format: uuid
 
     AcceptLanguage:
       name: Accept-Language
@@ -608,6 +747,86 @@ components:
           format: int32
           minimum: 0
           description: Đếm từ dữ liệu trong phạm vi (market, locale). Không hardcode.
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password, minLength: 8 }
+
+    StaffProfile:
+      type: object
+      required: [id, email, displayName, roles]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [CONSULTANT, EDITOR, TRANSLATOR, ADMIN]
+
+    TranslationStatus:
+      type: string
+      description: |
+        `OUTDATED` **không có ở đây**: nó là giá trị tính ra từ thời điểm sửa bản
+        nguồn so với thời điểm dịch, không ai nhập tay được (`docs/11` mục 6).
+      enum: [DRAFT, TRANSLATED, PUBLISHED]
+
+    AdminProductTranslationInput:
+      type: object
+      required: [slug, title, shortDescription, longDescription, whyChooseThis, heroImageAlt, status]
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          description: Không dấu ở cả hai ngôn ngữ — `docs/02` mục 5.1.
+        title: { type: string, minLength: 1, maxLength: 200 }
+        shortDescription: { type: string, minLength: 1 }
+        longDescription:
+          type: array
+          items: { type: string }
+          minItems: 2
+        whyChooseThis:
+          type: array
+          items: { type: string }
+          minItems: 3
+          maxItems: 7
+        heroImageAlt:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Nội dung phải dịch, không phải siêu dữ liệu kỹ thuật — `docs/24` mục 6.
+        status: { $ref: '#/components/schemas/TranslationStatus' }
+
+    AdminProductTranslation:
+      type: object
+      required: [locale, slug, title, shortDescription, longDescription, whyChooseThis, heroImageAlt, status, isSource, lastModifiedAt]
+      properties:
+        locale: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        shortDescription: { type: string }
+        longDescription:
+          type: array
+          items: { type: string }
+        whyChooseThis:
+          type: array
+          items: { type: string }
+        heroImageAlt: { type: string }
+        status: { $ref: '#/components/schemas/TranslationStatus' }
+        isSource:
+          type: boolean
+          description: Bản này có phải ngôn ngữ nguồn không — ADR-004.
+        outdated:
+          type: boolean
+          description: |
+            Tính ra, không lưu: bản nguồn sửa sau lần dịch gần nhất. Bỏ khỏi JSON
+            với chính bản nguồn.
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string, format: uuid }
 
     Theme:
       type: object

@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import vn.travel.booking.application.admin.ForbiddenException;
 import vn.travel.booking.application.shared.NotFoundException;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 
@@ -54,6 +57,30 @@ class ApiErrorHandler {
     ResponseEntity<ErrorResponse> khongTimThay(NotFoundException ex) {
         log.debug("404 NOT_FOUND: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(loi("NOT_FOUND"));
+    }
+
+    /**
+     * Chưa đăng nhập. Trả 401 kèm mã, <b>không</b> chuyển hướng tới trang đăng
+     * nhập — đây là API, không phải trang web có form.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ErrorResponse> chuaDangNhap(AuthenticationException ex) {
+        log.debug("401 UNAUTHENTICATED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(loi("UNAUTHENTICATED"));
+    }
+
+    /**
+     * Đã đăng nhập nhưng không đủ quyền.
+     *
+     * <p>Hai nguồn: {@code @PreAuthorize} ở controller (sai vai trò) và
+     * {@code ForbiddenException} ở tầng nghiệp vụ (đúng vai trò nhưng sai việc —
+     * ví dụ người dịch sửa bản ngôn ngữ nguồn). Cùng một mã ra ngoài, vì với
+     * người dùng thì cả hai đều là "bạn không được làm việc này".
+     */
+    @ExceptionHandler({AccessDeniedException.class, ForbiddenException.class})
+    ResponseEntity<ErrorResponse> khongDuQuyen(Exception ex) {
+        log.debug("403 FORBIDDEN: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(loi("FORBIDDEN"));
     }
 
     @ExceptionHandler(UnsupportedLocaleException.class)

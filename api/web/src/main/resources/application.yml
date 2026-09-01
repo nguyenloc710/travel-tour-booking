@@ -13,6 +13,16 @@ spring:
     # Migration chạy lúc triển khai, TRƯỚC khi container nhận traffic — docs/12 mục 8.
     baseline-on-migrate: false
 
+  jpa:
+    # Flyway sở hữu lược đồ. Hibernate CHỈ được kiểm, không được tạo hay sửa —
+    # khuôn mượn của dự án trước (docs/15 mục 2). Để ddl-auto sinh bảng là có
+    # hai nguồn sự thật cho lược đồ, và chúng sẽ lệch nhau.
+    hibernate:
+      ddl-auto: validate
+    # Không mở phiên JPA suốt vòng đời request: truy vấn lười nổ ở tầng view là
+    # thứ không ai thấy cho tới khi nó chậm trên production.
+    open-in-view: false
+
   jackson:
     # Trường rỗng bỏ hẳn khỏi JSON, không trả null — docs/13 mục 4.
     default-property-inclusion: non_null

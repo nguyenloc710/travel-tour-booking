@@ -2,6 +2,7 @@
 # Không thêm dependency mới mà chưa hỏi — CLAUDE.md quy tắc 8.
 
 [versions]
+mapstruct = "1.6.3"
 java = "21"
 springBoot = "4.1.1"
 postgresql = "42.7.7"
@@ -13,6 +14,16 @@ openapiGenerator = "7.14.0"
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
+# Ba dependency của đợt 2 — docs/15 mục 4. Không cái nào là lựa chọn tự do:
+#   · data-jpa   — docs/10 mục 6 chốt JPA cho CRUD quản trị
+#   · security   — docs/13 mục 10 chốt phiên đăng nhập cho nhân viên
+#   · mapstruct  — docs/15 mục 2, mượn khuôn của dự án trước: entity sang DTO
+#                  luôn qua mapper sinh ra, không map tay trong service
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
+mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
 

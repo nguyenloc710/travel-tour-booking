@@ -108,6 +108,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Tầng nội dung biên tập: chủ đề, khách sạn, tham quan, lịch trình, bài viết, thẻ, buổi thuyết trình | ✔ `12` mục 4.8–4.11 và `V3` — 17 bảng, 12 test |
 | API cho tầng nội dung đó: `/themes`, `?theme=`, `/itinerary`, `/hotels`, `/departures`, `/posts`, `/lectures` | ✔ spec v0.4, 15 test tích hợp + 11 test domain |
 | Giải trạng thái ngày khởi hành ở `domain` (`14` mục 5) | ✔ hàm thuần, 11 test JUnit không context |
+| Đăng nhập nhân viên, phiên cookie `HttpOnly`, ma trận quyền `22` mục 2.1 | ✔ 12 test |
+| Đường **ghi** đầu tiên: sửa bản dịch sản phẩm qua JPA + MapStruct, cột kiểm toán tự điền | ✔ |
 | `GET /site-info` | ✗ `13` mục 9.1 mới nói bốn chữ — chưa đủ để dựng bảng, ghi ở `12` mục 10 |
 | Trang điểm đến ở `web/` | ✗ API đã có, frontend chưa dùng |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
@@ -255,6 +257,19 @@ Ba cái từ lần thêm `V2`:
 - **`AFTER UPDATE OF slug`** chứ không phải `AFTER UPDATE`: sửa tiêu đề không
   được sinh dòng lịch sử slug
 
+Ba cái từ đợt 2:
+
+- **CSRF chặn lời gọi của người CHƯA đăng nhập thì ra 401, không phải 403.**
+  Spring dịch `AccessDeniedException` của người ẩn danh thành entry point. Triệu
+  chứng: đăng nhập đúng mật khẩu vẫn 401, và log xác thực sạch trơn vì yêu cầu
+  chưa bao giờ tới controller
+- **`changeSessionId()` ném lỗi khi chưa có phiên nào** — mà lời gọi đăng nhập
+  đầu tiên chính là lúc đó. Phải `getSession(true)` nếu chưa có
+- **`@CreatedDate` trên `OffsetDateTime` nổ** với *"Cannot convert unsupported
+  date type LocalDateTime"*. Không vá bằng `DateTimeProvider` mà bỏ hẳn: cả
+  `created_at` lẫn `last_modified_at` đều để **cơ sở dữ liệu** sở hữu, đúng như
+  `11` mục 11.1 đã ghi
+
 Hai cái từ đợt 1b:
 
 - **`GUARANTEED` xét TRƯỚC `FEW_SEATS`** (`14` mục 5) — và chính tôi đặt kỳ vọng
@@ -367,3 +382,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Viết `15-ke-hoach-dung-be` sau khi đối chiếu repo `comic-social-network-be`; làm đợt 1a: API điểm đến, spec v0.3 | Đợt 1b chặn ở `12` thiếu bảng nội dung |
 | 01/09/2026 | Bổ sung `12` mục 4.8–4.11 và viết `V3`: 17 bảng nội dung biên tập, 12 test | `site_info` vẫn để ngỏ; chưa endpoint nào dùng 17 bảng này |
 | 01/09/2026 | Đợt 1b: spec v0.4, 7 endpoint đọc còn thiếu, giải trạng thái ngày khởi hành ở `domain` | Xong danh mục đọc của `13` mục 9.1 trừ `/site-info`. Tổng 102 test |
+| 01/09/2026 | Đợt 2: spec v0.5, Spring Security phiên cookie, entity JPA đầu tiên, MapStruct, `AuditorAware` | Tổng 114 test. Ba dependency mới, đều do tài liệu đã chốt |
