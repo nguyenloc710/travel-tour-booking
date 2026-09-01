@@ -1,0 +1,37 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Hai gói này cần chạy script cài đặt. Đã xem và đồng ý từng cái:
+allowBuilds:
+  # Tải JAR openapi-generator về máy — chính là công cụ sinh TS client.
+  '@openapitools/openapi-generator-cli': true
+  # Bộ giải đường dẫn native của eslint-plugin-import; thiếu nó thì lint hỏng.
+  unrs-resolver: true
+
+# Phiên bản tập trung một chỗ, giống libs.versions.toml bên api/.
+# Đổi ở đây, không đổi rải rác trong từng package.json.
+# Không thêm dependency mới mà chưa hỏi — CLAUDE.md quy tắc 8.
+catalog:
+  next: 16.3.3
+  react: 19.2.8
+  react-dom: 19.2.8
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
+  '@types/node': ^24.0.0
+
+  # TypeScript 7 đã ra (bản Go native) nhưng scaffolding giữ 5.9 vì Next 16 và
+  # eslint-config-next mới chỉ được kiểm với dòng 5.x. Nâng lên 7 là một PR riêng.
+  typescript: 5.9.3
+
+  eslint: ^9.0.0
+  eslint-config-next: 16.3.3
+
+  vitest: 4.1.11
+
+  # Sinh TS client từ contracts/openapi.yaml. CÙNG công cụ với phía Java để hai
+  # bên không lệch cách diễn giải spec.
+  '@openapitools/openapi-generator-cli': 2.41.0
+
+  # Đọc openapi.yaml trong bộ kiểm tương thích ngược. Không phụ thuộc gì thêm.
+  yaml: ^2.6.0

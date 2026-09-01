@@ -1,0 +1,26 @@
+{
+  "name": "travel-web",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter site dev",
+    "dev:admin": "pnpm --filter admin dev",
+    "build": "pnpm run contracts:generate:ts && pnpm -r build",
+    "typecheck": "pnpm run contracts:generate:ts && pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "contracts:generate": "node scripts/contracts-generate.mjs",
+    "contracts:generate:ts": "pnpm --filter @travel/api-client run generate",
+    "contracts:check": "node scripts/contracts-check.mjs",
+    "docs:check": "python ../scripts/docs_check.py"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "yaml": "catalog:"
+  }
+}

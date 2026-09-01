@@ -1,0 +1,23 @@
+{
+  "name": "@travel/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "generate": "openapi-generator-cli generate -i ../../../contracts/openapi.yaml -g typescript-fetch -o ./src --additional-properties=supportsES6=true --global-property=apis,models,supportingFiles && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "catalog:",
+    "typescript": "catalog:"
+  }
+}

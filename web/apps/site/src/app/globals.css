@@ -1,0 +1,259 @@
+/*
+ * Nền tạm cho scaffolding. Design system thật nằm ở docs/21 — chưa viết.
+ *
+ * Ràng buộc đã áp dụng ngay từ đây (web/CLAUDE.md mục 6, khách là người lớn
+ * tuổi Bắc Âu — không phải mô tả cho vui mà là ràng buộc thiết kế):
+ *   · cỡ chữ thân bài tối thiểu 16px, dòng giãn 1.6
+ *   · vùng chạm tối thiểu 44×44px
+ *   · không dùng hover làm điều kiện duy nhất để lộ thông tin
+ *
+ * FONT: bộ font dưới đây phải hiển thị đúng CẢ HAI dòng này. Thử lại mỗi lần
+ * đổi font, và thử cả trong file SVG lẫn ảnh có chữ:
+ *   Strand og øer på tværs
+ *   Điểm cuối · Hội An · Vịnh Hạ Long
+ */
+
+:root {
+  --mau-chu: #1a1a1a;
+  --mau-nen: #ffffff;
+  --mau-vien: #d4d4d4;
+  --mau-nhan-manh: #1f3a66;
+  --mau-canh-bao-nen: #fbf3e4;
+  --mau-canh-bao-vien: #b8860b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Noto Sans', system-ui, -apple-system, sans-serif;
+  font-size: 1rem; /* 16px tối thiểu */
+  line-height: 1.6;
+  color: var(--mau-chu);
+  background: var(--mau-nen);
+}
+
+a {
+  color: var(--mau-nhan-manh);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--mau-nen);
+  border: 2px solid var(--mau-nhan-manh);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--mau-vien);
+}
+.site-header__name {
+  margin: 0;
+  font-weight: 700;
+}
+.site-header__contact {
+  margin: 0;
+  display: flex;
+  gap: 1rem;
+}
+.site-header__contact a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.market-banner {
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  background: var(--mau-canh-bao-nen);
+  border-bottom: 2px solid var(--mau-canh-bao-vien);
+}
+
+main {
+  padding: 1.5rem;
+  max-width: 48rem;
+}
+
+.region-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.region-list__item {
+  padding: 0.75rem 0;
+  min-height: 44px;
+  border-bottom: 1px solid var(--mau-vien);
+}
+.region-list__count {
+  color: #5a5a5a;
+}
+
+.skeleton-bar {
+  display: block;
+  height: 1.25rem;
+  width: 14rem;
+  background: #ececec;
+}
+
+.state {
+  padding: 1.5rem;
+  border: 1px solid var(--mau-vien);
+}
+.state__title {
+  margin-top: 0;
+  font-weight: 700;
+}
+.state--error {
+  border-color: var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+}
+
+.price-from__disclaimer {
+  display: block;
+  color: #5a5a5a;
+}
+
+/* ------------------------------------------------- Listing và trang chi tiết
+   Vùng chạm tối thiểu 44×44px và cỡ chữ tối thiểu 16px áp dụng cho mọi thứ ở
+   dưới đây — khách là người lớn tuổi Bắc Âu (web/CLAUDE.md mục 6). */
+
+.home__cta a,
+.detail__breadcrumb a {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
+
+.filters fieldset {
+  border: 1px solid var(--mau-vien);
+  padding: 1rem;
+}
+.filters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+}
+.filters__field label {
+  font-weight: 700;
+}
+.filters__field input,
+.filters__field select {
+  min-height: 44px;
+  font-size: 1rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--mau-vien);
+}
+.filters__actions button {
+  min-height: 44px;
+  font-size: 1rem;
+  padding: 0 1.25rem;
+  cursor: pointer;
+}
+
+.listing__total {
+  font-weight: 700;
+}
+
+.product-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+}
+
+.product-card {
+  border: 1px solid var(--mau-vien);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.product-card__image,
+.detail__image,
+.detail__map {
+  width: 100%;
+  height: auto;
+}
+.product-card__body {
+  padding: 1rem;
+}
+.product-card__title {
+  font-size: 1.25rem;
+  margin: 0.25rem 0;
+}
+.product-card__where,
+.product-card__rating {
+  color: #5a5a5a;
+  margin: 0.25rem 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--mau-vien);
+  font-size: 0.875rem;
+}
+.badge--new {
+  border-color: var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+}
+
+.skeleton-bar--image {
+  height: 10rem;
+  width: 100%;
+}
+.skeleton-bar--short {
+  width: 8rem;
+}
+
+/* Trạng thái phân trang là CHỮ, không phải dãy chấm tròn. */
+.pagination {
+  margin-top: 2rem;
+  border-top: 1px solid var(--mau-vien);
+  padding-top: 1rem;
+}
+.pagination__links {
+  display: flex;
+  gap: 1.5rem;
+}
+.pagination__links a {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
+
+.detail {
+  max-width: 46rem;
+}
+.detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  color: #5a5a5a;
+}
+.detail__summary {
+  font-size: 1.125rem;
+}
+.facts__list {
+  padding-left: 1.25rem;
+}
+.facts__note {
+  border: 1px solid var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+  padding: 0.75rem 1rem;
+}
