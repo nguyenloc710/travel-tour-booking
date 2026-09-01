@@ -251,7 +251,7 @@ dòng cũ vẫn chiếm khoá. Khoá thay thế cộng index bộ phận giải 
 
 ---
 
-## 4. Sản phẩm
+## 4. Sản phẩm và nội dung
 
 ### 4.1. Bảng gốc
 
@@ -582,6 +582,209 @@ thể và tên cột khoá ngoại làm tham số. `gen_random_uuid()` dùng ở
 UUID v7 sinh ở tầng ứng dụng vì không có tầng ứng dụng nào tham gia — đây là dòng
 do CSDL tự sinh.
 
+### 4.8. Chủ đề
+
+`13` mục 6 cho phép lọc `?theme=` lặp lại. Chủ đề là **phân loại ngang**, cắt qua
+miền và loại sản phẩm: một tour trekking miền Bắc và một tour trekking miền Trung
+cùng chủ đề nhưng khác mọi thứ khác.
+
+```sql
+CREATE TABLE theme (
+  id         UUID        PRIMARY KEY,
+  code       VARCHAR(32) NOT NULL,          -- 'TREKKING', 'RIVER_CRUISE'
+  sort_order SMALLINT    NOT NULL DEFAULT 0
+);
+
+CREATE TABLE theme_translation (
+  theme_id UUID         NOT NULL REFERENCES theme (id) ON DELETE CASCADE,
+  locale   VARCHAR(8)   NOT NULL REFERENCES locale (code),
+  slug     VARCHAR(160) NOT NULL,
+  name     VARCHAR(120) NOT NULL,
+  PRIMARY KEY (theme_id, locale),
+  CONSTRAINT ck_tht_slug CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')
+);
+
+CREATE TABLE product_theme (                -- nhóm C
+  product_id UUID NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+  theme_id   UUID NOT NULL REFERENCES theme (id),
+  PRIMARY KEY (product_id, theme_id)
+);
+```
+
+### 4.9. Khách sạn và tham quan
+
+```sql
+-- name KHÔNG nằm trong bảng dịch: tên riêng của khách sạn không dịch
+-- (24 mục 5). Chỉ phần mô tả mới là nội dung phải dịch.
+CREATE TABLE hotel (
+  id             UUID         PRIMARY KEY,
+  destination_id UUID         NOT NULL REFERENCES destination (id),
+  name           VARCHAR(160) NOT NULL,
+  stars          SMALLINT,
+  image          TEXT,
+  CONSTRAINT ck_hotel_stars CHECK (stars IS NULL OR stars BETWEEN 1 AND 5)
+);
+
+CREATE TABLE hotel_translation (
+  hotel_id    UUID       NOT NULL REFERENCES hotel (id) ON DELETE CASCADE,
+  locale      VARCHAR(8) NOT NULL REFERENCES locale (code),
+  description TEXT       NOT NULL,
+  PRIMARY KEY (hotel_id, locale)
+);
+
+CREATE TABLE excursion (
+  id             UUID        PRIMARY KEY,
+  destination_id UUID        NOT NULL REFERENCES destination (id),
+  code           VARCHAR(48) NOT NULL,
+  duration_hours SMALLINT,
+  image          TEXT,
+  CONSTRAINT ck_exc_duration CHECK (duration_hours IS NULL OR duration_hours BETWEEN 1 AND 24)
+);
+
+CREATE TABLE excursion_translation (
+  excursion_id UUID         NOT NULL REFERENCES excursion (id) ON DELETE CASCADE,
+  locale       VARCHAR(8)   NOT NULL REFERENCES locale (code),
+  name         VARCHAR(160) NOT NULL,
+  description  TEXT         NOT NULL,
+  PRIMARY KEY (excursion_id, locale)
+);
+
+CREATE TABLE product_hotel_stay (           -- nhóm C
+  product_id UUID     NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+  hotel_id   UUID     NOT NULL REFERENCES hotel (id),
+  nights     SMALLINT NOT NULL,
+  sort_order SMALLINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (product_id, hotel_id),
+  CONSTRAINT ck_phs_nights CHECK (nights >= 1)
+);
+```
+
+**Tham quan thuộc về điểm đến, không thuộc về sản phẩm.** Cùng một chuyến thăm
+Văn Miếu xuất hiện trong nhiều tour; gắn nó vào sản phẩm là chép mô tả ra nhiều
+bản rồi để chúng lệch nhau. Quy tắc kiểm 12 ở mục 9 đếm theo điểm đến vì vậy.
+
+**Tên khách sạn không dịch, mô tả thì có.** Đây là chỗ ranh giới "cái gì là nội
+dung" đi qua giữa hai cột của cùng một thực thể — `24` mục 5 liệt kê tên riêng
+của khách sạn, tàu và hãng bay vào nhóm không được đổi khi dịch.
+
+### 4.10. Lịch trình từng ngày
+
+```sql
+CREATE TABLE itinerary_day (
+  id             UUID     PRIMARY KEY,
+  product_id     UUID     NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+  day_number     SMALLINT NOT NULL,
+  destination_id UUID     REFERENCES destination (id),   -- NULL với ngày bay
+  hotel_id       UUID     REFERENCES hotel (id),
+  CONSTRAINT ck_itd_day CHECK (day_number >= 1)
+);
+
+CREATE TABLE itinerary_day_translation (
+  itinerary_day_id UUID         NOT NULL REFERENCES itinerary_day (id) ON DELETE CASCADE,
+  locale           VARCHAR(8)   NOT NULL REFERENCES locale (code),
+  title            VARCHAR(200) NOT NULL,
+  description      TEXT         NOT NULL,
+  PRIMARY KEY (itinerary_day_id, locale)
+);
+
+CREATE UNIQUE INDEX ux_itinerary_day
+  ON itinerary_day (product_id, day_number) WHERE NOT soft_delete;
+```
+
+`itinerary_day` **là thực thể, không phải bảng dòng chi tiết** — nó lệch khỏi
+nhóm C dù trông giống. Biên tập viên sửa từng ngày một, xoá một ngày rồi thêm
+lại ngày khác cùng số thứ tự, và mỗi ngày có nội dung phải dịch riêng. Vì thế nó
+nhận đủ năm cột, và khoá duy nhất phải là index bộ phận.
+
+**Độ dài mô tả không cưỡng chế bằng `CHECK`.** Quy tắc kiểm 11 ở mục 9 đòi mô tả
+mỗi ngày ≥ 80 ký tự, nhưng đó là kiểm **chất lượng nội dung**, không phải ràng
+buộc toàn vẹn: biến nó thành `CHECK` là chặn biên tập viên lưu bản nháp giữa
+chừng, và họ sẽ đối phó bằng cách gõ 80 ký tự rác.
+
+### 4.11. Bài viết, thẻ, buổi thuyết trình
+
+```sql
+CREATE TABLE tag (
+  id         UUID        PRIMARY KEY,
+  code       VARCHAR(32) NOT NULL,
+  sort_order SMALLINT    NOT NULL DEFAULT 0
+);
+
+CREATE TABLE tag_translation (
+  tag_id UUID         NOT NULL REFERENCES tag (id) ON DELETE CASCADE,
+  locale VARCHAR(8)   NOT NULL REFERENCES locale (code),
+  slug   VARCHAR(160) NOT NULL,
+  name   VARCHAR(120) NOT NULL,
+  PRIMARY KEY (tag_id, locale),
+  CONSTRAINT ck_tgt_slug CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')
+);
+
+CREATE TABLE post (
+  id           UUID PRIMARY KEY,
+  hero_image   TEXT,
+  published_at TIMESTAMPTZ,
+  author_id    UUID REFERENCES staff_user (id)
+);
+
+CREATE TABLE post_translation (             -- cùng khuôn product_translation
+  post_id       UUID         NOT NULL REFERENCES post (id) ON DELETE CASCADE,
+  locale        VARCHAR(8)   NOT NULL REFERENCES locale (code),
+  slug          VARCHAR(160) NOT NULL,
+  title         VARCHAR(200) NOT NULL,
+  excerpt       TEXT         NOT NULL,
+  body          TEXT[]       NOT NULL,
+  status        VARCHAR(16)  NOT NULL DEFAULT 'DRAFT',
+  translated_at TIMESTAMPTZ,
+  translated_by UUID         REFERENCES staff_user (id),
+  PRIMARY KEY (post_id, locale),
+  CONSTRAINT ck_pot_status CHECK (status IN ('DRAFT','TRANSLATED','PUBLISHED')),
+  CONSTRAINT ck_pot_slug   CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  CONSTRAINT ck_pot_body   CHECK (array_length(body, 1) >= 1)
+);
+
+CREATE TABLE post_tag (                     -- nhóm C
+  post_id UUID NOT NULL REFERENCES post (id) ON DELETE CASCADE,
+  tag_id  UUID NOT NULL REFERENCES tag (id),
+  PRIMARY KEY (post_id, tag_id)
+);
+
+CREATE TABLE lecture (
+  id          UUID         PRIMARY KEY,
+  market      VARCHAR(2)   NOT NULL REFERENCES market (code),
+  event_date  DATE         NOT NULL,
+  start_time  TIME,
+  city        VARCHAR(64)  NOT NULL,
+  venue       VARCHAR(160),
+  seats       SMALLINT     NOT NULL,
+  seats_taken SMALLINT     NOT NULL DEFAULT 0,
+  CONSTRAINT ck_lec_seats CHECK (seats > 0 AND seats_taken BETWEEN 0 AND seats)
+);
+
+CREATE TABLE lecture_translation (
+  lecture_id  UUID         NOT NULL REFERENCES lecture (id) ON DELETE CASCADE,
+  locale      VARCHAR(8)   NOT NULL REFERENCES locale (code),
+  title       VARCHAR(200) NOT NULL,
+  description TEXT         NOT NULL,
+  PRIMARY KEY (lecture_id, locale)
+);
+```
+
+Ba điều cố ý:
+
+1. **Bài viết không có cổng chặn thị trường ở v1.** `market` trong đường dẫn
+   `/{market}/posts` chỉ là quy ước chung của API công khai. Cần bài riêng cho
+   từng thị trường thì thêm `post_market` đúng khuôn `product_market` — đừng nhét
+   một cột `market` vào `post`, vì một bài có thể chạy ở cả hai.
+2. **Buổi thuyết trình thì ngược lại: thuộc về đúng một thị trường.** Buổi ở
+   Odense phục vụ khách Đan, buổi ở Hà Nội phục vụ khách Việt — hai sự kiện khác
+   nhau, cùng lý do với `departure` ở ADR-006.
+3. **Cột tên là `event_date`, không phải `date`.** `date` là tên kiểu dữ liệu của
+   Postgres; đặt làm tên cột thì mọi câu truy vấn phải trích dẫn nó. Cùng loại bẫy
+   với cột `collation` ở mục 3. Quy tắc kiểm 14 ở mục 9 vì thế đọc `lecture.event_date`.
+
+**Số chỗ còn lại của buổi thuyết trình là giá trị tính ra** — `seats − seats_taken`
+— không lưu thành cột thứ ba (`api/CLAUDE.md` mục 7).
+
 ---
 
 ## 5. Ngày khởi hành, giá, giữ chỗ
@@ -875,7 +1078,7 @@ rào chính". Chạy trong CI và chạy được tay trên bất kỳ môi trư
 | 11 | Mô tả mỗi ngày lịch trình ≥ 80 ký tự | Nội dung lấp chỗ trống |
 | 12 | Mỗi điểm đến có ≥ 1 khách sạn và ≥ 1 tham quan | Trang điểm đến rỗng |
 | 13 | Mọi `pax_type` của một thị trường có giá ở mọi `departure` của thị trường đó | Thiếu giá trẻ em |
-| 14 | `lecture.date` còn ngày trong tương lai | Trang sự kiện sẽ rỗng — cảnh báo trước |
+| 14 | `lecture.event_date` còn ngày trong tương lai | Trang sự kiện sẽ rỗng — cảnh báo trước |
 | 15 | Không có `seat_hold` quá hạn mà chưa `released_at` | Job quét hạn chết |
 | 16 | `last_modified_at >= created_at` ở mọi bảng có hai cột đó | Ứng dụng ghi đè sai, hoặc thiếu trigger |
 | 17 | Mọi bảng có `last_modified_at` đều có trigger `tg_*_last_modified` | Thêm bảng mới mà quên gắn trigger — cột "sửa lần cuối" đứng yên vĩnh viễn |
@@ -900,6 +1103,7 @@ hằng đêm trong CI, không chạy ở mỗi lần build.
 |---|---|
 | Chuyển `product.hero_image` và `map_image` sang tham chiếu `media_asset` | Ảnh đầu trang và ảnh bản đồ hiện không có chứng từ giấy phép. Đổi phá vỡ tương thích: phải tách hai lần triển khai theo mục 8 |
 | Ai được phép cấp vai trò `ADMIN`, và có cần hai người duyệt không | `22` mục 9 |
+| **Chưa có bảng `site_info`** — `13` mục 9.1 mới nói đúng bốn chữ "thị thực, mùa, tiền tệ, lệch giờ". Chưa đủ để dựng bảng; cần đặc tả nội dung trước | `GET /{market}/site-info` |
 | Số chỗ mặc định `capacity` của `GROUP_TOUR` lấy từ `max_pax` hay nhập riêng | DDL `departure` |
 | Có mã hoá cột số hộ chiếu ở v1 không | `booking_passenger`, `31` |
 | Thời hạn lưu dữ liệu cá nhân | Cột `retention_until`, job xoá |

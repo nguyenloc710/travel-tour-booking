@@ -106,7 +106,9 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Bộ lọc theo chủ đề (`?theme=`) | ✗ **`12` chưa có bảng `product_theme`** — đã ghi vào `13` mục 12 |
 | Sắp theo ngày khởi hành gần nhất | ✗ cần join `departure`, để G4 |
 | API điểm đến: `GET /destinations`, `/destinations/{slug}`, lọc sản phẩm theo điểm đến | ✔ spec v0.3, 10 test tích hợp |
-| Trang tìm kiếm riêng, bài viết, sự kiện, thông tin điểm đến | ✗ **chặn ở `12`**: chưa có bảng cho bài viết, lịch trình, khách sạn, buổi thuyết trình |
+| Tầng nội dung biên tập: chủ đề, khách sạn, tham quan, lịch trình, bài viết, thẻ, buổi thuyết trình | ✔ `12` mục 4.8–4.11 và `V3` — 17 bảng, 12 test |
+| API cho tầng nội dung đó | ✗ lược đồ đã có, chưa endpoint nào chạm tới |
+| `GET /site-info` | ✗ `13` mục 9.1 mới nói bốn chữ — chưa đủ để dựng bảng, ghi ở `12` mục 10 |
 | Trang điểm đến ở `web/` | ✗ API đã có, frontend chưa dùng |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
 | Đọc và ghi bốn nhóm bảng đó qua API | ✗ lược đồ đã có, chưa có endpoint nào chạm tới |
@@ -353,3 +355,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Bổ sung `12` mục 3.1, 4.6, 4.7, 6.1 và viết migration `V2` — 7 bảng, 1 trigger lưu slug cũ, 3 quy tắc kiểm mới | Chưa có endpoint nào dùng bốn nhóm bảng này |
 | 01/09/2026 | Chạy cổng G2 — qua có điều kiện, 6/7. Commit 6 lần, đẩy nhánh `dung-khung-va-loi-danh-muc` | Chưa mở PR: máy chưa cài `gh` |
 | 01/09/2026 | Viết `15-ke-hoach-dung-be` sau khi đối chiếu repo `comic-social-network-be`; làm đợt 1a: API điểm đến, spec v0.3 | Đợt 1b chặn ở `12` thiếu bảng nội dung |
+| 01/09/2026 | Bổ sung `12` mục 4.8–4.11 và viết `V3`: 17 bảng nội dung biên tập, 12 test | `site_info` vẫn để ngỏ; chưa endpoint nào dùng 17 bảng này |
