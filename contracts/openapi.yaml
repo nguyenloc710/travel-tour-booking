@@ -1,0 +1,508 @@
+openapi: 3.0.3
+
+# Nguồn sự thật của hợp đồng API (ADR-002). Viết tay, review như review code.
+#
+# Thứ tự bắt buộc khi đổi — CLAUDE.md mục "Đổi hợp đồng API":
+#   1. sửa file này          ← pull request riêng, có người duyệt
+#   2. pnpm contracts:generate
+#   3. sửa controller cho khớp interface mới
+#   4. sửa frontend
+#
+# Quy ước ở docs/13-hop-dong-api.md. Ba điều hay sai nhất:
+#   · market ở ĐƯỜNG DẪN, locale ở HEADER Accept-Language — không gộp
+#   · tiền là đối tượng, `amount` là CHUỖI, API không định dạng
+#   · lỗi trả MÃ kèm tham số, không trả câu tiếng người
+#
+# Phiên bản 0.1: chỉ một endpoint đọc, đủ để chứng minh spec-first sinh được cả
+# interface Java lẫn TS client và cả hai bên biên dịch sạch (cổng G2).
+#
+# Phiên bản 0.2: lõi danh mục (G3) — listing sản phẩm và trang chi tiết.
+
+info:
+  title: Travel Tour Booking API
+  version: 0.2.0
+  description: |
+    API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
+    hai ngôn ngữ (da, vi).
+
+servers:
+  - url: /
+    description: Cùng gốc với ứng dụng
+
+tags:
+  - name: regions
+    description: Miền — cấp phân loại địa lý trên cùng
+  - name: products
+    description: Sản phẩm — sáu loại, mỗi loại có bảng con riêng (ADR-005)
+
+paths:
+  /api/v1/{market}/regions:
+    get:
+      tags: [regions]
+      operationId: listRegions
+      summary: Danh sách miền kèm số sản phẩm
+      description: |
+        Số sản phẩm đếm theo **sản phẩm**, không cộng dồn từng điểm đến: một tour
+        ghé Hà Nội, Hạ Long và Ninh Bình chỉ tính một lần cho miền Bắc.
+
+        Đếm trong phạm vi `(market, locale)` đang xem. Miền không có sản phẩm nào
+        đã xuất bản ở thị trường này vẫn trả về, với `productCount` bằng 0.
+
+        Miền thiếu bản dịch cho locale yêu cầu thì **không xuất hiện** — chính
+        sách không-fallback của `docs/02` mục 4.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Danh sách miền
+          headers:
+            Content-Language:
+              schema: { type: string }
+              description: Ngôn ngữ thực tế của nội dung trả về
+            Vary:
+              schema: { type: string }
+              description: Luôn chứa Accept-Language
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Region'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/products:
+    get:
+      tags: [products]
+      operationId: listProducts
+      summary: Danh sách sản phẩm của một thị trường
+      description: |
+        Chỉ trả sản phẩm **đã xuất bản ở thị trường này** và **đã dịch sang locale
+        đang xem**. Sản phẩm thiếu bản dịch biến mất hoàn toàn — không listing,
+        không tìm kiếm, không hiện bản `da` thay thế (`docs/02` mục 4).
+
+        `totalItems` đếm trong phạm vi `(market, locale)`, nên **hai locale ra hai
+        con số khác nhau**. Đúng như thiết kế: frontend hiển thị đúng số này chứ
+        không hardcode.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: region
+          in: query
+          required: false
+          description: Slug miền **trong locale đang xem** — `nordvietnam` với `da`, `mien-bac` với `vi`.
+          schema:
+            type: string
+        - name: productType
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ProductType'
+        - name: q
+          in: query
+          required: false
+          description: |
+            Tìm trong tiêu đề, **không phân biệt dấu**: gõ `hoi an` ra `Hội An`,
+            gõ `halong` ra `Hạ Long`. Bỏ dấu ở tầng CSDL bằng `f_unaccent`.
+          schema:
+            type: string
+            maxLength: 100
+        - name: sort
+          in: query
+          required: false
+          description: |
+            Mặc định `title,asc`. `title` sắp theo collation của locale đang xem
+            (`da-DK-x-icu` xếp æ ø å **sau** z), sắp ở tầng CSDL chứ không ở Java.
+          schema:
+            $ref: '#/components/schemas/ProductSort'
+        - name: page
+          in: query
+          required: false
+          description: Đánh số từ 0. Phân trang theo offset — `docs/13` mục 6.
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 60
+            default: 24
+      responses:
+        '200':
+          description: Một trang sản phẩm
+          headers:
+            Content-Language:
+              schema: { type: string }
+            Vary:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/products/{slug}:
+    get:
+      tags: [products]
+      operationId: getProduct
+      summary: Chi tiết một sản phẩm
+      description: |
+        `slug` **phụ thuộc locale**: cùng một tour có slug khác nhau ở `da` và
+        `vi`, và slug của locale này không mở được ở locale kia.
+
+        Trả về **đúng một** đối tượng con theo `productType` (ADR-005). Nhờ
+        `discriminator`, generator sinh ra kiểu tổng — frontend quên xử lý một
+        loại là lỗi biên dịch, không phải màn hình trắng.
+
+        `404` gộp ba tình huống có chủ ý: không tồn tại, chưa dịch cho locale
+        này, chưa gán vào thị trường này. Phân biệt ra ngoài là rò rỉ thông tin
+        về sản phẩm chưa mở bán (`docs/13` mục 5.1).
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          description: Không dấu ở cả hai ngôn ngữ.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sản phẩm
+          headers:
+            Content-Language:
+              schema: { type: string }
+            Vary:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+components:
+
+  parameters:
+
+    Market:
+      name: market
+      in: path
+      required: true
+      description: |
+        Mã thị trường, chữ thường trong đường dẫn. Quyết định khách **mua** gì:
+        catalog, bảng giá, tiền tệ, cổng thanh toán, ràng buộc pháp lý.
+        Không suy ra từ locale.
+      schema:
+        type: string
+        enum: [dk, vn]
+
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: true
+      description: |
+        Locale, quyết định khách **đọc** bằng tiếng gì. Độc lập hoàn toàn với
+        market: khách Việt sống ở Đan Mạch mua ở `dk` nhưng đọc `vi`.
+      schema:
+        type: string
+        enum: [da, vi]
+
+  responses:
+
+    Error:
+      description: Lỗi
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    Region:
+      type: object
+      required: [slug, name, productCount]
+      properties:
+        slug:
+          type: string
+          description: Không dấu ở cả hai ngôn ngữ. Phụ thuộc locale.
+          example: nordvietnam
+        name:
+          type: string
+          example: Nordvietnam
+        productCount:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Đếm từ dữ liệu trong phạm vi (market, locale). Không hardcode.
+
+    ProductType:
+      type: string
+      description: |
+        Sáu loại sản phẩm, mỗi loại có bảng con riêng và ràng buộc nghiệp vụ
+        riêng — `docs/04`. `PRIVATE_TOUR` **không đặt trực tiếp được**: CTA là
+        "Yêu cầu báo giá".
+      enum:
+        - GROUP_TOUR
+        - INDIVIDUAL_PACKAGE
+        - PRIVATE_TOUR
+        - CRUISE
+        - COMBO
+        - DAY_TOUR
+
+    ProductSort:
+      type: string
+      description: Trường và chiều sắp xếp, phân tách bằng dấu phẩy — `docs/13` mục 6.
+      enum:
+        - 'title,asc'
+        - 'title,desc'
+        - 'priceFrom,asc'
+        - 'priceFrom,desc'
+        - 'durationDays,asc'
+        - 'durationDays,desc'
+      default: 'title,asc'
+
+    Ref:
+      type: object
+      description: Tham chiếu tới một thực thể khác — chỉ slug và tên, đã dịch sang locale đang xem.
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          example: nordvietnam
+        name:
+          type: string
+          example: Nordvietnam
+
+    ProductSummary:
+      type: object
+      description: |
+        Bản rút gọn dùng cho listing. **Không** chứa hành trình, khách sạn hay
+        ngày khởi hành — những thứ đó chỉ có ở trang chi tiết, và ngày khởi hành
+        thì không bao giờ được cache (`docs/13` mục 8).
+      required: [slug, title, productType, shortDescription, heroImage, heroImageAlt, region, destination, isNew, reviewCount]
+      properties:
+        slug: { type: string, example: vietnam-fra-nord-til-syd }
+        title: { type: string, example: Vietnam fra nord til syd }
+        productType: { $ref: '#/components/schemas/ProductType' }
+        shortDescription: { type: string }
+        heroImage: { type: string }
+        heroImageAlt:
+          type: string
+          description: Bắt buộc, và **phụ thuộc locale** — chữ alt cũng là nội dung phải dịch.
+        durationDays:
+          type: integer
+          format: int32
+          description: Bỏ hẳn khỏi JSON với `DAY_TOUR` — loại đó đo bằng giờ.
+        region: { $ref: '#/components/schemas/Ref' }
+        destination: { $ref: '#/components/schemas/Ref' }
+        priceFrom:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          description: |
+            Giá **thấp nhất** của thị trường này, không phải giá đã quy đổi tỷ
+            giá — mỗi thị trường có giá riêng do người nhập (`CLAUDE.md` điều 4).
+            Chưa có bảng giá thì **bỏ hẳn** trường này, frontend hiện "Liên hệ".
+        isNew: { type: boolean }
+        rating:
+          type: number
+          format: double
+          minimum: 1
+          maximum: 5
+        reviewCount: { type: integer, format: int32, minimum: 0 }
+
+    ProductPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProductSummary' }
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1 }
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Đếm trong phạm vi `(market, locale)` sau khi đã áp bộ lọc. Đây là con
+            số frontend phải hiển thị — "Xem tất cả 92 tour" không được hardcode.
+        totalPages: { type: integer, format: int32, minimum: 0 }
+
+    ProductDetailBase:
+      type: object
+      required: [slug, title, productType, shortDescription, longDescription, whyChooseThis, heroImage, heroImageAlt, region, destination, isNew, reviewCount]
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        productType:
+          # Cố tình là `string` trần chứ không $ref tới enum ProductType: đây là
+          # trường phân loại (discriminator), và openapi-generator sinh interface
+          # cha với kiểu String trong khi sinh lớp con với kiểu enum — hai chữ ký
+          # không tương thích và Java không biên dịch được. Kiểu cụ thể đã nằm ở
+          # chính lớp con rồi, nên không mất gì.
+          type: string
+          example: GROUP_TOUR
+        shortDescription: { type: string }
+        longDescription:
+          type: array
+          items: { type: string }
+          description: Từng đoạn văn một, không phải một khối HTML.
+        whyChooseThis:
+          type: array
+          items: { type: string }
+          minItems: 3
+          maxItems: 7
+        heroImage: { type: string }
+        heroImageAlt: { type: string }
+        mapImage: { type: string }
+        durationDays: { type: integer, format: int32 }
+        region: { $ref: '#/components/schemas/Ref' }
+        destination: { $ref: '#/components/schemas/Ref' }
+        priceFrom:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+        isNew: { type: boolean }
+        rating: { type: number, format: double }
+        reviewCount: { type: integer, format: int32 }
+
+    GroupTourDetail:
+      description: Đoàn ghép có trưởng đoàn. `guaranteedThreshold` là số khách tối thiểu để chuyến chắc chắn khởi hành.
+      allOf:
+        - $ref: '#/components/schemas/ProductDetailBase'
+        - type: object
+          required: [minPax, maxPax, guaranteedThreshold, tourLeaderLanguage, fitnessLevel]
+          properties:
+            minPax: { type: integer, format: int32 }
+            maxPax: { type: integer, format: int32 }
+            guaranteedThreshold: { type: integer, format: int32 }
+            tourLeaderLanguage:
+              type: string
+              description: |
+                Ngôn ngữ của trưởng đoàn. **Không phải** locale khách đang đọc —
+                khách Việt ở Đan Mạch đọc `vi` nhưng đi đoàn có trưởng đoàn nói `da`.
+            fitnessLevel: { type: integer, format: int32, minimum: 1, maximum: 4 }
+
+    IndividualPackageDetail:
+      description: Gói cá nhân, khách tự chọn ngày trong cửa sổ linh hoạt.
+      allOf:
+        - $ref: '#/components/schemas/ProductDetailBase'
+        - type: object
+          required: [minPartySize, flexibleDateWindowDays]
+          properties:
+            minPartySize: { type: integer, format: int32 }
+            flexibleDateWindowDays: { type: integer, format: int32 }
+
+    PrivateTourDetail:
+      description: |
+        Tour riêng — **không đặt trực tiếp được**. Bấm CTA sinh một yêu cầu báo
+        giá; giá cuối do tư vấn viên dựng.
+      allOf:
+        - $ref: '#/components/schemas/ProductDetailBase'
+        - type: object
+          required: [leadTimeDays, quoteValidDays]
+          properties:
+            leadTimeDays:
+              type: integer
+              format: int32
+              description: Ngày khởi hành sớm hơn số ngày này thì trả `LEAD_TIME_NOT_MET`.
+            quoteValidDays: { type: integer, format: int32 }
+
+    CruiseDetail:
+      description: Du thuyền. Ngày khởi hành trả **phẳng**, gộp theo ngày là việc của frontend.
+      allOf:
+        - $ref: '#/components/schemas/ProductDetailBase'
+        - type: object
+          required: [shipName, portCount]
+          properties:
+            shipName: { type: string }
+            portCount: { type: integer, format: int32 }
+
+    ComboDetail:
+      description: Bó cố định do nhân viên soạn, chỉ bán trong khoảng ngày hiệu lực.
+      allOf:
+        - $ref: '#/components/schemas/ProductDetailBase'
+        - type: object
+          required: [nights, validFrom, validTo]
+          properties:
+            nights: { type: integer, format: int32 }
+            validFrom: { type: string, format: date }
+            validTo: { type: string, format: date }
+
+    DayTourDetail:
+      description: Tour trong ngày. Đo bằng **giờ**, nên `durationDays` không có mặt.
+      allOf:
+        - $ref: '#/components/schemas/ProductDetailBase'
+        - type: object
+          required: [durationHours, cutoffHours]
+          properties:
+            durationHours: { type: integer, format: int32 }
+            cutoffHours:
+              type: integer
+              format: int32
+              description: Số giờ trước khi khởi hành thì đóng nhận đặt.
+
+    ProductDetail:
+      description: |
+        Kiểu tổng theo `productType` — ADR-005. Generator sinh ra union
+        TypeScript và interface Java, nên **quên xử lý một loại là lỗi biên dịch**.
+      oneOf:
+        - $ref: '#/components/schemas/GroupTourDetail'
+        - $ref: '#/components/schemas/IndividualPackageDetail'
+        - $ref: '#/components/schemas/PrivateTourDetail'
+        - $ref: '#/components/schemas/CruiseDetail'
+        - $ref: '#/components/schemas/ComboDetail'
+        - $ref: '#/components/schemas/DayTourDetail'
+      discriminator:
+        propertyName: productType
+        mapping:
+          GROUP_TOUR: '#/components/schemas/GroupTourDetail'
+          INDIVIDUAL_PACKAGE: '#/components/schemas/IndividualPackageDetail'
+          PRIVATE_TOUR: '#/components/schemas/PrivateTourDetail'
+          CRUISE: '#/components/schemas/CruiseDetail'
+          COMBO: '#/components/schemas/ComboDetail'
+          DAY_TOUR: '#/components/schemas/DayTourDetail'
+
+    Money:
+      type: object
+      description: |
+        `amount` là **chuỗi**, không phải số JSON — số dấu phẩy động của
+        JavaScript làm hỏng tiền. API không định dạng: không có "24.990 kr."
+        ở bất kỳ đâu trong phản hồi.
+      required: [amount, currency]
+      properties:
+        amount:
+          type: string
+          pattern: '^-?\d+(\.\d+)?$'
+          example: '24990.00'
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: DKK
+
+    ErrorResponse:
+      type: object
+      description: Mã lỗi kèm tham số. Frontend dịch — backend không trả câu tiếng người.
+      required: [code]
+      properties:
+        code:
+          type: string
+          example: NOT_FOUND
+        params:
+          type: object
+          additionalProperties: true
+        traceId:
+          type: string
