@@ -9,28 +9,41 @@ Backend: Java 21, Spring Boot, Gradle multi-module, PostgreSQL.
 > và bề mặt quản trị đầu tiên: đăng nhập phiên cookie, ma trận quyền, sửa bản
 > dịch sản phẩm. Chưa có tồn kho, giữ chỗ, đặt tour — đó là G4.
 
-## 0b. Đường đọc và đường ghi
+## 0b. Bố cục package
+
+Một module Gradle, chia theo feature — ADR-010:
+
+```
+vn.travel.booking.<feature>/{controller, dto, entity, mapper, repository, service}
+vn.travel.booking.common/{config, dto, entity, exception, mapper, money, repository, util}
+```
+
+Thêm tính năng mới thì **tạo feature mới theo đúng sáu thư mục con**, không nhét
+vào feature sẵn có.
+
+### Đường đọc và đường ghi
 
 Hai đường, hai công nghệ, `docs/10` mục 6 đã chốt:
 
 | Đường | Dùng | Ở đâu |
 |---|---|---|
-| Đọc cho website khách | SQL thuần + `JdbcTemplate` | `infrastructure/<feature>/Jdbc*QueryAdapter` |
-| Ghi cho trang quản trị | Spring Data JPA + MapStruct | `infrastructure/<feature>/{entity,repository,mapper}` |
-
-**Entity chỉ nằm ở `infrastructure`.** `application` khai báo cổng và bản ghi
-thuần; `web` không bao giờ thấy entity. ArchUnit canh cả hai chiều.
+| Đọc cho website khách | SQL thuần + `JdbcTemplate` | `<feature>/repository/*Repository` |
+| Ghi cho trang quản trị | Spring Data JPA + MapStruct | `<feature>/{entity,repository,mapper}` |
 
 Lược đồ do Flyway sở hữu, Hibernate chạy `ddl-auto: validate` — không được tạo
 hay sửa bảng nào.
 
+**Ba lõi tính toán phải giữ là hàm thuần**: `pricing/service/PricingEngine`,
+`departure/service/DepartureStatuses`, `booking/service/BookingStatuses`. Không
+tiêm gì vào chúng, không đọc đồng hồ, không chạm CSDL — từ khi bỏ bốn module thì
+không còn `archTest` canh, nên đây là việc của người rà soát mã.
+
 ## 0. Lệnh
 
 ```bash
-./gradlew build            # biên dịch + test (gồm cả archTest ở project gốc)
-./gradlew archTest         # chỉ kiểm ranh giới module
-./gradlew :web:bootRun     # chạy API, cần Postgres ở cổng 5432
-./gradlew :web:contractsGenerate   # sinh interface Java từ contracts/openapi.yaml
+./gradlew build            # biên dịch + test
+./gradlew bootRun          # chạy API, cần Postgres ở cổng 5432
+./gradlew contractsGenerate   # sinh interface Java từ contracts/openapi.yaml
 
 docker compose up -d       # Postgres 16, có ICU và contrib
 psql postgresql://travel:travel@localhost:5432/travel -f scripts/seed-dev.sql
@@ -40,31 +53,30 @@ psql postgresql://travel:travel@localhost:5432/travel -f scripts/seed-dev.sql
 bằng JDK 21 qua toolchain. `JAVA_HOME` còn trỏ JDK cũ thì đặt
 `org.gradle.java.home` trong `~/.gradle/gradle.properties`, không đặt trong repo.
 
-**Migration không tự chạy trong test của `domain` và `application`** — hai module
-đó không chạm CSDL, đúng như thiết kế.
+**Test quy tắc thuần không chạm CSDL** — `pricing`, `departure`, `booking` chạy
+bằng JUnit thuần trong vài mili giây, không dựng context Spring.
 
 ---
 
-## 1. Ranh giới module — ràng buộc quan trọng nhất
+## 1. Ranh giới — nay là quy ước, không phải hàng rào
+
+ADR-010 đổi bốn module Gradle thành một. Chiều phụ thuộc mong muốn vẫn như cũ:
 
 ```
-web  ──►  application  ──►  domain
-              │
-infrastructure┘
+controller  ──►  service  ──►  repository
+                    │
+                   dto, entity
 ```
 
-| Module | Được phụ thuộc | Tuyệt đối không |
+| Tầng | Được gọi | Không nên gọi |
 |---|---|---|
-| `domain` | Chỉ thư viện chuẩn Java | Spring, JPA, Jackson, **mọi annotation** |
-| `application` | `domain` | JPA, Spring Web |
-| `infrastructure` | `application`, `domain` | — |
-| `web` | `application`, `domain` | JPA trực tiếp |
+| `controller` | `service` | `repository` trực tiếp |
+| `service` | `service` khác, `repository` | `controller` |
+| `repository` | Cơ sở dữ liệu | `service` |
 
-**`domain` không được biết Spring tồn tại.** Engine tính giá, giải trạng thái
-ngày khởi hành, quy tắc lịch trình nằm ở đây và test bằng JUnit thuần trong vài
-mili giây — không dựng context, không CSDL.
-
-Kiểm bằng ArchUnit (`./gradlew archTest`), không dựa vào kỷ luật cá nhân.
+**Khác trước ở một điểm quan trọng:** không còn `archTest`, nên vi phạm không làm
+build đỏ. Cái mất đó ghi thẳng ở ADR-010, và người rà soát mã là hàng rào duy
+nhất còn lại.
 
 ### Ngày giờ
 
@@ -244,7 +256,7 @@ build đỏ ngay ở bước biên dịch.
 | Loại | Công cụ | Chạy ở |
 |---|---|---|
 | Quy tắc nghiệp vụ | JUnit 5 thuần | `domain` — nhanh, không context |
-| Ranh giới module | ArchUnit | `./gradlew archTest` |
+| Quy tắc thuần | JUnit 5 thuần | `pricing`, `departure`, `booking` |
 | Truy cập dữ liệu | Testcontainers + Postgres thật | `infrastructure` |
 | Controller | `@WebMvcTest` | `web` |
 

@@ -1,8 +1,4 @@
 rootProject.name = "travel-api"
 
-// Bốn module theo docs/10 mục 3. Ranh giới phụ thuộc kiểm bằng ArchUnit,
-// bài test nằm ở project gốc vì chỉ nơi đó mới nhìn thấy cả bốn.
-include("domain")
-include("application")
-include("infrastructure")
-include("web")
+// MỘT module. Chia theo feature ở tầng package: vn.travel.booking.<feature>/
+// {controller, dto, entity, mapper, repository, service} — ADR-010.

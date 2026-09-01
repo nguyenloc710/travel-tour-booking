@@ -49,8 +49,8 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 4 | `41-tinh-trang` | Đã duyệt — file này |
 | 4 | `42-quy-trinh-tai-lieu` | Đã duyệt |
 
-ADR-001 … ADR-006: đã chốt. ADR-007 (cổng thanh toán), ADR-008 (lưu ảnh),
-ADR-009 (phạm vi COMBO): chưa viết.
+ADR-001 … ADR-006 và ADR-010: đã chốt. ADR-007 (cổng thanh toán),
+ADR-008 (lưu ảnh), ADR-009 (phạm vi COMBO): chưa viết.
 
 Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
@@ -112,7 +112,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Đường **ghi** đầu tiên: sửa bản dịch sản phẩm qua JPA + MapStruct, cột kiểm toán tự điền | ✔ |
 | Engine giá ở `domain`: tám bước cộng dồn, làm tròn từng dòng, bậc giá, giảm đặt sớm, nâng hạng cabin | ✔ **31 test** JUnit thuần — `14` mục 9.1 tick đủ |
 | Tính giá, giữ chỗ, đặt tour, tra đơn — `POST /pricing/preview`, `/seat-holds`, `/bookings` | ✔ 19 test, gồm **test hai luồng giành chỗ cuối** |
-| Máy trạng thái đơn ở `domain` | ✔ 9 test |
+| Máy trạng thái đơn ở `booking/service` | ✔ 9 test |
+| **Gộp bốn module Gradle thành một, chia theo feature** | ✔ ADR-010 — mất `archTest` và 6 test ranh giới |
 | Tính bất biến khi gọi lại (`Idempotency-Key`) và job quét hạn có ShedLock | ✔ `V4` |
 | Thanh toán thật, webhook, email | ✗ đợt 5 — **Q-3** |
 | Khách tự huỷ đơn | ✗ có chủ ý: bậc huỷ và tỷ lệ hoàn chưa chốt (**Q-2**), `23` mục 8 |
@@ -405,3 +406,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Đợt 2: spec v0.5, Spring Security phiên cookie, entity JPA đầu tiên, MapStruct, `AuditorAware` | Tổng 114 test. Ba dependency mới, đều do tài liệu đã chốt |
 | 01/09/2026 | Đợt 3: engine giá thuần `domain` — 31 test, không context, không CSDL, không đồng hồ | Tổng 145 test. Chưa có endpoint tính giá; `VN` vẫn chờ Q-2 |
 | 01/09/2026 | Đợt 4: spec v0.6, `V4`, khoá bi quan, `Idempotency-Key`, máy trạng thái đơn, job quét có ShedLock | Tổng 173 test. `docs/14` mục 9.3 tick đủ |
+| 01/09/2026 | ADR-010: gộp bốn module thành một, chia theo feature như `comic-social-network-be` | 167 test (mất 6 test ranh giới cùng `archTest`) |

@@ -80,32 +80,37 @@ tài liệu.
 
 ---
 
-## 3. Module Gradle và ranh giới phụ thuộc
+## 3. Bố cục package — một module, chia theo feature
+
+ADR-010. Một module Gradle; ranh giới nằm ở tầng package:
 
 ```
-web  ──►  application  ──►  domain
-              │
-infrastructure┘   (hiện thực các interface do application khai báo)
+vn.travel.booking.
+  <feature>/
+    controller/   nhận HTTP, implements interface sinh từ spec
+    dto/          bản ghi thuần đi giữa các tầng
+    entity/       entity JPA — chỉ feature nào có đường ghi
+    mapper/       entity sang DTO, bằng MapStruct
+    repository/   truy cập cơ sở dữ liệu
+    service/      quy tắc nghiệp vụ và use case
+  common/{config, dto, entity, exception, mapper, money, repository, util}
 ```
 
-| Module | Được phụ thuộc vào | Tuyệt đối không |
-|---|---|---|
-| `domain` | Chỉ thư viện chuẩn Java | Spring, JPA, Jackson, bất cứ gì có annotation |
-| `application` | `domain` | JPA, Spring Web |
-| `infrastructure` | `application`, `domain` | — |
-| `web` | `application`, `domain` | JPA trực tiếp |
+Feature hiện có: `admin` · `auth` · `booking` · `departure` · `destination` ·
+`lecture` · `market` · `post` · `pricing` · `product` · `region` · `theme`.
 
-**`domain` không phụ thuộc Spring** là ràng buộc quan trọng nhất của tầng backend.
-Engine tính giá, giải trạng thái ngày khởi hành, quy tắc lịch trình đều nằm ở đây
-và test được bằng JUnit thuần trong vài mili giây, không cần dựng context Spring,
-không cần CSDL.
+**Thêm tính năng mới thì tạo feature mới theo đúng sáu thư mục con**, không nhét
+vào feature sẵn có.
 
-Đây là điều bản demo đã làm đúng ở `lib/pricing.ts`: hàm thuần, không đọc
-`Date.now()`, không gọi API, 24 test chạy tức thì. Giữ nguyên tính chất đó khi
-chuyển sang Java.
+Ba lõi tính toán — `pricing/service/PricingEngine`,
+`departure/service/DepartureStatuses`, `booking/service/BookingStatuses` — là
+**hàm thuần**: không nhận dependency, không đọc đồng hồ, không chạm cơ sở dữ
+liệu, test bằng JUnit thuần trong vài mili giây. Đây là điều bản demo đã làm đúng
+ở `lib/pricing.ts`, và là tính chất phải giữ.
 
-Ràng buộc này **kiểm được tự động** — thêm ArchUnit vào bộ test, không dựa vào
-kỷ luật cá nhân.
+> **Không còn `archTest`.** Trước đây bốn module Gradle cưỡng chế ranh giới này
+> bằng ArchUnit; ADR-010 đổi sang một module, nên ranh giới nay là **quy ước đọc
+> được**, không phải hàng rào. Cái mất được ghi thẳng trong ADR đó.
 
 ### 3.1. Ngày giờ
 

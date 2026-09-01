@@ -20,8 +20,8 @@ Không đặt ra giai đoạn mới. Năm đợt dưới đây nằm gọn trong
 
 `github.com/nguyenloc710/comic-social-network-be` — cùng người viết, đã chạy thật
 trên VPS. Stack gần: Java 21, Spring Boot 3.4.4, PostgreSQL 16, Gradle Kotlin
-DSL, Flyway với `ddl-auto: validate`. Khác ở chỗ nó là **một module Gradle chia
-theo feature**, còn dự án này là bốn module theo ranh giới phụ thuộc (`10` mục 3).
+DSL, Flyway với `ddl-auto: validate`, **một module Gradle chia theo feature**.
+Dự án này ban đầu dùng bốn module; ADR-010 đã đổi sang cùng khuôn.
 
 Giá trị lớn nhất của nó không phải là code mà là **những cái bẫy đã trả giá để
 biết**. Mục 2 nhận, mục 3 loại.
@@ -56,7 +56,7 @@ tài liệu SDK không ra, chỉ gặp mới biết.
 | Trả câu tiếng người từ `messages.properties` | `13` mục 5: API trả **mã lỗi kèm tham số**, frontend dịch. Backend dịch thì bản dịch tồn tại hai nơi và lệch nhau. `MessageSource` chỉ dùng cho email và PDF — thứ backend gửi thẳng tới khách |
 | JWT stateless trong `localStorage` | v1 không có đăng nhập cho khách. Nhân viên dùng phiên đăng nhập với cookie `HttpOnly` + `SameSite=Lax` (`13` mục 10); `22` mục 9 cấm token trong `localStorage` |
 | Test cần PostgreSQL cài sẵn ở `localhost:5432` | Ở đây dùng Testcontainers: test chạy được trên máy sạch và trên runner CI mà không cần ai cài gì trước |
-| Một module Gradle chia theo feature | Bốn module theo ranh giới phụ thuộc, cưỡng chế bằng ArchUnit (`10` mục 3). **Chia theo feature vẫn giữ, nhưng ở bên trong từng module** |
+| ~~Một module Gradle chia theo feature~~ | **Đã đổi ý ngày 01/09/2026 — nay mượn luôn.** ADR-010 gộp bốn module thành một và chia theo feature đúng khuôn bên kia. Cái mất, gồm cả `archTest`, ghi trong ADR đó |
 
 Ba dòng đầu không phải chuyện khẩu vị: mỗi dòng có một ADR hoặc một mục tài liệu
 đã duyệt đứng sau. Muốn đổi thì viết **ADR mới thay thế ADR cũ**, không sửa ADR
@@ -81,7 +81,7 @@ Mỗi đợt có đầu ra **đo được bằng một lệnh**, không phải b
 | | |
 |---|---|
 | **Làm** | Spring Security, phiên đăng nhập cookie; `role` và `staff_user_role` (đã có ở `V2`); `@PreAuthorize` theo ma trận `22` mục 2.1; MapStruct; `AuditorAware` lấy người đang đăng nhập |
-| **Ghi chú** | **Entity JPA đầu tiên xuất hiện ở đây**, nằm ở `infrastructure` |
+| **Ghi chú** | **Entity JPA đầu tiên xuất hiện ở đây**, nằm ở `<feature>/entity` |
 | **Xong khi** | Một tài khoản `TRANSLATOR` sửa được bản `vi` và **bị từ chối** khi sửa bản `da`, có test |
 
 ### Đợt 3 — engine giá
@@ -89,7 +89,7 @@ Mỗi đợt có đầu ra **đo được bằng một lệnh**, không phải b
 | | |
 |---|---|
 | **Làm** | Tám bước cộng dồn của `14` mục 2, làm tròn từng dòng, đặt cọc làm tròn xuống |
-| **Ở đâu** | Module `domain`, JUnit thuần, không dựng context, không chạm CSDL |
+| **Ở đâu** | `pricing/service`, JUnit thuần, không dựng context, không chạm CSDL |
 | **Chặn** | **Q-2** — sáu con số nghiệp vụ thị trường `VN` |
 | **Xong khi** | `deposit + balance = total` đúng tuyệt đối trên 20 đơn mẫu của **cả hai** thị trường; ≥ 24 test cho riêng engine giá |
 
