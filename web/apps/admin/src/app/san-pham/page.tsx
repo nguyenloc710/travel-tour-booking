@@ -96,13 +96,17 @@ function NoiDung() {
 
   return (
     <main>
-      <h1>Sản phẩm</h1>
-      <p className="phu">
-        Mọi trạng thái, mọi ngôn ngữ, mọi thị trường — khác hẳn website khách, nơi
-        sản phẩm chưa dịch hoặc chưa gán thị trường thì không tồn tại.
-      </p>
+      <div className="dau-trang">
+        <div>
+          <h1>Sản phẩm</h1>
+          <p className="phu">
+            Mọi trạng thái, mọi ngôn ngữ, mọi thị trường — khác hẳn website khách,
+            nơi sản phẩm chưa dịch hoặc chưa gán thị trường thì không tồn tại.
+          </p>
+        </div>
+      </div>
 
-      <div className="hang">
+      <div className="loc hang">
         <div>
           <label htmlFor="loai">Loại</label>
           <select

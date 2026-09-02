@@ -34,10 +34,32 @@ export default function BangDieuKhien() {
 
   return (
     <main>
-      <h1>Bảng điều khiển</h1>
-      <p className="phu">Việc cần làm hôm nay.</p>
+      <div className="dau-trang">
+        <div>
+          <h1>Bảng điều khiển</h1>
+          <p className="phu">Việc cần làm hôm nay.</p>
+        </div>
+      </div>
 
       {loi && <p className="loi">{loi}</p>}
+
+      <div className="dai-so">
+        <TheSo
+          nhan="Đang chờ dịch"
+          so={hangDoi?.length}
+          chu="bản ghi trong hàng đợi"
+        />
+        <TheSo
+          nhan="Gấp nhất"
+          so={hangDoi?.filter((v) => v.priority === 1).length}
+          chu="tour đang bán mà chưa dịch"
+        />
+        <TheSo
+          nhan="Bản dịch còn hạn"
+          so={doPhu?.reduce((t, r) => t + r.upToDate, 0)}
+          chu={`trên ${doPhu?.reduce((t, r) => t + r.total, 0) ?? '—'} bản ghi cần dịch`}
+        />
+      </div>
 
       <h2>Hàng đợi dịch</h2>
       <p className="phu">
@@ -123,6 +145,17 @@ export default function BangDieuKhien() {
         </table>
       )}
     </main>
+  );
+}
+
+/** Một con số lớn kèm nhãn. Chưa có dữ liệu thì hiện dấu — chứ không hiện 0. */
+function TheSo({ nhan, so, chu }: { nhan: string; so: number | undefined; chu: string }) {
+  return (
+    <div className="the-so">
+      <span>{nhan}</span>
+      <strong>{so ?? '—'}</strong>
+      <em>{chu}</em>
+    </div>
   );
 }
 

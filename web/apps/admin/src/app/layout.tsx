@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { ThanhTren } from '@/components/ThanhTren';
+import { Vo } from '@/components/Vo';
 
 /**
  * Không trang quản trị nào được dựng sẵn lúc build.
@@ -30,8 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi">
       <body>
-        <ThanhTren />
-        {children}
+        <Vo>{children}</Vo>
       </body>
     </html>
   );
