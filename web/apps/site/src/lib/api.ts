@@ -1,4 +1,10 @@
-import { Configuration, ProductsApi, RegionsApi, ResponseError } from '@travel/api-client';
+import {
+  Configuration,
+  DestinationsApi,
+  ProductsApi,
+  RegionsApi,
+  ResponseError,
+} from '@travel/api-client';
 import type { Locale, Market } from '@travel/i18n';
 import { marketSegment } from './market';
 
@@ -21,6 +27,10 @@ export function regionsApi(): RegionsApi {
 
 export function productsApi(): ProductsApi {
   return new ProductsApi(configuration());
+}
+
+export function destinationsApi(): DestinationsApi {
+  return new DestinationsApi(configuration());
 }
 
 /**

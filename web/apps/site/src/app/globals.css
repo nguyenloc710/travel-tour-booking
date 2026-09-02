@@ -257,3 +257,104 @@ main {
   background: var(--mau-canh-bao-nen);
   padding: 0.75rem 1rem;
 }
+
+/* ------------------------------------------------------------ điểm đến (R5, R6)
+
+   Khách của trang này là người lớn tuổi Bắc Âu (web/CLAUDE.md mục 6): cỡ chữ
+   thân bài tối thiểu 16px, vùng chạm tối thiểu 44×44px, và KHÔNG dùng hover làm
+   điều kiện duy nhất để lộ thông tin. Thẻ điểm đến vì thế có viền thấy được ở
+   trạng thái nghỉ, không phải chỉ hiện ra khi rê chuột. */
+
+.listing__intro {
+  max-width: 44rem;
+  margin: 0 0 2rem;
+}
+
+.dd-mien {
+  margin-bottom: 2.5rem;
+}
+
+.dd-mien h2 {
+  border-bottom: 1px solid var(--mau-vien);
+  padding-bottom: 0.4rem;
+}
+
+.dd-luoi {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+.dd-the {
+  border: 1px solid var(--mau-vien);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+}
+
+.dd-the h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.dd-the a {
+  /* Vùng chạm phủ hết tiêu đề, không chỉ mấy chữ ở giữa. */
+  display: block;
+  min-height: 44px;
+  color: var(--mau-nhan-manh);
+}
+
+.dd-tom-tat {
+  margin: 0 0 0.5rem;
+}
+
+.dd-so {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #555;
+}
+
+/* ------------------------------------------------------------ tìm tour (R2)
+
+   Mỗi lựa chọn là một LIÊN KẾT, không phải một nút chạy JavaScript: bộ lọc phải
+   chạy được khi không có JavaScript (docs/20 mục 5.1), và bước đang chọn nằm
+   trong URL nên F5 với dán link đều giữ nguyên. */
+
+.tf-buoc {
+  border: 1px solid var(--mau-vien);
+  border-radius: 6px;
+  padding: 1rem 1.1rem 1.25rem;
+  margin: 0 0 1.5rem;
+}
+
+.tf-buoc legend {
+  font-weight: 700;
+  padding: 0 0.4rem;
+}
+
+.tf-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.4rem 0.9rem;
+  margin: 0 0.5rem 0.5rem 0;
+  border: 1px solid var(--mau-vien);
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--mau-chu);
+}
+
+.tf-chip:hover {
+  border-color: var(--mau-nhan-manh);
+}
+
+/* Bước đang chọn phân biệt bằng NỀN và VIỀN, không chỉ bằng màu chữ — người
+   khó phân biệt màu vẫn thấy được. */
+.tf-chip[aria-current='true'] {
+  background: var(--mau-nhan-manh);
+  border-color: var(--mau-nhan-manh);
+  color: #fff;
+  font-weight: 600;
+}

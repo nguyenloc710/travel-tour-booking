@@ -16,6 +16,18 @@ export function laProductsSegment(locale: Locale, doan: string): boolean {
   return doan === productsSegment(locale);
 }
 
+export function destinationsSegment(locale: Locale): string {
+  return segmentFor('destinations', locale);
+}
+
+export function laDestinationsSegment(locale: Locale, doan: string): boolean {
+  return doan === destinationsSegment(locale);
+}
+
+export function laTourFinderSegment(locale: Locale, doan: string): boolean {
+  return doan === segmentFor('tourFinder', locale);
+}
+
 /**
  * Đường dẫn có kiểu.
  *
@@ -30,4 +42,14 @@ export function duongDanListing(locale: Locale, thamSo?: URLSearchParams): Route
 
 export function duongDanChiTiet(locale: Locale, slug: string): Route {
   return `/${locale}/${productsSegment(locale)}/${slug}` as Route;
+}
+
+export function duongDanDiemDen(locale: Locale, slug?: string): Route {
+  const goc = `/${locale}/${destinationsSegment(locale)}`;
+  return (slug ? `${goc}/${slug}` : goc) as Route;
+}
+
+export function duongDanTimTour(locale: Locale, thamSo?: URLSearchParams): Route {
+  const truyVan = thamSo?.toString();
+  return `/${locale}/${segmentFor('tourFinder', locale)}${truyVan ? `?${truyVan}` : ''}` as Route;
 }
