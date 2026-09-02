@@ -1,0 +1,261 @@
+/*
+ * Giao diện quản trị: một tệp CSS, không design system, không thư viện.
+ *
+ * Đây là công cụ nội bộ cho mười mấy người dùng hằng ngày. Thứ họ cần là bảng
+ * đọc được, nút bấm rõ và biểu mẫu không nhảy — không phải hoạt ảnh. Trang khách
+ * mới là chỗ đầu tư giao diện (docs/21).
+ *
+ * Phông chữ phải hiện đủ `æ ø å` lẫn dấu tiếng Việt: màn hình dịch song song đặt
+ * hai thứ cạnh nhau trên cùng một dòng (docs/21 mục 3.1).
+ */
+
+:root {
+  --muc: #1a1a1a;
+  --mo: #666;
+  --vien: #d8d8d8;
+  --nen: #fff;
+  --nen-phu: #f6f6f6;
+  --chinh: #0b5c3f;
+  --loi: #a11;
+  --canh-bao: #8a5a00;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muc);
+  background: var(--nen);
+}
+
+a {
+  color: var(--chinh);
+}
+
+/* ------------------------------------------------------------ khung */
+
+.thanh-tren {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--vien);
+  background: var(--nen-phu);
+}
+
+.thanh-tren strong {
+  font-size: 1rem;
+}
+
+.thanh-tren nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.thanh-tren .day-phai {
+  margin-left: auto;
+  color: var(--mo);
+  font-size: 0.9rem;
+}
+
+main {
+  padding: 1.5rem;
+  max-width: 1100px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 1.75rem 0 0.5rem;
+}
+
+.phu {
+  color: var(--mo);
+  font-size: 0.9rem;
+  margin: 0 0 1rem;
+}
+
+/* ------------------------------------------------------------ bảng */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--vien);
+  vertical-align: top;
+}
+
+th {
+  font-weight: 600;
+  color: var(--mo);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tbody tr:hover {
+  background: var(--nen-phu);
+}
+
+/* ------------------------------------------------------------ nhãn trạng thái */
+
+.nhan {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  border: 1px solid var(--vien);
+  white-space: nowrap;
+}
+
+.nhan.xanh {
+  background: #e7f3ec;
+  border-color: #b6d8c5;
+  color: var(--chinh);
+}
+
+.nhan.vang {
+  background: #fdf3e0;
+  border-color: #e6cf9e;
+  color: var(--canh-bao);
+}
+
+.nhan.xam {
+  background: var(--nen-phu);
+  color: var(--mo);
+}
+
+/* ------------------------------------------------------------ biểu mẫu */
+
+label {
+  display: block;
+  margin: 0.75rem 0 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--vien);
+  border-radius: 3px;
+  width: 100%;
+  max-width: 32rem;
+  background: var(--nen);
+  color: var(--muc);
+}
+
+textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+input[type='checkbox'] {
+  width: auto;
+}
+
+button {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--chinh);
+  border-radius: 3px;
+  background: var(--chinh);
+  color: #fff;
+  cursor: pointer;
+}
+
+button.phu {
+  background: var(--nen);
+  color: var(--muc);
+  border-color: var(--vien);
+  margin: 0;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hang {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.hang > * {
+  margin-top: 0;
+}
+
+/* ------------------------------------------------------------ thông báo */
+
+.loi,
+.xong,
+.trong {
+  padding: 0.6rem 0.8rem;
+  border-radius: 3px;
+  margin: 1rem 0;
+  font-size: 0.92rem;
+}
+
+.loi {
+  background: #fdeaea;
+  border: 1px solid #f0bcbc;
+  color: var(--loi);
+}
+
+.xong {
+  background: #e7f3ec;
+  border: 1px solid #b6d8c5;
+  color: var(--chinh);
+}
+
+.trong {
+  background: var(--nen-phu);
+  border: 1px dashed var(--vien);
+  color: var(--mo);
+}
+
+/* Khung xương lúc đang tải — KHÔNG dùng vòng xoay (docs/20 mục 4). */
+.dang-tai {
+  height: 1rem;
+  background: linear-gradient(90deg, #eee, #f6f6f6, #eee);
+  border-radius: 3px;
+  margin: 0.4rem 0;
+}
+
+/* ------------------------------------------------------------ dịch song song */
+
+.song-song {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.5rem;
+  max-width: none;
+}
+
+.song-song input,
+.song-song textarea {
+  max-width: none;
+}
+
+.song-song .chi-doc {
+  background: var(--nen-phu);
+  color: var(--mo);
+}
