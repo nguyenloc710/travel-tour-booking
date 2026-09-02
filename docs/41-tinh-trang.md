@@ -134,6 +134,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Con số nghiệp vụ thị trường `VN` | ✗ **Q-2** — engine chạy được, chỉ thiếu dữ liệu cấu hình |
 | `GET /site-info` | ✗ `13` mục 9.1 mới nói bốn chữ — chưa đủ để dựng bảng, ghi ở `12` mục 10 |
 | Trang điểm đến ở `web/` — danh sách R5, chi tiết R6, tìm tour R2 | ✔ cả hai locale; đoạn của locale kia trả 404 |
+| Sitemap theo locale và `robots.txt` | ✔ `/sitemap/da.xml` 12 URL · `/sitemap/vi.xml` 9 URL — chênh lệch chính là chính sách không-fallback |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
 | Đọc và ghi bốn nhóm bảng đó qua API | ✗ lược đồ đã có, chưa có endpoint nào chạm tới |
 | `product.hero_image` và `map_image` trỏ tới `media_asset` | ✗ đổi phá vỡ tương thích, phải tách hai lần triển khai — `12` mục 10 |

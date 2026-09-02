@@ -111,6 +111,13 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 | `DB_PASSWORD` | `travel` | **Có** ở `prod` |
 | `PORT` | `8080` | Không |
 
+Phía `web/` có thêm hai biến:
+
+| Biến | Mặc định | Dùng ở |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | Site khách gọi API từ phía máy chủ |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Sitemap và `robots.txt` — **URL tuyệt đối** |
+
 Mặc định dùng được là có chủ ý: người mới `git clone` rồi `docker compose up -d`
 rồi `./gradlew bootRun` là chạy. Bắt phải có file `.env` trước khi khởi động
 được lần đầu chỉ làm chậm mọi người, mà không an toàn hơn chút nào — mật khẩu
@@ -198,6 +205,9 @@ Danh sách này là **điều kiện chặn**, không phải gợi ý:
 
 - [ ] `DB_PASSWORD` thật, không phải `travel`
 - [ ] `logging.level.vn.travel.booking` hạ từ `DEBUG` xuống `INFO`
+- [ ] `NEXT_PUBLIC_SITE_URL` trỏ tên miền thật. Sitemap và `robots.txt` dùng URL
+      tuyệt đối; để nguyên `localhost` thì công cụ tìm kiếm bỏ qua **toàn bộ**,
+      và không có lỗi nào nổ
 - [ ] Cookie phiên đặt `Secure` — hiện mới có `HttpOnly` + `SameSite=Lax`
       (`22` mục 9)
 - [ ] HTTPS, và HTTP chuyển hướng sang HTTPS
