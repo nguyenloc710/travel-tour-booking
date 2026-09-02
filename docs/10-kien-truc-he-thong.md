@@ -239,7 +239,7 @@ collation và `unaccent`, mà đó chính là hai thứ dễ sai nhất của d�
 | 005 | Mỗi loại sản phẩm một bảng con | Đã chốt |
 | 006 | Ngày khởi hành thuộc về một thị trường | Đã chốt |
 | 007 | Cổng thanh toán từng thị trường | Chưa viết, chặn bởi `30` |
-| 008 | Lưu trữ ảnh | Chưa viết |
+| 008 | Lưu trữ ảnh | **Đề xuất** — chờ Q-6 |
 | 009 | `COMBO` bó cố định hay tồn kho thời gian thực | Chưa viết, xem `04` mục 10 |
 
 Một file một quyết định. Đổi ý thì viết ADR mới thay thế, **không sửa ADR cũ**.
