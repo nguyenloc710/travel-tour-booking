@@ -29,7 +29,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.8.0
+  version: 0.9.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -796,6 +796,31 @@ paths:
           $ref: '#/components/responses/Error'
 
 
+  /api/v1/admin/destinations:
+    get:
+      tags: [admin]
+      operationId: danhSachDiemDenQuanTri
+      summary: Điểm đến, để chọn khi tạo sản phẩm
+      description: |
+        Bề mặt công khai trả `slug` vì URL của khách dùng slug (`docs/13` mục 4).
+        Bề mặt quản trị cần **`id`**: đó là thứ `POST /admin/products` nhận, và
+        slug thì đổi được còn id thì không.
+
+        Không lọc theo thị trường và không đếm sản phẩm — đây là danh sách để
+        chọn trong một ô `select`, không phải trang danh mục.
+      responses:
+        '200':
+          description: Mọi điểm đến chưa xoá, sắp theo miền rồi tới tên
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminDestination'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
   /api/v1/admin/products/{id}:
     get:
       tags: [admin]
@@ -1919,6 +1944,18 @@ components:
         baseStatus: { type: string, enum: [OPEN, FEW_SEATS, SOLD_OUT, PENDING] }
         departureOriginId: { type: string, format: uuid }
 
+    AdminDestination:
+      type: object
+      required: [id, code, name, regionName]
+      properties:
+        id: { type: string, format: uuid }
+        code:
+          type: string
+          description: Mã nội bộ, không đổi — `HANOI`, `HOI_AN`.
+        name:
+          type: string
+          description: Tên ở **ngôn ngữ nguồn** (ADR-004). Trang quản trị dùng một ngôn ngữ.
+        regionName: { type: string }
     AdminDeparture:
       type: object
       required: [id, market, departDate, returnDate, days, baseStatus, capacity, seatsBooked, prices]

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminDeparture, AdminProductDetail } from '@travel/api-client';
 import { adminApi, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
+import { BangGia } from '@/components/BangGia';
 
 /**
  * Ngày khởi hành và bảng giá (docs/22 M4 và M5).
@@ -15,6 +16,7 @@ export function TabNgayKhoiHanh({ sp }: { sp: AdminProductDetail }) {
   const [ds, setDs] = useState<AdminDeparture[] | null>(null);
   const [loi, setLoi] = useState('');
   const [xong, setXong] = useState('');
+  const [dangSuaGia, setDangSuaGia] = useState<string | null>(null);
 
   const nap = useCallback(async () => {
     try {
@@ -76,6 +78,7 @@ export function TabNgayKhoiHanh({ sp }: { sp: AdminProductDetail }) {
               <th>Chỗ</th>
               <th>Trạng thái</th>
               <th>Giá phòng đôi</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -100,10 +103,27 @@ export function TabNgayKhoiHanh({ sp }: { sp: AdminProductDetail }) {
                       .join(' · ')
                   )}
                 </td>
+                <td>
+                  <button
+                    className="phu"
+                    onClick={() => setDangSuaGia(dangSuaGia === d.id ? null : d.id)}
+                  >
+                    {d.prices.length === 0 ? 'Nhập giá' : 'Sửa giá'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {dangSuaGia && ds && (
+        <BangGia
+          key={dangSuaGia}
+          ngay={ds.find((d) => d.id === dangSuaGia)!}
+          dong={() => setDangSuaGia(null)}
+          napLai={nap}
+        />
       )}
 
       <h2>Nhân bản lịch sang thị trường kia</h2>

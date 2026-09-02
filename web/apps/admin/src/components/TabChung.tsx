@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { AdminProductDetail, AdminProductPatch } from '@travel/api-client';
 import { adminApi, loiTiengViet } from '@/lib/api';
+import { TRUONG_THEO_LOAI, khoiBanDau, khoiGui } from '@/lib/loaiSanPham';
 
 /**
  * Thông tin chung và phần riêng của loại (docs/22 M3).
@@ -23,7 +24,7 @@ export function TabChung({
   const [mapImage, setMapImage] = useState(sp.mapImage ?? '');
   const [durationDays, setDurationDays] = useState(String(sp.durationDays ?? ''));
   const [isNew, setIsNew] = useState(sp.isNew);
-  const [khoi, setKhoi] = useState<Record<string, string>>(khoiBanDau(sp));
+  const [khoi, setKhoi] = useState<Record<string, string>>(khoiBanDau(sp, sp.productType));
   const [loi, setLoi] = useState('');
   const [xong, setXong] = useState('');
   const [dangLuu, setDangLuu] = useState(false);
@@ -125,76 +126,4 @@ export function TabChung({
       </p>
     </>
   );
-}
-
-/**
- * Trường riêng của từng loại — sáu bộ, khớp sáu bảng con của docs/12 mục 4.2.
- *
- * Gửi thiếu hoặc gửi sai bộ thì máy chủ trả `PRODUCT_TYPE_BLOCK_MISMATCH` kèm
- * tên khối cần có; giao diện chọn đúng bộ theo `productType` nên chuyện đó không
- * xảy ra từ đây.
- */
-const TRUONG_THEO_LOAI: Record<string, ReadonlyArray<readonly [string, string, string]>> = {
-  GROUP_TOUR: [
-    ['minPax', 'Số khách tối thiểu', 'number'],
-    ['maxPax', 'Số khách tối đa', 'number'],
-    ['guaranteedThreshold', 'Ngưỡng chắc chắn khởi hành', 'number'],
-    ['tourLeaderLanguage', 'Ngôn ngữ trưởng đoàn (da hoặc vi)', 'text'],
-    ['fitnessLevel', 'Mức thể lực (1–4)', 'number'],
-  ],
-  INDIVIDUAL_PACKAGE: [
-    ['minPartySize', 'Số khách tối thiểu', 'number'],
-    ['flexibleDateWindowDays', 'Cửa sổ ngày linh hoạt (ngày)', 'number'],
-  ],
-  PRIVATE_TOUR: [
-    ['leadTimeDays', 'Đặt trước tối thiểu (ngày)', 'number'],
-    ['quoteValidDays', 'Báo giá có hiệu lực (ngày)', 'number'],
-  ],
-  CRUISE: [
-    ['shipName', 'Tên tàu', 'text'],
-    ['portCount', 'Số cảng ghé', 'number'],
-  ],
-  COMBO: [
-    ['nights', 'Số đêm', 'number'],
-    ['validFrom', 'Hiệu lực từ (YYYY-MM-DD)', 'text'],
-    ['validTo', 'Hiệu lực đến (YYYY-MM-DD)', 'text'],
-  ],
-  DAY_TOUR: [
-    ['durationHours', 'Thời lượng (giờ)', 'number'],
-    ['cutoffHours', 'Đóng bán trước (giờ)', 'number'],
-  ],
-};
-
-const KHOI_THEO_LOAI: Record<string, string> = {
-  GROUP_TOUR: 'groupTour',
-  INDIVIDUAL_PACKAGE: 'individualPackage',
-  PRIVATE_TOUR: 'privateTour',
-  CRUISE: 'cruise',
-  COMBO: 'combo',
-  DAY_TOUR: 'dayTour',
-};
-
-function khoiBanDau(sp: AdminProductDetail): Record<string, string> {
-  const ten = KHOI_THEO_LOAI[sp.productType];
-  const k = ten
-    ? (sp as unknown as Record<string, Record<string, unknown> | undefined>)[ten]
-    : undefined;
-  if (!k) {
-    return {};
-  }
-  return Object.fromEntries(Object.entries(k).map(([a, b]) => [a, String(b ?? '')]));
-}
-
-function khoiGui(productType: string, gt: Record<string, string>): Record<string, unknown> {
-  const ten = KHOI_THEO_LOAI[productType];
-  const truong = TRUONG_THEO_LOAI[productType] ?? [];
-  if (!ten || truong.length === 0 || truong.some(([t]) => !gt[t])) {
-    // Thiếu một trường thì KHÔNG gửi khối nào: PATCH bỏ qua khối vắng mặt, còn
-    // gửi khối thiếu trường là chắc chắn 400.
-    return {};
-  }
-  const noiDung = Object.fromEntries(
-    truong.map(([t, , kieu]) => [t, kieu === 'number' ? Number(gt[t]) : gt[t]]),
-  );
-  return { [ten]: noiDung };
 }

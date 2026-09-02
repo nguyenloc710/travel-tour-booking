@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import vn.travel.booking.admin.dto.AdminProductQuery;
 import vn.travel.booking.admin.dto.AdminProductRow;
+import vn.travel.booking.admin.dto.DestinationOption;
 import vn.travel.booking.admin.dto.MarketState;
 import vn.travel.booking.admin.dto.TranslationState;
 import vn.travel.booking.common.dto.PagedResult;
@@ -89,6 +90,35 @@ public class AdminCatalogRepository {
 
         return new PagedResult<>(dienThemChiTiet(khung, localeNguon),
                 query.page(), query.size(), totalItems);
+    }
+
+    /**
+     * Điểm đến để chọn khi tạo sản phẩm.
+     *
+     * <p>Tên lấy ở <b>ngôn ngữ nguồn</b> — trang quản trị dùng một ngôn ngữ
+     * (docs/22 mục 8), và ngôn ngữ đó không nhất thiết là ngôn ngữ giao diện:
+     * nội dung thì luôn viết bằng ngôn ngữ nguồn trước (ADR-004).
+     *
+     * <p>Không lọc theo thị trường và không đếm sản phẩm. Đây là danh sách để
+     * chọn, không phải trang danh mục.
+     */
+    public List<DestinationOption> findDestinations(String localeNguon) {
+        return jdbc.query("""
+                SELECT d.id, d.code, dt.name, rt.name AS region_name
+                FROM destination d
+                JOIN destination_translation dt
+                  ON dt.destination_id = d.id AND dt.locale = ? AND NOT dt.soft_delete
+                JOIN region r
+                  ON r.id = d.region_id AND NOT r.soft_delete
+                JOIN region_translation rt
+                  ON rt.region_id = r.id AND rt.locale = ? AND NOT rt.soft_delete
+                WHERE NOT d.soft_delete
+                ORDER BY r.sort_order, d.sort_order, dt.name
+                """,
+                (rs, i) -> new DestinationOption(
+                        rs.getObject("id", UUID.class), rs.getString("code"),
+                        rs.getString("name"), rs.getString("region_name")),
+                localeNguon, localeNguon);
     }
 
     // ------------------------------------------------------------ lọc

@@ -66,7 +66,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
 | Bộ kiểm tài liệu | `scripts/docs_check.py` | Chạy được ngay, không cần cài gì |
 | Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), migration `V1`–`V4` |
-| Hợp đồng API | `contracts/openapi.yaml` | v0.7 |
+| Hợp đồng API | `contracts/openapi.yaml` | v0.9 |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
@@ -75,6 +75,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Migration `V2` | `12` mục 3.1, 4.6, 4.7, 6.1 · `V2__vai_tro_anh_hanh_khach_slug.sql` | 7 bảng: vai trò, ảnh kèm giấy phép, slug cũ, hành khách. 13 test |
 | **Ba màn hình đọc của trang quản trị** | `22` M2, M10, M12 · spec v0.7 · `admin/` | Danh sách sản phẩm, hàng đợi dịch, bảng độ phủ — **12 test** |
 | **Đường ghi của trang quản trị** | `22` M3, M4, M5 · spec v0.8 · `admin/` | Tạo/sửa/xoá mềm sản phẩm, gán thị trường, ngày khởi hành, nhân bản lịch, bảng giá, thang giá — **17 test** |
+| **Giao diện trang quản trị** | `web/apps/admin` · 5 màn hình | Đăng nhập, bảng điều khiển, danh sách, tạo tour, sửa 4 tab. Vòng mở bán khép kín **từ giao diện** |
 | Migration `V5` — `price_from` thành cột trigger sở hữu | `11` mục 12 · `12` mục 6.1 và quy tắc kiểm 5 | Ba trigger; dữ liệu mồi bỏ giá đặt tay, nay suy từ `departure_price` |
 
 ---

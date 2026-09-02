@@ -34,6 +34,7 @@ import vn.travel.booking.admin.dto.DepartureCreateInput;
 import vn.travel.booking.admin.dto.DeparturePatchInput;
 import vn.travel.booking.admin.dto.DeparturePriceInput;
 import vn.travel.booking.admin.dto.DeparturePriceView;
+import vn.travel.booking.admin.dto.DestinationOption;
 import vn.travel.booking.admin.dto.DepartureView;
 import vn.travel.booking.admin.dto.MarketState;
 import vn.travel.booking.admin.dto.PriceTierInput;
@@ -50,6 +51,7 @@ import vn.travel.booking.admin.dto.QueueItem;
 import vn.travel.booking.common.dto.PagedResult;
 import vn.travel.booking.web.generated.api.AdminApi;
 import vn.travel.booking.web.generated.model.AdminDeparture;
+import vn.travel.booking.web.generated.model.AdminDestination;
 import vn.travel.booking.web.generated.model.AdminDepartureCopy;
 import vn.travel.booking.web.generated.model.AdminDepartureCopyResult;
 import vn.travel.booking.web.generated.model.AdminDepartureCreate;
@@ -236,6 +238,18 @@ public class AdminController implements AdminApi {
         return khongCache().body(new AdminProductPage(
                 ket_qua.items().stream().map(AdminController::sang).toList(),
                 ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<List<AdminDestination>> danhSachDiemDenQuanTri() {
+        return khongCache().body(danhMuc.diemDen().stream()
+                .map(AdminController::sang)
+                .toList());
+    }
+
+    private static AdminDestination sang(DestinationOption d) {
+        return new AdminDestination(d.id(), d.code(), d.name(), d.regionName());
     }
 
     // ------------------------------------------------------------ việc dịch

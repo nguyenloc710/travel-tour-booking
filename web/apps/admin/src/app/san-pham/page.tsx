@@ -5,16 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import type { AdminProductPage, AdminProductSummary } from '@travel/api-client';
 import { adminApi, laChuaDangNhap, loiTiengViet } from '@/lib/api';
-
-const LOAI = [
-  ['', 'Mọi loại'],
-  ['GROUP_TOUR', 'Tour đoàn'],
-  ['INDIVIDUAL_PACKAGE', 'Tour cá nhân'],
-  ['PRIVATE_TOUR', 'Tour riêng'],
-  ['CRUISE', 'Du thuyền'],
-  ['COMBO', 'Combo'],
-  ['DAY_TOUR', 'Tour trong ngày'],
-] as const;
+import { LOAI, tenLoai } from '@/lib/loaiSanPham';
 
 /**
  * Danh sách sản phẩm (docs/22 M2).
@@ -104,6 +95,9 @@ function NoiDung() {
             nơi sản phẩm chưa dịch hoặc chưa gán thị trường thì không tồn tại.
           </p>
         </div>
+        <Link href="/san-pham/moi" style={{ marginLeft: 'auto' }}>
+          <button type="button">+ Tour mới</button>
+        </Link>
       </div>
 
       <div className="loc hang">
@@ -289,8 +283,4 @@ function ThiTruong({ sp }: { sp: AdminProductSummary }) {
       ))}
     </>
   );
-}
-
-function tenLoai(ma: string): string {
-  return LOAI.find(([m]) => m === ma)?.[1] ?? ma;
 }

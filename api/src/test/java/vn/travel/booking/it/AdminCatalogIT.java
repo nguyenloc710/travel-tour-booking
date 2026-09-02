@@ -20,6 +20,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.web.generated.model.AdminProductPage;
+import vn.travel.booking.web.generated.model.AdminDestination;
 import vn.travel.booking.web.generated.model.AdminProductSummary;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.TranslationCoverageRow;
@@ -278,6 +279,23 @@ class AdminCatalogIT {
         assertEquals(2, trang.getItems().size());
         assertEquals(4L, trang.getTotalItems());
         assertEquals(2, trang.getTotalPages());
+    }
+
+    @Test
+    @DisplayName("Điểm đến trả id chứ không trả slug — bề mặt quản trị dùng id")
+    void diemDenTraId() {
+        AdminDestination[] ds = dangNhap("editor@travel.test")
+                .lay("/api/v1/admin/destinations", AdminDestination[].class).getBody();
+
+        assertNotNull(ds);
+        assertEquals(1, ds.length);
+        // Bề mặt công khai trả slug vì URL của khách dùng slug; tạo sản phẩm thì
+        // cần id, và slug đổi được còn id thì không.
+        assertNotNull(ds[0].getId());
+        assertEquals("HANOI", ds[0].getCode());
+        // Tên ở NGÔN NGỮ NGUỒN, không phải ngôn ngữ giao diện quản trị.
+        assertEquals("Hanoi", ds[0].getName());
+        assertEquals("Nordvietnam", ds[0].getRegionName());
     }
 
     // ------------------------------------------------------------ M10
