@@ -220,6 +220,7 @@ locale)` đang xem. Không hardcode, kể cả ở nhãn nút "Xem tất cả N 
 | Canonical | Trỏ về URL **không có tham số bộ lọc** |
 | Trang có bộ lọc | `noindex, follow` |
 | Sitemap | Một file cho mỗi locale; trang chưa dịch không có mặt |
+| Slug cũ | Chuyển hướng **vĩnh viễn** sang slug mới, đọc `slug_history`. Next phát `308` chứ không `301` — cả hai là "chuyển vĩnh viễn" và công cụ tìm kiếm xử lý như nhau; `308` chặt hơn ở chỗ cấm đổi phương thức HTTP. Muốn đúng `301` thì phải chuyển việc này xuống `proxy.ts`, và khi đó **mọi** request trả giá cho một trường hợp hiếm |
 | Tiêu đề trang | `{tên trang} · {tên site}`, tên trang lấy từ nội dung đã dịch |
 | Mô tả | Lấy `shortDescription` của bản dịch, không tự sinh |
 

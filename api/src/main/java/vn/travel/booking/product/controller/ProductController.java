@@ -10,6 +10,7 @@ import vn.travel.booking.product.dto.DepartureView;
 import vn.travel.booking.product.service.ProductService;
 import vn.travel.booking.product.service.ProductService;
 import vn.travel.booking.product.service.ProductContentService;
+import vn.travel.booking.product.service.SlugRedirectService;
 import vn.travel.booking.product.dto.ProductQuery;
 import vn.travel.booking.web.generated.api.ProductsApi;
 import vn.travel.booking.web.generated.model.Departure;
@@ -17,6 +18,7 @@ import vn.travel.booking.web.generated.model.DepartureStatus;
 import vn.travel.booking.web.generated.model.HotelStay;
 import vn.travel.booking.web.generated.model.ItineraryDay;
 import vn.travel.booking.web.generated.model.ProductDetail;
+import vn.travel.booking.web.generated.model.SlugRedirect;
 import vn.travel.booking.web.generated.model.ProductPage;
 import vn.travel.booking.web.generated.model.ProductSort;
 import vn.travel.booking.web.generated.model.ProductType;
@@ -35,10 +37,14 @@ public class ProductController implements ProductsApi {
 
     private final ProductService products;
     private final ProductContentService noiDung;
+    private final SlugRedirectService slugCu;
 
-    public ProductController(ProductService products, ProductContentService noiDung) {
+    public ProductController(ProductService products,
+                             ProductContentService noiDung,
+                             SlugRedirectService slugCu) {
         this.products = products;
         this.noiDung = noiDung;
+        this.slugCu = slugCu;
     }
 
     @Override
@@ -74,6 +80,24 @@ public class ProductController implements ProductsApi {
         // Listing sản phẩm: 60 giây. Ngày khởi hành và giá thì no-store —
         // docs/13 mục 8. Chỗ còn thay đổi từng phút không được cache.
         return phanHoi(locale, Duration.ofMinutes(1)).body(than);
+    }
+
+    /**
+     * Slug cũ trỏ tới đâu bây giờ.
+     *
+     * <p>Cache <b>một ngày</b>, dài hơn mọi endpoint khác của bề mặt công khai:
+     * slug cũ không đổi nữa. Bản ghi đích có thể đổi slug lần thứ hai, nhưng khi
+     * đó dòng cũ vẫn trỏ đúng entity — trigger {@code trg_luu_slug_cu} ghi thêm
+     * dòng mới chứ không sửa dòng cũ.
+     */
+    @Override
+    public ResponseEntity<SlugRedirect> resolveSlug(
+            String market, String acceptLanguage, String type, String slug) {
+
+        String locale = RequestScope.locale(acceptLanguage);
+        String moi = slugCu.giai(RequestScope.market(market), locale, type, slug);
+
+        return phanHoi(locale, Duration.ofDays(1)).body(new SlugRedirect(moi));
     }
 
     @Override

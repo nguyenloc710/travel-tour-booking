@@ -20,6 +20,7 @@ import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.GroupTourDetail;
 import vn.travel.booking.web.generated.model.ProductPage;
 import vn.travel.booking.web.generated.model.ProductSummary;
+import vn.travel.booking.web.generated.model.SlugRedirect;
 
 import java.util.List;
 import java.util.Map;
@@ -445,6 +446,74 @@ class ProductEndpointIT {
         assertTrue(than.contains("NOT_FOUND"));
         assertFalse(than.toLowerCase().contains("not found for"),
                 "Thân lỗi chỉ được chứa mã và tham số — câu chữ là việc của frontend");
+    }
+
+    // ------------------------------------------------------------ slug cũ
+
+    @Test
+    @DisplayName("Đổi slug thì slug cũ chuyển hướng sang slug mới")
+    void slugCuTroSangSlugMoi() {
+        // Trigger trg_luu_slug_cu ghi slug_history, không phải mã ứng dụng —
+        // nên bài test này đổi slug bằng UPDATE thật, đúng đường mà trang quản
+        // trị đi qua.
+        jdbc.update("""
+                UPDATE product_translation SET slug = 'vietnam-nord-syd-2027'
+                WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND locale = 'da'
+                """);
+
+        ResponseEntity<SlugRedirect> phanHoi = goi(
+                "/api/v1/dk/redirects/PRODUCT/vietnam-fra-nord-til-syd", "da", SlugRedirect.class);
+
+        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
+        assertEquals("vietnam-nord-syd-2027", phanHoi.getBody().getSlug());
+    }
+
+    @Test
+    @DisplayName("KHÔNG chuyển hướng khi đích không xem được ở thị trường này")
+    void khongChuyenHuongToiNgoCut() {
+        jdbc.update("""
+                UPDATE product_translation SET slug = 'vietnam-nord-syd-2027'
+                WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND locale = 'da'
+                """);
+        // Gỡ khỏi thị trường DK: slug cũ vẫn còn trong slug_history, nhưng slug
+        // mới ở DK cũng trả 404. Chuyển hướng tới một trang 404 tệ hơn hẳn một
+        // trang 404 thẳng — khách đi một vòng rồi vẫn không thấy gì.
+        jdbc.update("""
+                UPDATE product_market SET is_published = FALSE
+                WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND market = 'DK'
+                """);
+
+        assertEquals(HttpStatus.NOT_FOUND, goi(
+                "/api/v1/dk/redirects/PRODUCT/vietnam-fra-nord-til-syd",
+                "da", ErrorResponse.class).getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Slug hiện tại không phải slug cũ — trả 404, không tự trỏ về chính nó")
+    void slugHienTaiKhongPhaiSlugCu() {
+        // Chuyển hướng một URL về chính nó là một vòng lặp; trình duyệt dừng lại
+        // và báo lỗi, còn công cụ tìm kiếm bỏ trang đó.
+        assertEquals(HttpStatus.NOT_FOUND, goi(
+                "/api/v1/dk/redirects/PRODUCT/vietnam-fra-nord-til-syd",
+                "da", ErrorResponse.class).getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Slug cũ của locale này không dùng được ở locale kia")
+    void slugCuPhuThuocLocale() {
+        jdbc.update("""
+                UPDATE product_translation SET slug = 'viet-nam-2027'
+                WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND locale = 'vi'
+                """);
+
+        // Slug cũ vừa sinh ra thuộc locale `vi`; hỏi bằng `da` thì không thấy.
+        assertEquals(HttpStatus.NOT_FOUND, goi(
+                "/api/v1/dk/redirects/PRODUCT/viet-nam-tu-bac-vao-nam",
+                "da", ErrorResponse.class).getStatusCode());
+
+        assertEquals("viet-nam-2027", goi(
+                "/api/v1/vn/redirects/PRODUCT/viet-nam-tu-bac-vao-nam",
+                "vi", SlugRedirect.class).getBody().getSlug());
     }
 
     // ------------------------------------------------------------ tiện ích

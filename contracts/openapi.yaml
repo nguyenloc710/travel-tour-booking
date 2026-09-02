@@ -29,7 +29,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.9.0
+  version: 0.10.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -277,6 +277,58 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/{market}/redirects/{type}/{slug}:
+    get:
+      tags: [products]
+      operationId: resolveSlug
+      summary: Slug cũ trỏ tới slug nào bây giờ
+      description: |
+        Đổi slug làm mọi liên kết cũ chết — liên kết trong email đã gửi, trong bài
+        viết của người khác, trong dấu trang của khách. Bảng `slug_history` giữ
+        slug cũ (`docs/12` mục 6.1); endpoint này là đường đọc của nó.
+
+        **Chỉ trả slug mới khi bản ghi đích thật sự xem được ở
+        `(market, locale)` này.** Đây là điểm quan trọng nhất: một chuyển hướng
+        tới trang `404` tệ hơn hẳn một trang `404` thẳng — khách bị đưa đi một
+        vòng rồi vẫn không thấy gì, và công cụ tìm kiếm ghi nhận một chuỗi
+        chuyển hướng dẫn tới ngõ cụt.
+
+        Vì thế nó kiểm đúng những điều kiện mà đường đọc công khai kiểm: đã dịch
+        sang locale này, đã gán và đang bán ở thị trường này, chưa xoá mềm. Thiếu
+        bất kỳ điều nào thì trả `404`, và frontend hiện trang không tìm thấy.
+
+        Slug hiện tại gửi vào đây cũng trả `404`: nó không phải slug cũ, và
+        chuyển hướng một URL về chính nó là một vòng lặp.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: type
+          in: path
+          required: true
+          description: |
+            Loại bản ghi. `slug_history` dùng chung cho nhiều loại, và cùng một
+            slug cũ có thể tồn tại ở hai loại khác nhau — nên loại là bắt buộc,
+            không đoán được.
+          schema:
+            type: string
+            enum: [PRODUCT, DESTINATION]
+        - name: slug
+          in: path
+          required: true
+          description: Slug **cũ**, của đúng locale ở `Accept-Language`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Slug hiện tại của bản ghi đó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlugRedirect'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
   /api/v1/{market}/themes:
     get:
       tags: [themes]
@@ -2171,6 +2223,16 @@ components:
           type: array
           items: { $ref: '#/components/schemas/PriceLine' }
 
+    SlugRedirect:
+      type: object
+      required: [slug]
+      properties:
+        slug:
+          type: string
+          description: |
+            Slug hiện tại, **của locale đã yêu cầu**. Frontend ghép nó với đoạn
+            đường dẫn của locale đó để dựng URL đích.
+          example: vietnam-fra-nord-til-syd
     Theme:
       type: object
       required: [slug, name, productCount]

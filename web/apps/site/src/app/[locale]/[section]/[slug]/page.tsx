@@ -2,13 +2,14 @@ import { Suspense } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { isLocale, t, type Locale } from '@travel/i18n';
 import { formatNumber, PriceFrom } from '@travel/ui';
 import type { Destination, ProductDetail } from '@travel/api-client';
 import { destinationsApi, laKhongTimThay, productsApi, requestScope } from '@/lib/api';
 import { resolveMarket } from '@/lib/market';
 import {
+  duongDanChiTiet,
   duongDanDiemDen,
   duongDanListing,
   laDestinationsSegment,
@@ -28,6 +29,56 @@ type Params = Promise<{ locale: string; section: string; slug: string }>;
  * chính sách không-fallback của docs/02 mục 4.
  */
 /**
+ * Slug này có phải slug **cũ** không — nếu phải thì chuyển hướng vĩnh viễn.
+ *
+ * Đổi slug làm mọi liên kết cũ chết: liên kết trong email đã gửi, trong bài viết
+ * của người khác, trong dấu trang của khách. Bảng `slug_history` giữ slug cũ, và
+ * endpoint `/redirects` là đường đọc của nó.
+ *
+ * **Chỉ gọi sau khi đã nhận `404`**, không gọi trước: đường đi bình thường không
+ * được trả giá cho một trường hợp hiếm.
+ *
+ * Backend đã kiểm bản ghi đích có xem được ở `(market, locale)` này không, nên
+ * nếu nó trả slug thì slug đó chắc chắn mở được. Frontend không kiểm lại.
+ *
+ * **`permanentRedirect` phát 308, không phải 301.** Cả hai đều là "chuyển vĩnh
+ * viễn" và công cụ tìm kiếm xử lý như nhau; 308 chặt hơn ở chỗ nó cấm đổi
+ * phương thức HTTP. Đây là thứ Next cho sẵn ở tầng trang; muốn đúng 301 thì phải
+ * chuyển việc này xuống `proxy.ts`, và khi đó **mọi** request phải trả giá cho
+ * một trường hợp hiếm.
+ */
+async function chuyenHuongNeuSlugCu(
+  locale: Locale,
+  loai: 'PRODUCT' | 'DESTINATION',
+  slug: string,
+): Promise<never> {
+  const { market } = await resolveMarket(locale);
+
+  let slugMoi: string;
+  try {
+    const kq = await productsApi().resolveSlug({
+      ...requestScope(market, locale),
+      type: loai as never,
+      slug,
+    });
+    slugMoi = kq.slug;
+  } catch (loi) {
+    // CHỈ `404` mới nghĩa là "không phải slug cũ". `catch` trống ở đây nuốt luôn
+    // lỗi mạng và lỗi lập trình, biến mọi sự cố thành một trang 404 im lặng —
+    // và bản đầu tiên của hàm này đúng là như vậy, nên tra ra mất một lúc.
+    if (!laKhongTimThay(loi)) {
+      throw loi;
+    }
+    // Không log: URL gõ sai là đường đi bình thường, không phải sự cố.
+    notFound();
+  }
+
+  permanentRedirect(
+    loai === 'PRODUCT' ? duongDanChiTiet(locale, slugMoi) : duongDanDiemDen(locale, slugMoi),
+  );
+}
+
+/**
  * Lấy điểm đến, hoặc 404 — cùng chính sách với sản phẩm.
  *
  * `404` gộp ba tình huống: không tồn tại, chưa dịch cho locale này, hoặc miền
@@ -39,7 +90,9 @@ async function layDiemDen(locale: Locale, slug: string): Promise<Destination> {
   try {
     return await destinationsApi().getDestination({ ...requestScope(market, locale), slug });
   } catch (loi) {
-    if (laKhongTimThay(loi)) notFound();
+    if (laKhongTimThay(loi)) {
+      await chuyenHuongNeuSlugCu(locale, 'DESTINATION', slug);
+    }
     throw loi;
   }
 }
@@ -49,7 +102,10 @@ async function laySanPham(locale: Locale, slug: string): Promise<ProductDetail> 
   try {
     return await productsApi().getProduct({ ...requestScope(market, locale), slug });
   } catch (loi) {
-    if (laKhongTimThay(loi)) notFound();
+    // 404 chưa chắc là "không có": có thể slug này vừa đổi tên.
+    if (laKhongTimThay(loi)) {
+      await chuyenHuongNeuSlugCu(locale, 'PRODUCT', slug);
+    }
     // Lỗi mạng không phải "không tồn tại" — ném tiếp để error boundary lo,
     // đừng biến một sự cố backend thành trang 404 và mất khách thật.
     throw loi;

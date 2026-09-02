@@ -138,7 +138,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
 | Đọc và ghi bốn nhóm bảng đó qua API | ✗ lược đồ đã có, chưa có endpoint nào chạm tới |
 | `product.hero_image` và `map_image` trỏ tới `media_asset` | ✗ đổi phá vỡ tương thích, phải tách hai lần triển khai — `12` mục 10 |
-| Chuyển hướng 301 đọc `slug_history` ở tầng web | ✗ bảng có dữ liệu nhưng **chưa có endpoint nào tra slug cũ** — cần đổi hợp đồng trước, không phải việc thuần frontend |
+| Chuyển hướng slug cũ đọc `slug_history` | ✔ spec v0.10 `GET /{market}/redirects/{type}/{slug}` + trang chi tiết bắt 404 rồi chuyển hướng **308**. Chỉ chuyển khi đích thật sự xem được — xem `20` mục 6 |
 | Danh sách sản phẩm quản trị, hàng đợi dịch, bảng độ phủ | ✔ 12 test — `22` M2, M10, M12 |
 | Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10 |
 | Tạo, sửa, xoá mềm sản phẩm; gán thị trường; ngày khởi hành; bảng giá; thang giá | ✔ 17 test, gồm **một bài đi hết bảy bước mở bán rồi kiểm bằng bề mặt khách** |
