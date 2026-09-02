@@ -92,7 +92,7 @@ nếu không có cơ chế tương tự. Xem mục 5.
 | GĐ-3 | Một repo chứa `api/` (Gradle) và `web/` (pnpm), CI lọc theo đường dẫn | **Đã chốt** — ADR-001 |
 | GĐ-4 | Code viết mới; demo là **tham chiếu đặc tả**, không phải nền tảng sửa tiếp | Đang dùng |
 | GĐ-5 | Tài liệu viết bằng **tiếng Việt**, kèm đối chiếu thuật ngữ Đan–Việt–code | Đang dùng — `03` |
-| GĐ-6 | Có thanh toán online thật ở v1 | **Chưa duyệt** — nếu v1 chỉ nhận đặt chỗ rồi gọi điện chốt thì bỏ được cả tài liệu `30` |
+| GĐ-6 | Có thanh toán online thật ở v1 | **Chưa duyệt** — nhưng không còn xoá được cả `30` nữa: `30` mục 1 cho thấy ba trong năm mục của nó không phụ thuộc câu trả lời. Nay nó chỉ quyết mục 3 và 4 |
 
 Ba quyết định đã chốt thêm: **spec-first** cho hợp đồng API (ADR-002), **bảng dịch
 riêng** thay JSONB (ADR-003), và market **không nằm trong URL** mà suy từ locale
@@ -410,7 +410,8 @@ Bốn điều rút ra từ demo, là lý do `42` tồn tại:
 ### Việc kế tiếp
 
 1. **Trả lời GĐ-6**: v1 có thanh toán online thật, hay chỉ nhận đặt chỗ rồi gọi
-   điện chốt? Quyết định tài liệu `30` có tồn tại hay không.
+   điện chốt? Quyết định mục 3 và mục 4 của `30` — phần còn lại của tài liệu đó
+   đứng vững dù trả lời thế nào.
 2. **Sáu con số nghiệp vụ đang chặn thị trường `VN`** — gom ở `14` mục 10: tỷ lệ
    đặt cọc, phí xử lý, có giảm đặt sớm không, có làm tròn tới nghìn đồng không,
    hạn giữ chỗ, bậc thời gian huỷ và tỷ lệ hoàn. Engine giá viết xong rồi vì nó

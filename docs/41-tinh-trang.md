@@ -24,7 +24,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | **Giai đoạn** | **G3 — Lõi danh mục** |
 | **Cổng gần nhất đã qua** | G2 — 01/09/2026, **qua có điều kiện**. Còn **1/3** điều kiện treo: mở một PR thật (mục 7) |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
-| **Tài liệu** | 21/26 file. Xong tầng 0, 1, 2, 4 và `34` — còn lại `30`–`33`, `35` |
+| **Tài liệu** | 22/26 file. Xong tầng 0, 1, 2, 4 và `30`, `34` — còn lại `31`–`33`, `35` |
 
 ---
 
@@ -45,6 +45,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 1 | `12-luoc-do-csdl` | Nháp |
 | 1 | `13-hop-dong-api` | Nháp |
 | 1 | `14-quy-tac-nghiep-vu` | Nháp |
+| 3 | `30-thanh-toan` | Nháp |
 | 3 | `34-cicd-va-moi-truong` | Nháp |
 | 4 | `40-ke-hoach-thuc-hien` | Đã duyệt |
 | 4 | `41-tinh-trang` | Đã duyệt — file này |
@@ -79,12 +80,14 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
 ## 3. Chưa có gì
 
-### Tài liệu còn thiếu — 5 file, toàn bộ là tầng 3
+### Tài liệu còn thiếu — 4 file, toàn bộ là tầng 3
 
-`30-thanh-toan` · `31-bao-mat-va-du-lieu-ca-nhan` ·
-`32-phap-ly-nganh-du-lich` · `33-testing` · `35-van-hanh`
+`31-bao-mat-va-du-lieu-ca-nhan` · `32-phap-ly-nganh-du-lich` ·
+`33-testing` · `35-van-hanh`
 
-`34-cicd-va-moi-truong` đã viết ngày 02/09/2026 — điều kiện treo số 2 của G2.
+`34-cicd-va-moi-truong` viết ngày 02/09/2026 — điều kiện treo số 2 của G2.
+`30-thanh-toan` viết cùng ngày; mục 1 của nó chia rõ ba trong năm mục **không**
+phụ thuộc Q-3, nên tài liệu vẫn có giá trị kể cả khi Q-3 trả lời "không".
 
 Không còn ADR nào thiếu. ADR-007, ADR-008 và ADR-009 đều ở trạng thái `Đề xuất`
 — cả ba không tự chốt được, vì phần còn thiếu của chúng là quyết định chi tiêu,
@@ -150,7 +153,7 @@ Số ngày treo tính từ 31/08/2026.
 |---|---|---|---|---|
 | Q-1 | **Ai viết nội dung tour tiếng Đan Mạch?** | **G3** | Chủ sản phẩm | 31/08 |
 | Q-2 | Sáu con số nghiệp vụ thị trường `VN`: tỷ lệ đặt cọc, phí xử lý, có giảm đặt sớm không, làm tròn tới nghìn đồng không, hạn giữ chỗ, bậc huỷ và tỷ lệ hoàn | **G4** | Chủ sản phẩm | 31/08 |
-| Q-3 | GĐ-6 — v1 có thanh toán online thật, hay nhận đặt chỗ rồi gọi điện chốt? **Trả lời "không" thì bỏ hẳn `30`.** Hình dạng tích hợp đã chốt sẵn ở ADR-007 nên không chặn nữa | G5 | Chủ sản phẩm | 31/08 |
+| Q-3 | GĐ-6 — v1 có thanh toán online thật, hay nhận đặt chỗ rồi gọi điện chốt? Nay chỉ còn chặn **mục 3 và 4** của `30`; ba mục kia và ADR-007 đã viết xong không chờ nó | G5 | Chủ sản phẩm | 31/08 |
 | Q-4 | Quy mô dự kiến: bao nhiêu tour, bao nhiêu đơn mỗi tháng? | G2 | Chủ sản phẩm | 31/08 |
 | Q-5 | Chạy một hay nhiều instance? | G2 | Kiến trúc sư | 31/08 |
 | Q-6 | Lưu ảnh ở đâu: VPS, S3, hay CDN? → **ADR-008 đã bày sẵn ba phương án và một đề xuất**, chỉ còn chọn nhà cung cấp và vùng | G3 | Kiến trúc sư + Chủ sản phẩm (duyệt chi) | 31/08 |
@@ -189,8 +192,9 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
    và giá, rồi tour đó hiện ra ở `GET /api/v1/dk/products` kèm giá
 8. **Chốt ADR-008** — nó đã ở trạng thái `Đề xuất` từ 02/09/2026, và mục 6 của
    nó liệt kê đúng bốn thứ còn thiếu. Media là phần cuối của đợt 5
-9. **Trả lời Q-3.** Nó đứng trước cả `30` lẫn ADR-007, và câu trả lời "không" xoá
-   luôn một tài liệu khỏi kế hoạch — rẻ nhất trong mọi câu hỏi đang treo
+9. **Trả lời Q-3.** Nó không còn xoá được cả `30` nữa — `30` mục 1 cho thấy ba
+   trong năm mục sống sót dù trả lời thế nào. Nhưng nó vẫn quyết mục 3 và 4, và
+   nó vẫn là câu hỏi rẻ nhất đang treo
 
 ---
 
