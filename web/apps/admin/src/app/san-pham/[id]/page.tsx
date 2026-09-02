@@ -90,9 +90,9 @@ export default function SuaSanPham({ params }: { params: Promise<{ id: string }>
 
       <DaiTrangThai sp={sp} />
 
-      <nav className="hang" style={{ margin: '1.5rem 0 0.5rem' }}>
+      <nav className="tab">
         {TAB.map(([ma, ten]) => (
-          <button key={ma} className={tab === ma ? '' : 'phu'} onClick={() => setTab(ma)}>
+          <button key={ma} aria-current={tab === ma} onClick={() => setTab(ma)}>
             {ten}
           </button>
         ))}
