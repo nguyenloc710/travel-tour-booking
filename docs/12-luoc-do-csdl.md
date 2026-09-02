@@ -1160,4 +1160,6 @@ hằng đêm trong CI, không chạy ở mỗi lần build.
 | **Chưa có bảng ghi một lần thu tiền** — `booking` biết phải trả bao nhiêu, không biết đã trả gì. Thiếu nó thì không đối soát được, không chống trùng webhook được. Bảng chỉ ghi thêm, nhóm D | Migration **bắt buộc trước dòng tiền thật đầu tiên** — ADR-007 mục 5 |
 | Có mã hoá cột số hộ chiếu ở v1 không | `booking_passenger`, `31` |
 | Thời hạn lưu dữ liệu cá nhân | Cột `retention_until`, job xoá |
+| **`product_combo` thiếu cột điểm khởi hành** — `11` mục 4 liệt kê `origin_city`, DDL thì không có; mà `04` mục 6 và 8 cùng `14` mục 2 đều coi điểm khởi hành của `COMBO` là biến thể sản phẩm nằm trong giá cơ bản | `COMBO` ở v1.5 — ADR-009 mục 6 |
+| **Chưa có bảng cho thành phần của bó `COMBO`** — chuyến bay, khách sạn chọn được, số suất theo khoảng ngày | Phần chính của v1.5 — ADR-009 mục 6 |
 | Có cần bảng `*_revision` cho lịch sử nội dung không | `11` mục 13 |

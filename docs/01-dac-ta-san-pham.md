@@ -112,9 +112,9 @@ Bốn vai trò, không phải một. Phân quyền chi tiết ở `22`.
 ### 3.2. Để v2
 
 - **Combo bay + khách sạn** (`COMBO`) — v1.5. Khối lượng lớn hơn vẻ ngoài rất
-  nhiều; lý do và đề xuất thu hẹp ở `04` mục 9
+  nhiều; lý do và đề xuất thu hẹp ở `04` mục 10, quyết định ở **ADR-009**
 - **Tour trong ngày bán độc lập** (`DAY_TOUR`) — v2. Khác `Excursion` đang có ở
-  v1, đừng gộp: `04` mục 10
+  v1, đừng gộp: `04` mục 11
 - Cổng khách hàng (khách đăng nhập xem đơn của mình)
 - Tiếng Anh
 - Tour liên quốc gia (Việt Nam + Campuchia)

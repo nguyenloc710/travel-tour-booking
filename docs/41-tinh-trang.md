@@ -50,8 +50,9 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 4 | `41-tinh-trang` | Đã duyệt — file này |
 | 4 | `42-quy-trinh-tai-lieu` | Đã duyệt |
 
-ADR-001 … ADR-006 và ADR-010: **đã chốt**. ADR-007 (cổng thanh toán) và ADR-008
-(lưu ảnh): **đề xuất**, chờ Q-3 và Q-6. ADR-009 (phạm vi COMBO): chưa viết.
+ADR-001 … ADR-006 và ADR-010: **đã chốt**. ADR-007 (cổng thanh toán), ADR-008
+(lưu ảnh) và ADR-009 (phạm vi `COMBO`): **đề xuất**, chờ Q-3, Q-6 và Q-7.
+Không còn ADR nào được trỏ tới mà chưa viết.
 
 Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
@@ -85,9 +86,9 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
 `34-cicd-va-moi-truong` đã viết ngày 02/09/2026 — điều kiện treo số 2 của G2.
 
-Còn một ADR chưa viết: ADR-009 (Q-7). ADR-007 và ADR-008 đã viết ở trạng thái
-`Đề xuất` — cả hai không tự chốt được, vì phần còn thiếu của chúng là quyết định
-chi tiêu, quyết định nghiệp vụ, và hai tài liệu chưa có (`30`, `31`).
+Không còn ADR nào thiếu. ADR-007, ADR-008 và ADR-009 đều ở trạng thái `Đề xuất`
+— cả ba không tự chốt được, vì phần còn thiếu của chúng là quyết định chi tiêu,
+quyết định phạm vi, và hai tài liệu chưa có (`30`, `31`).
 
 Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa chép.
 
@@ -153,8 +154,14 @@ Số ngày treo tính từ 31/08/2026.
 | Q-4 | Quy mô dự kiến: bao nhiêu tour, bao nhiêu đơn mỗi tháng? | G2 | Chủ sản phẩm | 31/08 |
 | Q-5 | Chạy một hay nhiều instance? | G2 | Kiến trúc sư | 31/08 |
 | Q-6 | Lưu ảnh ở đâu: VPS, S3, hay CDN? → **ADR-008 đã bày sẵn ba phương án và một đề xuất**, chỉ còn chọn nhà cung cấp và vùng | G3 | Kiến trúc sư + Chủ sản phẩm (duyệt chi) | 31/08 |
-| Q-7 | `COMBO` v1 làm bó cố định do nhân viên soạn, hay tồn kho thời gian thực? → ADR-009 | G4 | Chủ sản phẩm | 31/08 |
+| Q-7 | `COMBO` làm bó cố định do nhân viên soạn, hay tồn kho thời gian thực? → **ADR-009 đã quyết: bó cố định**, chỉ còn xác nhận | **v1.5**, không phải G4 — xem ghi chú dưới bảng | Chủ sản phẩm | 31/08 |
 | Q-8 | Nâng `02` và `04` lên `Đã duyệt` — hai file này quyết định lược đồ CSDL, G0 đã qua mà chúng vẫn ở `Nháp` | **G2** | Chủ sản phẩm + Kiến trúc sư | 31/08 |
+
+> **Q-7 trước nay bị gắn nhầm cổng.** `41` ghi nó chặn G4, nhưng tám tiêu chí ra
+> của G4 (`40` mục 4) không nhắc `COMBO` một lần nào, và `04` mục 2 cùng `01`
+> mục 3.2 đều xếp `COMBO` vào **v1.5**. Nó chặn v1.5, không chặn cổng nào của v1.
+> Một câu hỏi treo gắn nhầm vào cổng gần nhất làm hai việc cùng lúc: tạo áp lực
+> giả lên cổng đó, và giấu mất việc thật — chưa ai lên lịch cho v1.5.
 
 > **Q-1 là câu hỏi nguy hiểm nhất** vì nó không có vẻ kỹ thuật nên dễ bị đẩy lùi.
 > Nội dung tiếng Đan là **ngôn ngữ nguồn** (ADR-004): không có nó thì không có gì

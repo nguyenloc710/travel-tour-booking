@@ -240,7 +240,7 @@ collation và `unaccent`, mà đó chính là hai thứ dễ sai nhất của d�
 | 006 | Ngày khởi hành thuộc về một thị trường | Đã chốt |
 | 007 | Cổng thanh toán từng thị trường | **Đề xuất** — chờ Q-3 và `30` |
 | 008 | Lưu trữ ảnh | **Đề xuất** — chờ Q-6 |
-| 009 | `COMBO` bó cố định hay tồn kho thời gian thực | Chưa viết, xem `04` mục 10 |
+| 009 | `COMBO` bó cố định hay tồn kho thời gian thực | **Đề xuất** — chờ Q-7. Chặn **v1.5**, không chặn cổng nào của v1 |
 
 Một file một quyết định. Đổi ý thì viết ADR mới thay thế, **không sửa ADR cũ**.
 
