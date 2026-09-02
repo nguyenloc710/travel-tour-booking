@@ -260,6 +260,51 @@ class AdminWriteIT {
         assertEquals("DURATION_DAYS_RULE_VIOLATED", thieu.getBody().getCode());
     }
 
+    // ------------------------------------------------------------ CSRF
+
+    @Test
+    @DisplayName("Ghi quản trị mà không kèm thẻ CSRF thì bị từ chối — MỌI đường dẫn")
+    void ghiQuanTriKhongTheCsrfThiBiTuChoi() {
+        Phien admin = dangNhap("admin@travel.test");
+        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("csrf"),
+                AdminProductDetail.class).getBody();
+        assertNotNull(sp);
+        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+                """
+                {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
+                """, AdminDeparture.class).getBody();
+        assertNotNull(ngay);
+
+        // Cùng phiên, cùng cookie — chỉ THIẾU thẻ CSRF. Đây đúng là thứ một trang
+        // khác làm được: nó lừa trình duyệt gửi cookie, nhưng không đọc được
+        // cookie XSRF-TOKEN để đặt vào header.
+        for (String[] loiGoi : new String[][] {
+                {"PUT", "/api/v1/admin/products/" + sp.getId() + "/markets/DK", "{\"published\":true}"},
+                {"PATCH", "/api/v1/admin/products/" + sp.getId(), "{\"isNew\":true}"},
+                {"DELETE", "/api/v1/admin/products/" + sp.getId(), null},
+                {"PATCH", "/api/v1/admin/departures/" + ngay.getId(), "{\"capacity\":22}"},
+        }) {
+            assertEquals(HttpStatus.FORBIDDEN,
+                    admin.goiKhongCsrf(HttpMethod.valueOf(loiGoi[0]), loiGoi[1], loiGoi[2],
+                            String.class).getStatusCode(),
+                    loiGoi[0] + " " + loiGoi[1] + " phải bị CSRF chặn");
+        }
+    }
+
+    @Test
+    @DisplayName("Bề mặt công khai vẫn ghi được không cần thẻ CSRF")
+    void beMatCongKhaiKhongCanCsrf() {
+        // Khách không đăng nhập nên không có cookie phiên để ai lừa gửi; chống
+        // gọi lại là việc của Idempotency-Key. Miễn CSRF ở đây là có chủ ý, và
+        // bài test này giữ cho lần sửa CSRF không vô tình chặn luôn đường đặt tour.
+        //
+        // 400 chứ không phải 403: thiếu header Accept-Language nên nó dừng ở bước
+        // kiểm dữ liệu vào — tức là đã ĐI QUA được bộ lọc CSRF.
+        assertEquals(HttpStatus.BAD_REQUEST, new Phien()
+                .goiKhongCsrf(HttpMethod.POST, "/api/v1/dk/pricing/preview", "{}", String.class)
+                .getStatusCode());
+    }
+
     // ------------------------------------------------------------ quyền
 
     @Test
@@ -731,7 +776,18 @@ class AdminWriteIT {
             return phanHoi;
         }
 
+        /** Cố tình KHÔNG gửi thẻ CSRF — dùng để kiểm bộ lọc CSRF có chạy không. */
+        <T> ResponseEntity<T> goiKhongCsrf(HttpMethod phuongThuc, String duongDan, String than,
+                                           Class<T> kieu) {
+            return goiCoThe(phuongThuc, duongDan, than, kieu, false);
+        }
+
         <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan, String than, Class<T> kieu) {
+            return goiCoThe(phuongThuc, duongDan, than, kieu, true);
+        }
+
+        private <T> ResponseEntity<T> goiCoThe(HttpMethod phuongThuc, String duongDan, String than,
+                                               Class<T> kieu, boolean kemThe) {
             RestClient.RequestBodySpec yeuCau = RestClient.builder()
                     .baseUrl("http://localhost:" + cong)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
@@ -742,7 +798,9 @@ class AdminWriteIT {
             for (String c : cookies) {
                 yeuCau.header(HttpHeaders.COOKIE, c);
             }
-            thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
+            if (kemThe) {
+                thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
+            }
 
             if (than != null) {
                 yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);

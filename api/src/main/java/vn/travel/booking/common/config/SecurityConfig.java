@@ -47,14 +47,28 @@ public class SecurityConfig {
                                 // CSRF không áp dụng. CSRF chống việc một trang
                                 // khác lừa TRÌNH DUYỆT gửi kèm cookie của nạn
                                 // nhân; ở đây không có cookie nào để lừa gửi.
-                                "/api/v1/*/products/**", "/api/v1/*/regions",
-                                "/api/v1/*/destinations/**", "/api/v1/*/themes",
-                                "/api/v1/*/posts/**", "/api/v1/*/lectures",
+                                //
+                                // {market:[a-z]{2}} chứ KHÔNG phải `*`, và đây là
+                                // chỗ đã có lỗ hổng thật: `*` khớp MỌI đoạn đường
+                                // dẫn, kể cả `admin`. Nên "/api/v1/*/products/**"
+                                // miễn CSRF luôn cho /api/v1/admin/products/** —
+                                // tức là tạo sản phẩm, sửa, xoá, gán thị trường,
+                                // lưu bản dịch và bậc giá đều ghi được chỉ bằng
+                                // cookie. Mã thị trường dài đúng hai ký tự
+                                // (`market.code` là VARCHAR(2)), nên ràng buộc độ
+                                // dài loại `admin` ra một cách chính xác.
+                                "/api/v1/{market:[a-z]{2}}/products/**",
+                                "/api/v1/{market:[a-z]{2}}/regions",
+                                "/api/v1/{market:[a-z]{2}}/destinations/**",
+                                "/api/v1/{market:[a-z]{2}}/themes",
+                                "/api/v1/{market:[a-z]{2}}/posts/**",
+                                "/api/v1/{market:[a-z]{2}}/lectures",
                                 // Đường GHI của khách cũng vậy: khách không đăng
                                 // nhập ở v1, và chống gọi lại là việc của
                                 // Idempotency-Key chứ không phải của CSRF.
-                                "/api/v1/*/pricing/**", "/api/v1/*/seat-holds/**",
-                                "/api/v1/*/bookings/**",
+                                "/api/v1/{market:[a-z]{2}}/pricing/**",
+                                "/api/v1/{market:[a-z]{2}}/seat-holds/**",
+                                "/api/v1/{market:[a-z]{2}}/bookings/**",
                                 // Chính lời gọi đăng nhập: lúc đó chưa có phiên
                                 // nên chưa có thẻ nào để gửi, và đòi thẻ ở đây tạo
                                 // ra một bước lấy thẻ mà spec không có. Rủi ro còn

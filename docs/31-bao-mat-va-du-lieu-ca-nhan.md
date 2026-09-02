@@ -177,9 +177,36 @@ dữ liệu không có cơ sở, trong đúng khoảng thời gian đó.
 |---|---|
 | Cookie phiên thiếu cờ `Secure` | Đã nằm trong danh sách chặn trước lần triển khai `prod` đầu tiên — `34` mục 5.2 |
 | **Giới hạn 10 lượt đăng nhập / 15 phút mỗi tài khoản** | `22` mục 9 nêu như một quy tắc đang có, nhưng **chưa có gì cài nó**. Hôm nay đăng nhập sai bao nhiêu lần cũng được |
+| ~~Bộ lọc CSRF miễn nhầm cho `/api/v1/admin/products/**`~~ | **Đã vá** 02/09/2026 — xem mục 6.4 |
 
 Dòng thứ hai là loại lệch nguy hiểm hơn một việc chưa làm: tài liệu mô tả nó ở
 thì hiện tại, nên người đọc tin rằng nó đã có.
+
+### 6.4. Một lỗ hổng CSRF đã có thật, và vì sao nó sống được lâu
+
+Danh sách miễn CSRF của bề mặt công khai viết bằng ký tự đại diện một đoạn:
+
+```
+"/api/v1/*/products/**"
+```
+
+Ý định là `dk` và `vn`. Nhưng `*` khớp **mọi** đoạn đường dẫn, kể cả `admin` — nên
+dòng đó miễn CSRF luôn cho `/api/v1/admin/products/**`: tạo sản phẩm, sửa, xoá,
+gán thị trường, lưu bản dịch, lưu bậc giá. Sáu đường ghi, tất cả xác thực bằng
+cookie, tất cả không đòi thẻ. Đúng điều kiện để một trang khác lừa trình duyệt
+của nhân viên gửi yêu cầu thay họ.
+
+`PATCH /api/v1/admin/departures/{id}` thì **có** bị chặn — nó không nằm dưới
+`/products/`. Chính sự khác nhau đó là thứ làm lỗi khó thấy: thử một endpoint bất
+kỳ thì thấy CSRF "đang chạy".
+
+**Vá** bằng cách ràng buộc đoạn thị trường đúng hai ký tự —
+`/api/v1/{market:[a-z]{2}}/products/**` — vì `market.code` là `VARCHAR(2)` còn
+`admin` dài năm ký tự.
+
+**Vì sao nó sống được lâu:** không bài test nào gọi một đường ghi quản trị mà
+**cố tình bỏ** thẻ CSRF. Mọi test đều gửi thẻ, nên chúng chứng minh "gửi thẻ thì
+được", không chứng minh "không gửi thì bị chặn". Nay có hai bài phủ cả hai chiều.
 
 ### 6.3. Hai câu `22` hỏi
 

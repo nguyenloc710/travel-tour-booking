@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -165,7 +167,14 @@ public class GlobalExceptionHandler {
             // Ràng buộc @Min/@Max/@Size trên tham số của controller nổ ở tầng
             // AOP với ngoại lệ NÀY, không phải HandlerMethodValidationException.
             // Thiếu dòng này thì size=999 trả 500 kèm câu tiếng Đan Mạch trong log.
-            ConstraintViolationException.class
+            ConstraintViolationException.class,
+            // THIẾU hẳn một header hoặc tham số bắt buộc — ví dụ gọi
+            // /dk/pricing/preview mà quên Accept-Language. Không có hai dòng này
+            // thì nó rơi xuống bộ bắt cuối và trả 500 kèm traceId: client gọi sai
+            // bị báo là lỗi máy chủ, và log đầy tiếng kêu cho một chuyện bình
+            // thường. Đây là lỗi CỦA NGƯỜI GỌI, và 400 nói đúng điều đó.
+            MissingRequestHeaderException.class,
+            MissingServletRequestParameterException.class
     })
     public ResponseEntity<ErrorResponse> dauVaoSai(Exception ex) {
         log.debug("400 VALIDATION_FAILED: {}", ex.getMessage());
