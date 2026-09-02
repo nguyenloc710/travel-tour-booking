@@ -253,7 +253,7 @@ bao giờ nhìn thấy.
 | | |
 |---|---|
 | Cơ chế | Phiên đăng nhập, cookie `HttpOnly` + `SameSite=Lax` (`13` mục 10) |
-| Giới hạn đăng nhập | 10 lượt / 15 phút mỗi tài khoản |
+| Giới hạn đăng nhập | 10 lượt / 15 phút mỗi tài khoản — **chưa có gì cài**, `31` mục 6.2 |
 | Hết phiên | Đăng xuất sau thời gian không hoạt động; giá trị cụ thể ở `31` |
 | Mật khẩu | Băm, không bao giờ ghi log, không gửi qua email |
 | Vô hiệu hoá người dùng | `is_active = false`, **không xoá bản ghi** — người đó còn nằm trong `created_by` của hàng trăm bản ghi |
@@ -284,6 +284,6 @@ Không dùng token lưu trong `localStorage`: kịch bản tấn công qua chèn
 | ~~`12` chưa định nghĩa bảng `role` và `staff_user_role`~~ | — | **Xong** 01/09/2026: `12` mục 3.1 và migration `V2` |
 | **Hàng đợi mục 4.1 chưa phủ được điểm đến và buổi thuyết trình** — bảng dịch của chúng không có `status` lẫn `translated_at`, nên `OUTDATED` không tính ra được | Bậc ưu tiên 3 của mục 4.1.1 | `12` mục 10 |
 | Có ghi nhật ký thao tác cho thay đổi **nội dung** không, hay chỉ cho đơn đặt | Truy vết sửa nội dung; năm cột kiểm toán chỉ giữ lần sửa **cuối** | Quyết định kiến trúc → cân nhắc ADR |
-| Xác thực hai lớp cho `ADMIN` | Mục 9 | `31` |
-| Thời gian hết phiên | Mục 9 | `31` |
+| Xác thực hai lớp cho `ADMIN` | Mục 9 | `31` mục 6.3 — **đã có đề xuất**, chờ chốt |
+| Thời gian hết phiên | Mục 9 | `31` mục 6.3 — **đã có đề xuất**, chờ chốt |
 | Nhập hàng loạt ngày khởi hành theo lịch lặp | M4; nhập tay 30 ngày khởi hành một mùa là việc thật | Nghiệp vụ |

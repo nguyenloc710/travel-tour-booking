@@ -24,7 +24,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | **Giai đoạn** | **G3 — Lõi danh mục** |
 | **Cổng gần nhất đã qua** | G2 — 01/09/2026, **qua có điều kiện**. Còn **1/3** điều kiện treo: mở một PR thật (mục 7) |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
-| **Tài liệu** | 22/26 file. Xong tầng 0, 1, 2, 4 và `30`, `34` — còn lại `31`–`33`, `35` |
+| **Tài liệu** | 23/26 file. Xong tầng 0, 1, 2, 4 và `30`, `31`, `34` — còn lại `32`, `33`, `35` |
 
 ---
 
@@ -46,6 +46,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 1 | `13-hop-dong-api` | Nháp |
 | 1 | `14-quy-tac-nghiep-vu` | Nháp |
 | 3 | `30-thanh-toan` | Nháp |
+| 3 | `31-bao-mat-va-du-lieu-ca-nhan` | Nháp — **cần người có chuyên môn pháp lý duyệt** |
 | 3 | `34-cicd-va-moi-truong` | Nháp |
 | 4 | `40-ke-hoach-thuc-hien` | Đã duyệt |
 | 4 | `41-tinh-trang` | Đã duyệt — file này |
@@ -80,14 +81,15 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
 ## 3. Chưa có gì
 
-### Tài liệu còn thiếu — 4 file, toàn bộ là tầng 3
+### Tài liệu còn thiếu — 3 file, toàn bộ là tầng 3
 
-`31-bao-mat-va-du-lieu-ca-nhan` · `32-phap-ly-nganh-du-lich` ·
-`33-testing` · `35-van-hanh`
+`32-phap-ly-nganh-du-lich` · `33-testing` · `35-van-hanh`
 
 `34-cicd-va-moi-truong` viết ngày 02/09/2026 — điều kiện treo số 2 của G2.
-`30-thanh-toan` viết cùng ngày; mục 1 của nó chia rõ ba trong năm mục **không**
-phụ thuộc Q-3, nên tài liệu vẫn có giá trị kể cả khi Q-3 trả lời "không".
+`30-thanh-toan` và `31-bao-mat-va-du-lieu-ca-nhan` viết cùng ngày. `30` mục 1
+chia rõ ba trong năm mục **không** phụ thuộc Q-3, nên nó vẫn có giá trị kể cả khi
+Q-3 trả lời "không". `31` cần **người có chuyên môn pháp lý duyệt** — `40` mục 4
+mới chỉ bắt `32` phải có chữ ký đó.
 
 Không còn ADR nào thiếu. ADR-007, ADR-008 và ADR-009 đều ở trạng thái `Đề xuất`
 — cả ba không tự chốt được, vì phần còn thiếu của chúng là quyết định chi tiêu,
@@ -142,6 +144,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `price_from` tự tính từ `departure_price` | ✔ `V5` — trước đó cột này chưa bao giờ được điền |
 | Đổi loại sản phẩm sau khi tạo | ✗ **có chủ ý cấm** — `22` mục 7; `productType` là `updatable = false` ở entity |
 | Media, ảnh sản phẩm, presigned URL | ✗ **Q-6** → ADR-008 |
+| Giới hạn 10 lượt đăng nhập / 15 phút | ✗ `22` mục 9 mô tả như đã có, **chưa có gì cài** — `31` mục 6.2 |
+| Cờ `Secure` cho cookie phiên | ✗ chặn trước lần triển khai `prod` đầu — `34` mục 5.2 |
 
 ---
 

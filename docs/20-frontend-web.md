@@ -271,4 +271,4 @@ Tiền từ API có `amount` là **chuỗi**. Đừng `parseFloat` rồi tính �
 | Quy mô danh mục dự kiến | Xem lại quyết định "gần như mọi trang đều động" ở mục 3.1 | Q-4 ở `41` mục 4 |
 | API trả kèm slug các locale đã dịch, để trang chi tiết khai `hreflang` | Mục 6 | Đổi hợp đồng, `13` |
 | Bộ lọc theo chủ đề ở R2, R3 | `12` chưa có bảng chủ đề | `13` mục 12 |
-| Đo lường và bảng đồng ý cookie | Trang chưa gắn gì | `32` |
+| Đo lường và bảng đồng ý cookie | Trang chưa gắn gì | `31` mục 5 — `32` lo nghĩa vụ ngành du lịch, đồng ý cookie là chuyện dữ liệu cá nhân |
