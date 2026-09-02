@@ -1157,6 +1157,7 @@ hằng đêm trong CI, không chạy ở mỗi lần build.
 | **Loại khách nào là loại tính "giá từ"** — trigger của `V5` đang khoá cứng `code = 'ADULT'` vì không tài liệu nào chốt. Đã thử `discount_rate = 0` và bỏ: `seed-dev.sql` đặt `0` cho cả `CHILD` lẫn `INFANT`, nên điều kiện đó không loại được gì | `price_from` của mọi thị trường. Đi cùng **Q-2** |
 | **Loại không có lịch khởi hành thì `price_from` lấy ở đâu** — `INDIVIDUAL_PACKAGE` và `COMBO` không có `departure`, nên chúng không có giá từ và website hiện "Liên hệ" | `04`, listing của hai loại đó |
 | Số chỗ mặc định `capacity` của `GROUP_TOUR` lấy từ `max_pax` hay nhập riêng | DDL `departure` |
+| **Chưa có bảng ghi một lần thu tiền** — `booking` biết phải trả bao nhiêu, không biết đã trả gì. Thiếu nó thì không đối soát được, không chống trùng webhook được. Bảng chỉ ghi thêm, nhóm D | Migration **bắt buộc trước dòng tiền thật đầu tiên** — ADR-007 mục 5 |
 | Có mã hoá cột số hộ chiếu ở v1 không | `booking_passenger`, `31` |
 | Thời hạn lưu dữ liệu cá nhân | Cột `retention_until`, job xoá |
 | Có cần bảng `*_revision` cho lịch sử nội dung không | `11` mục 13 |

@@ -50,8 +50,8 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 4 | `41-tinh-trang` | Đã duyệt — file này |
 | 4 | `42-quy-trinh-tai-lieu` | Đã duyệt |
 
-ADR-001 … ADR-006 và ADR-010: **đã chốt**. ADR-008 (lưu ảnh): **đề xuất**, chờ
-Q-6. ADR-007 (cổng thanh toán) và ADR-009 (phạm vi COMBO): chưa viết.
+ADR-001 … ADR-006 và ADR-010: **đã chốt**. ADR-007 (cổng thanh toán) và ADR-008
+(lưu ảnh): **đề xuất**, chờ Q-3 và Q-6. ADR-009 (phạm vi COMBO): chưa viết.
 
 Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
@@ -85,9 +85,9 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 
 `34-cicd-va-moi-truong` đã viết ngày 02/09/2026 — điều kiện treo số 2 của G2.
 
-Thêm hai ADR đã được trỏ tới mà chưa viết: ADR-007 (Q-3) và ADR-009 (Q-7).
-ADR-008 đã viết ở trạng thái `Đề xuất` — nó không tự chốt được vì phần còn thiếu
-là một quyết định chi tiêu và một tài liệu chưa có (`31`).
+Còn một ADR chưa viết: ADR-009 (Q-7). ADR-007 và ADR-008 đã viết ở trạng thái
+`Đề xuất` — cả hai không tự chốt được, vì phần còn thiếu của chúng là quyết định
+chi tiêu, quyết định nghiệp vụ, và hai tài liệu chưa có (`30`, `31`).
 
 Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa chép.
 
@@ -149,7 +149,7 @@ Số ngày treo tính từ 31/08/2026.
 |---|---|---|---|---|
 | Q-1 | **Ai viết nội dung tour tiếng Đan Mạch?** | **G3** | Chủ sản phẩm | 31/08 |
 | Q-2 | Sáu con số nghiệp vụ thị trường `VN`: tỷ lệ đặt cọc, phí xử lý, có giảm đặt sớm không, làm tròn tới nghìn đồng không, hạn giữ chỗ, bậc huỷ và tỷ lệ hoàn | **G4** | Chủ sản phẩm | 31/08 |
-| Q-3 | GĐ-6 — v1 có thanh toán online thật, hay nhận đặt chỗ rồi gọi điện chốt? | G5 | Chủ sản phẩm | 31/08 |
+| Q-3 | GĐ-6 — v1 có thanh toán online thật, hay nhận đặt chỗ rồi gọi điện chốt? **Trả lời "không" thì bỏ hẳn `30`.** Hình dạng tích hợp đã chốt sẵn ở ADR-007 nên không chặn nữa | G5 | Chủ sản phẩm | 31/08 |
 | Q-4 | Quy mô dự kiến: bao nhiêu tour, bao nhiêu đơn mỗi tháng? | G2 | Chủ sản phẩm | 31/08 |
 | Q-5 | Chạy một hay nhiều instance? | G2 | Kiến trúc sư | 31/08 |
 | Q-6 | Lưu ảnh ở đâu: VPS, S3, hay CDN? → **ADR-008 đã bày sẵn ba phương án và một đề xuất**, chỉ còn chọn nhà cung cấp và vùng | G3 | Kiến trúc sư + Chủ sản phẩm (duyệt chi) | 31/08 |
@@ -182,6 +182,8 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
    và giá, rồi tour đó hiện ra ở `GET /api/v1/dk/products` kèm giá
 8. **Chốt ADR-008** — nó đã ở trạng thái `Đề xuất` từ 02/09/2026, và mục 6 của
    nó liệt kê đúng bốn thứ còn thiếu. Media là phần cuối của đợt 5
+9. **Trả lời Q-3.** Nó đứng trước cả `30` lẫn ADR-007, và câu trả lời "không" xoá
+   luôn một tài liệu khỏi kế hoạch — rẻ nhất trong mọi câu hỏi đang treo
 
 ---
 

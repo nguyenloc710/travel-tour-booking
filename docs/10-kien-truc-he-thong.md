@@ -238,7 +238,7 @@ collation và `unaccent`, mà đó chính là hai thứ dễ sai nhất của d�
 | 004 | `da` là ngôn ngữ nguồn | Đã chốt |
 | 005 | Mỗi loại sản phẩm một bảng con | Đã chốt |
 | 006 | Ngày khởi hành thuộc về một thị trường | Đã chốt |
-| 007 | Cổng thanh toán từng thị trường | Chưa viết, chặn bởi `30` |
+| 007 | Cổng thanh toán từng thị trường | **Đề xuất** — chờ Q-3 và `30` |
 | 008 | Lưu trữ ảnh | **Đề xuất** — chờ Q-6 |
 | 009 | `COMBO` bó cố định hay tồn kho thời gian thực | Chưa viết, xem `04` mục 10 |
 
@@ -251,6 +251,6 @@ Một file một quyết định. Đổi ý thì viết ADR mới thay thế, **
 | Việc | Chặn cái gì | Ghi chú |
 |---|---|---|
 | Quy mô dự kiến (số tour, số đơn/tháng) | Chọn hạ tầng, có cần cache không | Hỏi nghiệp vụ — `01` mục 7 |
-| Lưu ảnh ở đâu: VPS, S3, hay CDN | ADR-007, `24` | Ảnh hero nặng, nhóm khách lớn tuổi hay dùng mạng chậm |
+| Lưu ảnh ở đâu: VPS, S3, hay CDN | **ADR-008** (đề xuất), `24` | Ảnh hero nặng, nhóm khách lớn tuổi hay dùng mạng chậm |
 | Có cần cache tầng ứng dụng ở v1 không | `35` | Nghiêng về **không** — Postgres đủ nhanh ở quy mô này, và cache làm chính sách locale khó suy luận hơn |
 | Chạy một hay nhiều instance | Cần ShedLock hay không cho job quét hạn giữ chỗ | `14`, `35` |
