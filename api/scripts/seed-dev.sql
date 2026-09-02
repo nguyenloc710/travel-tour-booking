@@ -54,9 +54,50 @@ ON CONFLICT (market, city) WHERE NOT soft_delete DO NOTHING;
 
 -- ---------------------------------------------------------------- nhân sự
 
-INSERT INTO staff_user (id, email, display_name, password_hash) VALUES
-  ('c0000000-0000-4000-8000-000000000001', 'bien-tap@example.test', 'Biên tập viên', 'x')
-ON CONFLICT (email) WHERE NOT soft_delete DO NOTHING;
+-- Sáu tài khoản, MẬT KHẨU CỦA CẢ SÁU LÀ  password
+--
+-- Trước đây cột này là chuỗi 'x', nên không tài khoản mồi nào đăng nhập được và
+-- toàn bộ bề mặt quản trị không thử tay được trên máy dev.
+--
+-- Băm bằng bcrypt, không lưu mật khẩu thô — đúng cơ chế thật (docs/22 mục 9).
+-- Cả sáu dùng chung một chuỗi băm vì đây là dữ liệu giả cho localhost.
+--
+--   !!! KHÔNG BAO GIỜ chạy tệp này trên production. Sáu tài khoản dưới đây có
+--   !!! mật khẩu ai đọc repo cũng biết, và một trong số đó là ADMIN.
+--
+-- Bốn tài khoản đầu phủ đúng bốn vai trò của docs/22 mục 2.1, để ma trận quyền
+-- thử được bằng tay chứ không chỉ bằng test. Hai tài khoản cuối là TRƯỜNG HỢP
+-- RÌA, cùng tinh thần với P2 và P3 ở trên:
+--
+--   · ca-hai@  mang HAI vai trò — docs/22 mục 2 nói rõ một người vừa viết vừa
+--     dịch là chuyện thường ở công ty quy mô này, và quyền vẫn tính theo vai trò
+--   · da-nghi@ có is_active = FALSE — vô hiệu hoá người dùng là đặt cờ, KHÔNG
+--     xoá bản ghi, vì người đó còn nằm trong created_by của hàng trăm dòng khác
+--
+INSERT INTO staff_user (id, email, display_name, password_hash, is_active) VALUES
+  ('c0000000-0000-4000-8000-000000000001', 'bien-tap@example.test',  'Biên tập viên',      '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+  ('c0000000-0000-4000-8000-000000000002', 'tu-van@example.test',    'Tư vấn viên',        '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+  ('c0000000-0000-4000-8000-000000000003', 'bien-dich@example.test', 'Biên dịch viên',     '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+  ('c0000000-0000-4000-8000-000000000004', 'quan-tri@example.test',  'Quản trị viên',      '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+  ('c0000000-0000-4000-8000-000000000005', 'ca-hai@example.test',    'Vừa viết vừa dịch',  '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', TRUE),
+  ('c0000000-0000-4000-8000-000000000006', 'da-nghi@example.test',   'Đã nghỉ việc',       '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', FALSE)
+-- DO UPDATE chứ không DO NOTHING: chạy lại tệp này phải SỬA ĐƯỢC chuỗi băm cũ.
+-- Với DO NOTHING thì một CSDL dev đã có sẵn dòng 'x' sẽ giữ nguyên nó mãi mãi,
+-- và người chạy lại seed vẫn không đăng nhập được — đúng cái bẫy vừa gặp.
+ON CONFLICT (email) WHERE NOT soft_delete DO UPDATE SET
+  display_name  = EXCLUDED.display_name,
+  password_hash = EXCLUDED.password_hash,
+  is_active     = EXCLUDED.is_active;
+
+INSERT INTO staff_user_role (id, staff_user_id, role_code) VALUES
+  ('c0000000-0000-4000-8000-0000000000e1', 'c0000000-0000-4000-8000-000000000001', 'EDITOR'),
+  ('c0000000-0000-4000-8000-0000000000e2', 'c0000000-0000-4000-8000-000000000002', 'CONSULTANT'),
+  ('c0000000-0000-4000-8000-0000000000e3', 'c0000000-0000-4000-8000-000000000003', 'TRANSLATOR'),
+  ('c0000000-0000-4000-8000-0000000000e4', 'c0000000-0000-4000-8000-000000000004', 'ADMIN'),
+  ('c0000000-0000-4000-8000-0000000000e5', 'c0000000-0000-4000-8000-000000000005', 'EDITOR'),
+  ('c0000000-0000-4000-8000-0000000000e6', 'c0000000-0000-4000-8000-000000000005', 'TRANSLATOR'),
+  ('c0000000-0000-4000-8000-0000000000e7', 'c0000000-0000-4000-8000-000000000006', 'ADMIN')
+ON CONFLICT (staff_user_id, role_code) WHERE NOT soft_delete DO NOTHING;
 
 INSERT INTO consultant (id, market, full_name, email) VALUES
   ('c0000000-0000-4000-8000-000000000011', 'DK', 'Mette Sørensen', 'mette@example.test')

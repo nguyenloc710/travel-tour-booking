@@ -1097,6 +1097,9 @@ Kịch bản riêng, không phải migration. Tối thiểu để mọi màn hì
 1 sản phẩm dịch rồi nhưng CHƯA gán thị trường VN — để test cổng chặn
 1 ngày khởi hành SOLD_OUT, 1 FEW_SEATS, 1 PENDING
 37 khách sạn · 33 tham quan · 8 bài viết · 21 đánh giá · 4 chuyên viên
+Tài khoản nhân viên: 1 cho MỖI vai trò, + 1 mang hai vai trò, + 1 đã vô hiệu hoá
+  · mật khẩu băm bcrypt như thật — tài khoản không đăng nhập được thì
+    toàn bộ bề mặt quản trị không thử tay được
 ```
 
 Hai dòng in đậm ở giữa là quan trọng nhất: **dữ liệu mồi phải chứa sẵn các
