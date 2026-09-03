@@ -1,4 +1,5 @@
 import {
+  BookingApi,
   Configuration,
   DestinationsApi,
   ProductsApi,
@@ -6,7 +7,7 @@ import {
   ResponseError,
 } from '@travel/api-client';
 import type { Locale, Market } from '@travel/i18n';
-import { marketSegment } from './market';
+import { marketSegment } from './market-segment';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 
@@ -31,6 +32,16 @@ export function productsApi(): ProductsApi {
 
 export function destinationsApi(): DestinationsApi {
   return new DestinationsApi(configuration());
+}
+
+/**
+ * Đường **ghi** của khách: tính giá, giữ chỗ, tạo đơn, tra cứu.
+ *
+ * Gọi từ trình duyệt chứ không từ máy chủ Next, khác mọi lời gọi đọc ở trên: giữ
+ * chỗ và tạo đơn là hành động của khách, và chúng cần chạy ngay khi khách bấm.
+ */
+export function bookingApi(): BookingApi {
+  return new BookingApi(configuration());
 }
 
 /**

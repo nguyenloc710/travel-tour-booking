@@ -4,21 +4,25 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isLocale, t, type Locale } from '@travel/i18n';
-import { formatNumber, PriceFrom } from '@travel/ui';
-import type { Destination, ProductDetail } from '@travel/api-client';
-import { destinationsApi, laKhongTimThay, productsApi, requestScope } from '@/lib/api';
+import { formatMoney, formatNumber, PriceFrom } from '@travel/ui';
+import type { Departure, Destination, ProductDetail } from '@travel/api-client';
+import { bookingApi, destinationsApi, laKhongTimThay, productsApi, requestScope } from '@/lib/api';
 import { resolveMarket } from '@/lib/market';
 import {
   duongDanChiTiet,
   duongDanDiemDen,
   duongDanListing,
+  laBookingSegment,
+  laConfirmationSegment,
   laDestinationsSegment,
   laProductsSegment,
 } from '@/lib/routes';
+import { DatTour, type TrangThai } from '@/components/DatTour';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductFacts } from '@/components/ProductFacts';
 
 type Params = Promise<{ locale: string; section: string; slug: string }>;
+type Search = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * Lấy sản phẩm, hoặc 404.
@@ -125,6 +129,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     };
   }
 
+  // Đặt tour và xác nhận: `no-store`, và KHÔNG cho công cụ tìm kiếm chạm vào —
+  // hai trang này chứa trạng thái của một lần đặt cụ thể (docs/20 mục 2).
+  if (laBookingSegment(locale, section) || laConfirmationSegment(locale, section)) {
+    return { robots: { index: false, follow: false } };
+  }
+
   if (!laProductsSegment(locale, section)) return {};
 
   const sanPham = await laySanPham(locale, slug);
@@ -137,12 +147,24 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default async function ProductDetailPage({ params }: { params: Params }) {
+export default async function ProductDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Search;
+}) {
   const { locale, section, slug } = await params;
   if (!isLocale(locale)) notFound();
 
   if (laDestinationsSegment(locale, section)) {
     return <DestinationDetailPage locale={locale} slug={slug} />;
+  }
+  if (laBookingSegment(locale, section)) {
+    return <DatTourPage locale={locale} slug={slug} thamSo={await searchParams} />;
+  }
+  if (laConfirmationSegment(locale, section)) {
+    return <XacNhanPage locale={locale} reference={slug} thamSo={await searchParams} />;
   }
   if (!laProductsSegment(locale, section)) notFound();
 
@@ -299,5 +321,176 @@ async function TourTaiDiemDen({ locale, slug }: { locale: Locale; slug: string }
         <ProductCard key={sp.slug} locale={locale} product={sp} />
       ))}
     </ul>
+  );
+}
+
+/* ------------------------------------------------------------ R7 đặt tour */
+
+/**
+ * Đặt tour (R7).
+ *
+ * Máy chủ nạp sản phẩm và lịch khởi hành; bốn bước chạy ở trình duyệt vì mỗi lần
+ * khách đổi lựa chọn là một lần gọi lại endpoint tính giá.
+ *
+ * `PRIVATE_TOUR` **không đặt trực tiếp được** (docs/04): CTA của nó là yêu cầu
+ * báo giá. Vào thẳng URL đặt tour của một `PRIVATE_TOUR` thì trả về trang chi
+ * tiết, nơi có đúng nút cần bấm.
+ */
+async function DatTourPage({
+  locale,
+  slug,
+  thamSo,
+}: {
+  locale: Locale;
+  slug: string;
+  thamSo: Record<string, string | string[] | undefined>;
+}) {
+  const { market } = await resolveMarket(locale);
+  const sanPham = await laySanPham(locale, slug);
+
+  if (sanPham.productType === 'PRIVATE_TOUR') {
+    permanentRedirect(duongDanChiTiet(locale, slug));
+  }
+
+  let ngayKhoiHanh: Departure[];
+  try {
+    ngayKhoiHanh = await productsApi().listDepartures({
+      ...requestScope(market, locale),
+      slug,
+    });
+  } catch (loi) {
+    console.error('[api] listDepartures thất bại', loi);
+    ngayKhoiHanh = [];
+  }
+
+  return (
+    <>
+      <p className="detail__breadcrumb">
+        <Link href={duongDanChiTiet(locale, slug)}>{t(locale, 'detail.backToList')}</Link>
+      </p>
+      <DatTour
+        locale={locale}
+        market={market}
+        slug={slug}
+        tieuDe={sanPham.title}
+        ngayKhoiHanh={ngayKhoiHanh}
+        trangThai={docTrangThai(thamSo)}
+      />
+    </>
+  );
+}
+
+/**
+ * Đọc trạng thái ba bước đầu từ tham số truy vấn.
+ *
+ * Giá trị lạ thì lùi về bước 1 chứ không nổ: URL do khách gõ tay hoặc dán từ chỗ
+ * khác là chuyện bình thường, và một trang lỗi ở giữa luồng đặt tour là một đơn
+ * mất.
+ */
+function docTrangThai(thamSo: Record<string, string | string[] | undefined>): TrangThai {
+  const mot = (ten: string) => (typeof thamSo[ten] === 'string' ? thamSo[ten] : undefined);
+
+  const buoc = Number(mot('buoc') ?? '1');
+  const ngay = mot('ngay');
+
+  const pax = (mot('khach') ?? '')
+    .split(',')
+    .map((phan) => phan.split(':'))
+    .filter((c): c is [string, string] => c.length === 2 && Number.isFinite(Number(c[1])))
+    .map(([paxTypeCode, count]) => ({ paxTypeCode, count: Number(count) }));
+
+  return {
+    // Không có ngày khởi hành thì mọi bước sau đều vô nghĩa — về bước 1.
+    buoc: !ngay || buoc < 1 || buoc > 4 ? 1 : ((buoc as 1 | 2 | 3 | 4) ?? 1),
+    departureId: ngay,
+    holdId: mot('giu'),
+    hetHan: mot('het'),
+    // Loại khách mặc định: một người lớn. Ô đếm phải có sẵn một dòng để bấm.
+    pax: pax.length > 0 ? pax : [{ paxTypeCode: 'ADULT', count: 1 }],
+    singleTravellers: Number(mot('mot') ?? '0') || undefined,
+  };
+}
+
+/* ------------------------------------------------------------ R8 xác nhận */
+
+/**
+ * Trang xác nhận (R8).
+ *
+ * Không có đăng nhập cho khách ở v1, nên tra cứu bằng **mã tra cứu + email
+ * khớp** (docs/23 mục 6). Thiếu email thì không tra được — và đó là chủ ý, không
+ * phải thiếu sót: mã tra cứu một mình là một kênh dò đơn của người khác.
+ */
+async function XacNhanPage({
+  locale,
+  reference,
+  thamSo,
+}: {
+  locale: Locale;
+  reference: string;
+  thamSo: Record<string, string | string[] | undefined>;
+}) {
+  const email = typeof thamSo.email === 'string' ? thamSo.email : '';
+  const { market } = await resolveMarket(locale);
+
+  let don;
+  if (email !== '') {
+    try {
+      don = await bookingApi().traDon({ ...requestScope(market, locale), reference, email });
+    } catch (loi) {
+      if (!laKhongTimThay(loi)) {
+        throw loi;
+      }
+    }
+  }
+
+  if (!don) {
+    return (
+      <section className="detail">
+        <h1>{t(locale, 'confirm.heading')}</h1>
+        <div className="state state--error" role="alert">
+          <p className="state__title">{t(locale, 'confirm.notFound')}</p>
+          <p>{t(locale, 'state.error.help', { phone: t(locale, 'site.phone') })}</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="detail">
+      <h1>{t(locale, 'confirm.heading')}</h1>
+
+      <p className="dat-ma">
+        {t(locale, 'confirm.reference')}: <strong>{don.reference}</strong>
+      </p>
+      <p className="phu">{t(locale, 'confirm.keepIt')}</p>
+
+      <h2>{don.productTitle}</h2>
+      {don.departDate && (
+        <p className="detail__meta">
+          {new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'vi-VN', {
+            dateStyle: 'long',
+          }).format(don.departDate)}
+        </p>
+      )}
+
+      <table className="dat-gia">
+        <tbody>
+          <tr>
+            <th scope="row">{t(locale, 'booking.total')}</th>
+            <td>{formatMoney(don.total, locale)}</td>
+          </tr>
+          <tr>
+            <th scope="row">{t(locale, 'booking.deposit')}</th>
+            <td>{formatMoney(don.deposit, locale)}</td>
+          </tr>
+          <tr>
+            <th scope="row">{t(locale, 'booking.balance')}</th>
+            <td>{formatMoney(don.balance, locale)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>{t(locale, 'confirm.next')}</p>
+    </section>
   );
 }

@@ -28,6 +28,14 @@ export function laTourFinderSegment(locale: Locale, doan: string): boolean {
   return doan === segmentFor('tourFinder', locale);
 }
 
+export function laBookingSegment(locale: Locale, doan: string): boolean {
+  return doan === segmentFor('booking', locale);
+}
+
+export function laConfirmationSegment(locale: Locale, doan: string): boolean {
+  return doan === segmentFor('confirmation', locale);
+}
+
 /**
  * Đường dẫn có kiểu.
  *
@@ -47,6 +55,29 @@ export function duongDanChiTiet(locale: Locale, slug: string): Route {
 export function duongDanDiemDen(locale: Locale, slug?: string): Route {
   const goc = `/${locale}/${destinationsSegment(locale)}`;
   return (slug ? `${goc}/${slug}` : goc) as Route;
+}
+
+/**
+ * Bốn bước đặt tour là **bốn URL**, không phải bốn tab ẩn hiện bằng JavaScript:
+ * khách bấm Back là chuyện chắc chắn xảy ra, và mất hết dữ liệu vì Back là cách
+ * nhanh nhất để mất một đơn (`docs/23` mục 2).
+ *
+ * **Không đưa dữ liệu hành khách vào URL.** Tên và ngày sinh là dữ liệu cá nhân,
+ * và URL đi thẳng vào nhật ký máy chủ (`docs/31` mục 7). Bước 4 giữ chúng trong
+ * bộ nhớ trang và gửi thẳng lên API.
+ */
+export function duongDanDatTour(
+  locale: Locale,
+  slug: string,
+  thamSo?: URLSearchParams,
+): Route {
+  const truyVan = thamSo?.toString();
+  return `/${locale}/${segmentFor('booking', locale)}/${slug}${truyVan ? `?${truyVan}` : ''}` as Route;
+}
+
+export function duongDanXacNhan(locale: Locale, reference: string, email: string): Route {
+  const q = new URLSearchParams({ email });
+  return `/${locale}/${segmentFor('confirmation', locale)}/${reference}?${q}` as Route;
 }
 
 export function duongDanTimTour(locale: Locale, thamSo?: URLSearchParams): Route {

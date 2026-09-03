@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { defaultMarketFor, isMarket, type Locale, type Market } from '@travel/i18n';
 
+export { marketSegment } from './market-segment';
+
 /**
  * Market đang áp dụng cho request này.
  *
@@ -20,15 +22,4 @@ export async function resolveMarket(locale: Locale): Promise<{
     return { market: daChon, laMacDinh: daChon === macDinh };
   }
   return { market: macDinh, laMacDinh: true };
-}
-
-/**
- * Market chữ thường khi đi vào đường dẫn API — api/CLAUDE.md mục 10.
- *
- * Kiểu trả về là union chữ thường chứ không phải `string`, để khớp thẳng với
- * enum sinh từ spec: thêm một market vào `openapi.yaml` mà quên thêm ở đây là
- * lỗi biên dịch.
- */
-export function marketSegment(market: Market): Lowercase<Market> {
-  return market.toLowerCase() as Lowercase<Market>;
 }
