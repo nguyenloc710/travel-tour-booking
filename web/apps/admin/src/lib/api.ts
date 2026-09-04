@@ -108,6 +108,10 @@ export async function loiTiengViet(loi: unknown): Promise<string> {
       return 'Loại sản phẩm này đặt thẳng được, không đi qua luồng báo giá.';
     case 'LEAD_TIME_NOT_MET':
       return `Tour này cần báo trước ${params.leadTimeDays} ngày; ngày sớm nhất là ${params.earliestDate}.`;
+    case 'DESTINATION_IN_USE':
+      return `Còn ${params.productCount} sản phẩm trỏ tới điểm đến này. Gỡ chúng sang điểm đến khác trước — xoá bây giờ sẽ làm chúng biến mất khỏi website mà không có lỗi nào báo.`;
+    case 'LAST_ADMIN':
+      return 'Đây là quản trị viên đang bật cuối cùng. Gán quyền ADMIN cho người khác trước, nếu không sẽ không ai vào lại được màn hình này.';
     case 'VALIDATION_FAILED':
       return 'Dữ liệu nhập chưa hợp lệ.';
     case 'FORBIDDEN':
