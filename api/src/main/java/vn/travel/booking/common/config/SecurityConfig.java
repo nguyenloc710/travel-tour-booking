@@ -69,6 +69,7 @@ public class SecurityConfig {
                                 "/api/v1/{market:[a-z]{2}}/pricing/**",
                                 "/api/v1/{market:[a-z]{2}}/seat-holds/**",
                                 "/api/v1/{market:[a-z]{2}}/bookings/**",
+                                "/api/v1/{market:[a-z]{2}}/quote-requests",
                                 // Chính lời gọi đăng nhập: lúc đó chưa có phiên
                                 // nên chưa có thẻ nào để gửi, và đòi thẻ ở đây tạo
                                 // ra một bước lấy thẻ mà spec không có. Rủi ro còn

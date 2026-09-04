@@ -156,6 +156,7 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 | `QUOTE_EXPIRED` | 409 | Báo giá quá hạn |
 | `QUOTE_NOT_ACCEPTABLE` | 409 | Báo giá không ở trạng thái nhận được |
 | `LEAD_TIME_NOT_MET` | 422 | Ngày yêu cầu sớm hơn `leadTimeDays` |
+| `PRODUCT_NOT_QUOTABLE` | 422 | Loại sản phẩm đặt thẳng được, không đi qua báo giá |
 | `PRODUCT_NOT_BOOKABLE` | 422 | Loại sản phẩm không đặt trực tiếp được (`PRIVATE_TOUR`) |
 | `PARTY_SIZE_OUT_OF_RANGE` | 422 | Số khách ngoài bậc giá hoặc ngoài `minPax`/`maxPax` |
 | `PRODUCT_TYPE_BLOCK_MISMATCH` | 400 | Khối riêng của loại thiếu, sai loại, hoặc gửi hai khối |
@@ -313,7 +314,15 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
                               trị là quyết định của người: CONFIRMED, COMPLETED,
                               CANCELLED, REFUNDED. Ba trạng thái còn lại do
                               luồng thanh toán và job quét hạn sinh ra
-/admin/quotes              dựng báo giá, gửi
+/admin/quotes              danh sách báo giá — mặc định DRAFT, tức những yêu cầu
+                           chưa ai dựng giá. Sắp CŨ NHẤT TRƯỚC: đây là hàng đợi
+                           việc, mà việc chờ lâu nhất thì gấp nhất
+/admin/quotes/{reference}  một báo giá: yêu cầu của khách và bảng giá đang dựng
+/admin/quotes/{reference}/lines    dựng bảng giá, PUT thay toàn bộ. `total` do
+                           MÁY CHỦ cộng, không nhận từ client
+/admin/quotes/{reference}/status   gửi, hoặc ghi nhận khách trả lời. Chỉ nhận ba
+                           giá trị: SENT, ACCEPTED, REJECTED. DRAFT là điểm xuất
+                           phát, EXPIRED do job sinh ra
 /admin/leads
 /admin/translations/queue  hàng đợi dịch — bản da PUBLISHED mà vi thiếu/OUTDATED
 /admin/translations/coverage   bảng độ phủ

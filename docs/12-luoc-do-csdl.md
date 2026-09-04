@@ -952,6 +952,26 @@ tầng vai trò CSDL, không chỉ trông vào kỷ luật code.
 `quote` và `quote_line` theo đúng khuôn mẫu này, với
 `status ∈ (DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED)` và cột `valid_until`.
 
+### 6.0b. Yêu cầu báo giá nằm trong chính bảng `quote`
+
+`V6` thêm sáu cột vào `quote`: `contact_name`, `contact_email`, `contact_phone`,
+`requested_date`, `message`, `sent_at`.
+
+**Không có bảng `quote_request` riêng.** Một bảng riêng thì mỗi yêu cầu sinh hai
+dòng nối bằng khoá ngoại một-một, và mọi truy vấn của `22` M8 phải nối chúng
+lại. Cái được duy nhất là tách "yêu cầu chưa dựng giá" khỏi "báo giá đã dựng" —
+mà đó đúng là thứ cột `status` đã nói: `DRAFT` là yêu cầu chưa ai chạm tới.
+**Yêu cầu của khách chính là bản nháp báo giá.**
+
+Hệ quả phải nhận: một `quote` ở `DRAFT` có `total`, `currency` và `valid_until`
+đều `NULL`. Cả ba đã `NULL` được từ `V1` nên không phải nới ràng buộc nào.
+
+Ràng buộc `ck_quote_sent` giữ quy tắc 2 của `14` mục 7 ở tầng CSDL: `DRAFT` thì
+`sent_at` và `valid_until` phải rỗng, mọi trạng thái sau đó thì cả hai phải có.
+`valid_until` **lưu chứ không tính lại** từ `product_private.quote_valid_days` —
+quy tắc 4 cấm gia hạn, nên sửa `quote_valid_days` hôm nay không được làm đổi hạn
+của báo giá đã gửi tuần trước.
+
 ### 6.1. Hành khách của đơn
 
 Bước 4 của luồng đặt tour thu thông tin từng người đi (`23` mục 2.1). `14` mục

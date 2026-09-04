@@ -28,6 +28,7 @@ import vn.travel.booking.admin.service.AdminDepartureService;
 import vn.travel.booking.admin.service.AdminPriceTierService;
 import vn.travel.booking.admin.service.AdminProductService;
 import vn.travel.booking.admin.service.AdminProductTranslationService;
+import vn.travel.booking.quote.service.AdminQuoteService;
 import vn.travel.booking.admin.service.TranslationWorkService;
 import vn.travel.booking.admin.dto.AdminBookingDetailView;
 import vn.travel.booking.admin.dto.AdminBookingQuery;
@@ -49,6 +50,11 @@ import vn.travel.booking.admin.dto.ProductCreateInput;
 import vn.travel.booking.admin.dto.ProductDetailView;
 import vn.travel.booking.admin.dto.ProductPatchInput;
 import vn.travel.booking.product.dto.ProductTypeBlocks;
+import vn.travel.booking.quote.dto.AdminQuoteDetailView;
+import vn.travel.booking.quote.dto.AdminQuoteQuery;
+import vn.travel.booking.quote.dto.AdminQuoteRow;
+import vn.travel.booking.quote.dto.QuoteLineDraft;
+import vn.travel.booking.quote.dto.QuoteLineRow;
 import vn.travel.booking.admin.dto.AdminProductRow;
 import vn.travel.booking.admin.dto.CoverageRow;
 import vn.travel.booking.admin.dto.ProductTranslationInput;
@@ -100,6 +106,14 @@ import vn.travel.booking.web.generated.model.AdminBookingPassenger;
 import vn.travel.booking.web.generated.model.AdminBookingScope;
 import vn.travel.booking.web.generated.model.AdminBookingStatusChange;
 import vn.travel.booking.web.generated.model.AdminBookingSummary;
+import vn.travel.booking.web.generated.model.AdminQuoteDetail;
+import vn.travel.booking.web.generated.model.AdminQuoteFilter;
+import vn.travel.booking.web.generated.model.AdminQuotePage;
+import vn.travel.booking.web.generated.model.AdminQuoteLinesInput;
+import vn.travel.booking.web.generated.model.AdminQuoteStatusChange;
+import vn.travel.booking.web.generated.model.AdminQuoteSummary;
+import vn.travel.booking.web.generated.model.QuoteLine;
+import vn.travel.booking.web.generated.model.QuoteStatus;
 // Trạng thái đơn ở đây là kiểu SINH TỪ SPEC, không phải enum trong domain. Hai
 // cái trùng tên và luôn trùng giá trị; chỗ nào cần enum domain thì gọi đủ tên.
 import vn.travel.booking.web.generated.model.BookingStatus;
@@ -128,6 +142,7 @@ public class AdminController implements AdminApi {
     private final AdminDepartureService ngayKhoiHanh;
     private final AdminPriceTierService bacGia;
     private final AdminBookingService donDat;
+    private final AdminQuoteService baoGia;
     private final SecurityContextRepository khoPhien = new HttpSessionSecurityContextRepository();
 
     public AdminController(AuthenticationManager xacThuc,
@@ -137,7 +152,8 @@ public class AdminController implements AdminApi {
                            AdminProductService sanPham,
                            AdminDepartureService ngayKhoiHanh,
                            AdminPriceTierService bacGia,
-                           AdminBookingService donDat) {
+                           AdminBookingService donDat,
+                           AdminQuoteService baoGia) {
         this.xacThuc = xacThuc;
         this.banDich = banDich;
         this.danhMuc = danhMuc;
@@ -146,6 +162,7 @@ public class AdminController implements AdminApi {
         this.ngayKhoiHanh = ngayKhoiHanh;
         this.bacGia = bacGia;
         this.donDat = donDat;
+        this.baoGia = baoGia;
     }
 
     // ------------------------------------------------------------ phiên
@@ -705,6 +722,130 @@ public class AdminController implements AdminApi {
                 TranslationStatus.fromValue(v.status()), v.isSource(), v.lastModifiedAt())
                 .outdated(v.outdated())
                 .lastModifiedBy(v.lastModifiedBy());
+    }
+
+
+    // ------------------------------------------------------------ báo giá
+    //
+    // Ma trận quyền docs/22 mục 2.1, dòng "Báo giá: dựng, gửi": CONSULTANT W,
+    // ADMIN W. EDITOR và TRANSLATOR là "–" — báo giá mang tên, điện thoại và
+    // yêu cầu riêng của khách, và người viết nội dung không có việc gì với dữ
+    // liệu đó (docs/31), đúng như với đơn đặt.
+    //
+    // Cả BỐN endpoint cùng một vai trò, kể cả đường đọc: khác đơn đặt ở chỗ ma
+    // trận không tách "xem báo giá" khỏi "dựng báo giá" thành hai dòng, nên ở
+    // đây không có hai câu hỏi để trả lời khác nhau.
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminQuotePage> danhSachBaoGia(
+            AdminQuoteFilter status, String market, String q, Integer page, Integer size) {
+
+        PagedResult<AdminQuoteRow> ket_qua = baoGia.danhSach(new AdminQuoteQuery(
+                status == null ? null : status.getValue(), market, q, page, size));
+
+        return khongCache().body(new AdminQuotePage(
+                ket_qua.items().stream().map(AdminController::sang).toList(),
+                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminQuoteDetail> chiTietBaoGia(String reference) {
+        return khongCache().body(sang(baoGia.chiTiet(reference)));
+    }
+
+    /**
+     * Dựng bảng giá — docs/14 mục 7 quy tắc 5 và 6.
+     *
+     * <p>{@code total} <b>không có trong thân yêu cầu</b> và đó là chủ ý: máy
+     * chủ cộng từ các dòng. Nhận tổng rồi tin là mở đường cho một báo giá mà
+     * tổng không khớp bảng, và đó đúng là thứ khách mang ra tranh cãi.
+     */
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminQuoteDetail> dungBangGiaBaoGia(
+            String reference, AdminQuoteLinesInput input) {
+
+        return khongCache().body(sang(baoGia.datBangGia(
+                reference,
+                input.getCurrency(),
+                input.getLines().stream()
+                        .map(d -> new QuoteLineDraft(
+                                d.getLabelKey(),
+                                d.getQuantity() == null ? null : new BigDecimal(d.getQuantity()),
+                                d.getUnitAmount() == null ? null : new BigDecimal(d.getUnitAmount()),
+                                new BigDecimal(d.getAmount())))
+                        .toList(),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    /**
+     * Gửi báo giá, hoặc ghi nhận khách đã trả lời — máy trạng thái docs/14 mục 7.
+     *
+     * <p>{@code AdminQuoteTargetStatus} hẹp hơn {@code QuoteStatus} (ba giá trị
+     * thay vì năm), nên phép chuyển sang enum của domain luôn thành công.
+     * {@code DRAFT} không nằm trong đó vì nó là điểm xuất phát; {@code EXPIRED}
+     * không nằm trong đó vì nó là kết luận của đồng hồ, không phải quyết định
+     * của người.
+     */
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminQuoteDetail> doiTrangThaiBaoGia(
+            String reference, AdminQuoteStatusChange input) {
+
+        return khongCache().body(sang(baoGia.doiTrangThai(
+                reference,
+                vn.travel.booking.quote.dto.QuoteStatus.valueOf(input.getToStatus().getValue()),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    // ------------------------------------------------------- ánh xạ báo giá
+
+    private static AdminQuoteSummary sang(AdminQuoteRow r) {
+        return new AdminQuoteSummary(
+                r.id(), r.reference(),
+                QuoteStatus.fromValue(r.status().name()),
+                AdminQuoteSummary.MarketEnum.fromValue(r.market()),
+                r.locale(), r.productId(), r.productTitle(), r.partySize(),
+                r.contactName(), r.contactEmail(), r.createdAt())
+                .requestedDate(r.requestedDate())
+                .total(RefMapper.sangTien(r.total()))
+                .validUntil(r.validUntil());
+    }
+
+    /**
+     * Chi tiết = tóm tắt + bốn trường.
+     *
+     * <p>Lớp sinh ra làm phẳng {@code allOf} thành một lớp duy nhất, nên phải
+     * chép mười một trường của tóm tắt sang lần nữa ở đây. Không gọi lại được
+     * {@code sang(AdminQuoteRow)} vì hai kiểu sinh ra không có quan hệ kế thừa —
+     * đó là cái giá của {@code allOf} trong bộ sinh mã, và nó rẻ hơn việc lồng
+     * một đối tượng {@code summary} vào giữa phản hồi.
+     */
+    private static AdminQuoteDetail sang(AdminQuoteDetailView d) {
+        AdminQuoteRow r = d.tomTat();
+
+        return new AdminQuoteDetail(
+                r.id(), r.reference(),
+                QuoteStatus.fromValue(r.status().name()),
+                AdminQuoteDetail.MarketEnum.fromValue(r.market()),
+                r.locale(), r.productId(), r.productTitle(), r.partySize(),
+                r.contactName(), r.contactEmail(), r.createdAt(),
+                d.contactPhone(),
+                d.lines().stream().map(AdminController::sang).toList())
+                .requestedDate(r.requestedDate())
+                .total(RefMapper.sangTien(r.total()))
+                .validUntil(r.validUntil())
+                .message(d.message())
+                .leadTimeDays(d.leadTimeDays())
+                .quoteValidDays(d.quoteValidDays());
+    }
+
+    private static QuoteLine sang(QuoteLineRow l) {
+        return new QuoteLine(l.seq(), l.labelKey(), RefMapper.sangTien(l.amount()))
+                .quantity(l.quantity() == null ? null : l.quantity().toPlainString())
+                .unitAmount(RefMapper.sangTien(l.unitAmount()));
     }
 
     private static ServletRequestAttributes servlet() {

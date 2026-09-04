@@ -32,10 +32,14 @@ openapi: 3.0.3
 #                 2.1 tách hẳn "xem đơn" khỏi "đổi trạng thái đơn".
 # Phiên bản 0.12: đường GHI của M7 — nhân viên đổi trạng thái đơn. Máy trạng
 #                 thái ở docs/23 mục 4; mọi lần đổi ghi một booking_event.
+# Phiên bản 0.13: BÁO GIÁ — khách gửi yêu cầu báo giá cho PRIVATE_TOUR, nhân
+#                 viên dựng bảng giá rồi gửi (docs/22 M8). Vòng đời và bảy quy
+#                 tắc ở docs/14 mục 7. Đây là thứ làm cho CTA "Yêu cầu báo giá"
+#                 của docs/05 mục 6 dẫn tới một chỗ có thật.
 
 info:
   title: Travel Tour Booking API
-  version: 0.12.0
+  version: 0.13.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -1444,6 +1448,188 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/quotes:
+    get:
+      tags: [admin]
+      operationId: danhSachBaoGia
+      summary: Danh sách báo giá, nhìn từ trang quản trị
+      description: |
+        Màn hình M8 của `docs/22`. Chỉ `PRIVATE_TOUR` — loại khác không đi qua
+        luồng báo giá.
+
+        **`status` mặc định là `DRAFT`**, cùng lý do với `scope=NEEDS_ACTION` ở
+        danh sách đơn: `DRAFT` là những yêu cầu khách đã gửi mà **chưa ai dựng
+        giá**, tức là phần việc đang nợ. Mở mặc định "tất cả" thì yêu cầu về
+        sáng nay chìm giữa báo giá đã chốt từ mùa trước.
+
+        Sắp xếp: **cũ nhất trước**. Ngược với danh sách đơn, và có chủ ý — ở đây
+        thứ tự là hàng đợi việc, mà việc chờ lâu nhất thì gấp nhất.
+      parameters:
+        - name: status
+          in: query
+          description: Để trống lấy `DRAFT`. Truyền `ALL` để lấy mọi trạng thái.
+          schema:
+            allOf: [{ $ref: '#/components/schemas/AdminQuoteFilter' }]
+            default: DRAFT
+        - name: market
+          in: query
+          schema:
+            type: string
+            enum: [DK, VN]
+        - name: q
+          in: query
+          description: Tìm theo **mã báo giá**, tên hoặc email khách; khớp một phần.
+          schema: { type: string, maxLength: 120 }
+        - name: page
+          in: query
+          schema: { type: integer, format: int32, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Một trang báo giá
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuotePage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/quotes/{reference}:
+    get:
+      tags: [admin]
+      operationId: chiTietBaoGia
+      summary: Một báo giá — yêu cầu của khách và bảng giá đang dựng
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          description: Mã báo giá, ví dụ `Q-DK-2026-8F3K2P`.
+          schema: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Báo giá
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuoteDetail'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/quotes/{reference}/lines:
+    put:
+      tags: [admin]
+      operationId: dungBangGiaBaoGia
+      summary: Tư vấn viên dựng bảng giá của một báo giá
+      description: |
+        `PUT` chứ không `PATCH`: thân yêu cầu là **toàn bộ** bảng giá, và lưu là
+        thay sạch `quote_line` cũ. Sửa một dòng giữa bảng bằng `PATCH` thì phải
+        đánh số dòng ổn định, mà bảng giá đang dựng thì thứ tự đổi liên tục.
+
+        `total` **không nhận từ client** — máy chủ cộng từ các dòng. Nhận tổng
+        rồi tin là mở đường cho một báo giá mà tổng không khớp bảng, và đó đúng
+        là thứ khách sẽ mang ra tranh cãi.
+
+        Chỉ sửa được khi báo giá còn ở `DRAFT` (`docs/14` mục 7): đã gửi cho
+        khách rồi thì bảng giá là thứ khách đang cầm, không sửa sau lưng được →
+        `409 QUOTE_NOT_ACCEPTABLE`.
+
+        Giá ở đây **được phép khác** bảng giá theo bậc (`docs/14` mục 7 quy tắc
+        5) — đó là toàn bộ lý do `PRIVATE_TOUR` tồn tại.
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminQuoteLinesInput'
+      responses:
+        '200':
+          description: Báo giá sau khi dựng bảng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuoteDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/quotes/{reference}/status:
+    post:
+      tags: [admin]
+      operationId: doiTrangThaiBaoGia
+      summary: Gửi báo giá, hoặc ghi nhận khách đã trả lời
+      description: |
+        Máy trạng thái ở `docs/14` mục 7:
+
+        ```
+        DRAFT ──► SENT ──► ACCEPTED
+                    ├──► REJECTED
+                    └──► EXPIRED   (job, không phải người)
+        ```
+
+        Ba điều đi kèm, và không cái nào là tuỳ chọn:
+
+        1. **`SENT` đặt `validUntil` = hôm nay + `quoteValidDays` của sản phẩm**
+           (quy tắc 2). Ngày này do máy chủ tính, không nhận từ client — hạn của
+           một cam kết giá không phải thứ để người gửi tự gõ.
+        2. **Không gửi được báo giá chưa có dòng nào** → `409
+           QUOTE_NOT_ACCEPTABLE`. Một báo giá rỗng gửi đi là một email làm khách
+           mất thời gian.
+        3. **Quá `validUntil` thì không `ACCEPTED` được** → `409 QUOTE_EXPIRED`,
+           khách phải yêu cầu lại. **Không tự gia hạn** (quy tắc 4).
+
+        `EXPIRED` **không đặt tay được**, cùng lý do với `EXPIRED` của đơn: nó là
+        kết luận của đồng hồ, không phải quyết định của người.
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminQuoteStatusChange'
+      responses:
+        '200':
+          description: Báo giá sau khi đổi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuoteDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
   /api/v1/{market}/pricing/preview:
     post:
       tags: [booking]
@@ -1605,6 +1791,52 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/{market}/quote-requests:
+    post:
+      tags: [booking]
+      operationId: guiYeuCauBaoGia
+      summary: Khách gửi yêu cầu báo giá cho một tour riêng
+      description: |
+        Chỉ `PRIVATE_TOUR` (`docs/04`). Loại khác đặt thẳng được nên không đi qua
+        đây → `422 PRODUCT_NOT_QUOTABLE`.
+
+        Sinh một `quote` ở trạng thái `DRAFT` — **yêu cầu của khách chính là bản
+        nháp báo giá**, không phải một bảng riêng. Tư vấn viên nhận nó ở M8
+        (`docs/22`), điền dòng giá rồi gửi; vòng đời ở `docs/14` mục 7.
+
+        **Không giữ chỗ ở bất kỳ bước nào** (`docs/23` mục 7 điều 1): tour riêng
+        không dùng tồn kho chung, nên không có gì để giữ và không có gì hết hạn.
+
+        `requestedDate` sớm hơn `leadTimeDays` của sản phẩm →
+        `422 LEAD_TIME_NOT_MET`. Lịch ở frontend phải chặn trước, backend vẫn
+        kiểm lại (`docs/14` mục 7 quy tắc 1) — chặn ở một phía là chặn được đúng
+        những người dùng trình duyệt.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequestInput'
+      responses:
+        '201':
+          description: Đã nhận yêu cầu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteReceipt'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        '422':
           $ref: '#/components/responses/Error'
 
   /api/v1/{market}/products/{slug}:
@@ -2410,6 +2642,187 @@ components:
           items: { $ref: '#/components/schemas/AdminBookingEvent' }
           description: |
             **Toàn bộ** nhật ký, cũ nhất trước. Không phân trang, không cắt bớt.
+
+    QuoteStatus:
+      type: string
+      description: Vòng đời ở `docs/14` mục 7. Không có bước lùi.
+      enum: [DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED]
+
+    QuoteRequestInput:
+      type: object
+      required: [productSlug, partySize, contactName, contactEmail, contactPhone]
+      properties:
+        productSlug:
+          type: string
+          description: |
+            Slug **của locale đang đọc** — cùng một tour có slug khác nhau ở `da`
+            và `vi`. Bề mặt công khai dùng slug, không dùng `id` (`docs/13` mục 4).
+          maxLength: 200
+        partySize:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 40
+          description: Số người dự kiến. Khách đổi được lúc trao đổi với tư vấn viên.
+        requestedDate:
+          type: string
+          format: date
+          description: |
+            Ngày khách muốn khởi hành. Sớm hơn `leadTimeDays` của sản phẩm →
+            `422 LEAD_TIME_NOT_MET`.
+        contactName: { type: string, minLength: 1, maxLength: 160 }
+        contactEmail: { type: string, format: email }
+        contactPhone: { type: string, minLength: 5, maxLength: 32 }
+        message:
+          type: string
+          maxLength: 2000
+          description: Yêu cầu riêng của khách — thứ bảng giá tĩnh không diễn đạt được.
+
+    QuoteReceipt:
+      type: object
+      required: [reference, status, createdAt]
+      properties:
+        reference:
+          type: string
+          description: |
+            Mã báo giá. Khách đọc mã này qua điện thoại, nên nó theo cùng bộ chữ
+            cái với mã đơn — không có I, O, 0, 1.
+        status: { $ref: '#/components/schemas/QuoteStatus' }
+        createdAt: { type: string, format: date-time }
+
+    AdminQuoteFilter:
+      type: string
+      description: |
+        Bộ lọc trạng thái của danh sách M8. `ALL` là **giá trị thứ sáu**, không
+        phải một trạng thái — nó không bao giờ nằm trong CSDL.
+      enum: [DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED, ALL]
+
+    QuoteLineInput:
+      type: object
+      required: [labelKey, amount]
+      properties:
+        labelKey:
+          type: string
+          maxLength: 64
+          description: |
+            **Khoá chuỗi, không phải câu tiếng người** — cùng luật với
+            `booking_line`. Báo giá in ra được ở cả hai ngôn ngữ vì dòng của nó
+            không mang sẵn tiếng nào.
+        quantity: { type: string, pattern: '^-?\d+(\.\d+)?$' }
+        unitAmount: { type: string, pattern: '^-?\d+(\.\d+)?$' }
+        amount:
+          type: string
+          pattern: '^-?\d+(\.\d+)?$'
+          description: Âm = giảm trừ, cùng quy ước với `booking_line`.
+
+    AdminQuoteLinesInput:
+      type: object
+      required: [currency, lines]
+      properties:
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: |
+            Tiền tệ của **thị trường báo giá**, không quy đổi từ thị trường kia.
+            Sai tiền tệ so với thị trường của báo giá → `400 VALIDATION_FAILED`.
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 40
+          items: { $ref: '#/components/schemas/QuoteLineInput' }
+
+    QuoteLine:
+      type: object
+      required: [seq, labelKey, amount]
+      properties:
+        seq: { type: integer, format: int32 }
+        labelKey: { type: string }
+        quantity: { type: string }
+        unitAmount: { $ref: '#/components/schemas/Money' }
+        amount: { $ref: '#/components/schemas/Money' }
+
+    AdminQuoteTargetStatus:
+      type: string
+      description: |
+        Ba trạng thái **người** đặt được. `DRAFT` là điểm xuất phát nên không ai
+        quay lại nó; `EXPIRED` do job sinh ra (`docs/14` mục 7).
+      enum: [SENT, ACCEPTED, REJECTED]
+
+    AdminQuoteStatusChange:
+      type: object
+      required: [toStatus]
+      properties:
+        toStatus: { $ref: '#/components/schemas/AdminQuoteTargetStatus' }
+
+    AdminQuoteSummary:
+      type: object
+      required: [id, reference, status, market, locale, productId, productTitle,
+                 partySize, contactName, contactEmail, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        reference: { type: string }
+        status: { $ref: '#/components/schemas/QuoteStatus' }
+        market:
+          type: string
+          enum: [DK, VN]
+        locale:
+          type: string
+          description: |
+            Ngôn ngữ khách đã gửi yêu cầu bằng. Tư vấn viên gọi lại thì cần biết
+            nói tiếng gì — độc lập với thị trường (`docs/02`).
+        productId: { type: string, format: uuid }
+        productTitle:
+          type: string
+          description: |
+            Đọc từ bản dịch **theo locale của báo giá**. Khác `booking`: đơn chụp
+            lại tên lúc đặt vì nó là chứng từ, còn báo giá chưa chốt gì nên tên
+            hiện tại mới là tên đúng.
+        partySize: { type: integer, format: int32 }
+        requestedDate: { type: string, format: date }
+        contactName: { type: string }
+        contactEmail: { type: string }
+        total:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          description: Vắng khi chưa ai dựng bảng giá.
+        validUntil:
+          type: string
+          format: date
+          description: Vắng cho tới lúc gửi. Đặt lúc chuyển sang `SENT`.
+        createdAt: { type: string, format: date-time }
+
+    AdminQuotePage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminQuoteSummary' }
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1 }
+        totalItems: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+
+    AdminQuoteDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminQuoteSummary'
+        - type: object
+          required: [contactPhone, lines]
+          properties:
+            contactPhone: { type: string }
+            message: { type: string }
+            leadTimeDays:
+              type: integer
+              format: int32
+              description: Của sản phẩm, để màn hình giải thích được vì sao ngày bị từ chối.
+            quoteValidDays:
+              type: integer
+              format: int32
+              description: Số ngày báo giá còn hiệu lực kể từ lúc gửi.
+            lines:
+              type: array
+              items: { $ref: '#/components/schemas/QuoteLine' }
+              description: Rỗng khi chưa ai dựng bảng giá.
 
     PaxCount:
       type: object

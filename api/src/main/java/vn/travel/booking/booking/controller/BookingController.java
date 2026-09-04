@@ -15,6 +15,9 @@ import vn.travel.booking.booking.dto.BookingView;
 import vn.travel.booking.booking.dto.PassengerDraft;
 import vn.travel.booking.booking.dto.PricingQuery;
 import vn.travel.booking.booking.dto.SeatHoldView;
+import vn.travel.booking.quote.dto.QuoteReceiptView;
+import vn.travel.booking.quote.dto.QuoteRequestCommand;
+import vn.travel.booking.quote.service.QuoteService;
 import vn.travel.booking.web.generated.api.BookingApi;
 import vn.travel.booking.web.generated.model.Booking;
 import vn.travel.booking.web.generated.model.BookingRequest;
@@ -23,6 +26,9 @@ import vn.travel.booking.web.generated.model.PaxCount;
 import vn.travel.booking.web.generated.model.PriceBreakdown;
 import vn.travel.booking.web.generated.model.PriceLine;
 import vn.travel.booking.web.generated.model.PricingRequest;
+import vn.travel.booking.web.generated.model.QuoteReceipt;
+import vn.travel.booking.web.generated.model.QuoteRequestInput;
+import vn.travel.booking.web.generated.model.QuoteStatus;
 import vn.travel.booking.web.generated.model.SeatHold;
 import vn.travel.booking.web.generated.model.SeatHoldRequest;
 
@@ -42,10 +48,12 @@ import java.util.UUID;
 public class BookingController implements BookingApi {
 
     private final BookingService datTour;
+    private final QuoteService baoGia;
     private final Idempotency motLan;
 
-    public BookingController(BookingService datTour, Idempotency motLan) {
+    public BookingController(BookingService datTour, QuoteService baoGia, Idempotency motLan) {
         this.datTour = datTour;
+        this.baoGia = baoGia;
         this.motLan = motLan;
     }
 
@@ -126,6 +134,42 @@ public class BookingController implements BookingApi {
         String locale = RequestScope.locale(acceptLanguage);
         return khongCache(locale)
                 .body(sang(datTour.traDon(RequestScope.market(market), reference, email)));
+    }
+
+    // ------------------------------------------------------------ báo giá
+
+    /**
+     * Yêu cầu báo giá của khách — {@code PRIVATE_TOUR}, docs/23 mục 7.
+     *
+     * <p>Đòi {@code Idempotency-Key} như hai endpoint ghi kia (docs/13 mục 7).
+     * Không phải vì nó tính tiền — nó không tính gì — mà vì khách bấm nút hai
+     * lần thì tư vấn viên nhận hai yêu cầu giống hệt nhau và gọi điện hai lần.
+     */
+    @Override
+    public ResponseEntity<QuoteReceipt> guiYeuCauBaoGia(
+            String market, String acceptLanguage, UUID idempotencyKey, QuoteRequestInput yeuCau) {
+
+        String locale = RequestScope.locale(acceptLanguage);
+        String thiTruong = RequestScope.market(market);
+
+        return motLan.chay(idempotencyKey, thiTruong, "quote-requests", yeuCau,
+                QuoteReceipt.class, () -> {
+
+            QuoteReceiptView bien_nhan = baoGia.guiYeuCau(thiTruong, locale,
+                    new QuoteRequestCommand(
+                            yeuCau.getProductSlug(),
+                            yeuCau.getPartySize(),
+                            yeuCau.getRequestedDate(),
+                            yeuCau.getContactName(),
+                            yeuCau.getContactEmail(),
+                            yeuCau.getContactPhone(),
+                            yeuCau.getMessage()));
+
+            return daTao(locale).body(new QuoteReceipt(
+                    bien_nhan.reference(),
+                    QuoteStatus.fromValue(bien_nhan.status().name()),
+                    bien_nhan.createdAt()));
+        });
     }
 
     // ------------------------------------------------------------ ánh xạ

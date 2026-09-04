@@ -20,6 +20,7 @@ import vn.travel.booking.common.exception.ForbiddenException;
 import vn.travel.booking.common.exception.BookingErrors;
 import vn.travel.booking.common.exception.IdempotencyConflictException;
 import vn.travel.booking.common.exception.PartySizeOutOfRangeException;
+import vn.travel.booking.common.exception.QuoteErrors;
 import vn.travel.booking.common.exception.NotFoundException;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 
@@ -196,7 +197,12 @@ public class GlobalExceptionHandler {
             // AdminBookingTargetStatus chỉ nhận bốn giá trị. Jackson ném ngoại
             // lệ này TRƯỚC khi controller chạy, nên @Valid không bao giờ thấy
             // nó, và thiếu dòng này thì mọi thân yêu cầu sai đều trả 500.
-            HttpMessageNotReadableException.class
+            HttpMessageNotReadableException.class,
+            // Bảng giá báo giá ghi bằng tiền tệ không phải của thị trường đó.
+            // 400 chứ không 409: không có "lúc khác thì được" ở đây — thị
+            // trường VN không bao giờ báo giá bằng DKK, vì hệ thống này không
+            // có tỷ giá ở đâu cả (CLAUDE.md điều 4).
+            QuoteErrors.CurrencyMismatch.class
     })
     public ResponseEntity<ErrorResponse> dauVaoSai(Exception ex) {
         log.debug("400 VALIDATION_FAILED: {}", ex.getMessage());
@@ -226,6 +232,43 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> daDongBan(BookingErrors.DepartureClosed ex) {
         log.debug("409 DEPARTURE_CLOSED: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DEPARTURE_CLOSED"));
+    }
+
+    // ---------------------------------------------------- luồng báo giá
+    //
+    // docs/14 mục 7. Cùng cách chia HTTP với đường đặt tour: 409 là "lúc khác
+    // thì được", 422 là "yêu cầu này không bao giờ hợp lệ".
+
+    @ExceptionHandler(QuoteErrors.QuoteExpired.class)
+    public ResponseEntity<ErrorResponse> baoGiaHetHan(QuoteErrors.QuoteExpired ex) {
+        log.debug("409 QUOTE_EXPIRED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("QUOTE_EXPIRED"));
+    }
+
+    /**
+     * Gộp ba tình huống, vì với người dùng cả ba là "báo giá này không còn ở
+     * bước đó nữa": bước chuyển ngoài máy trạng thái, sửa bảng giá sau khi đã
+     * gửi, và gửi một báo giá chưa có dòng nào. Tham số {@code from} đi kèm để
+     * frontend dựng được câu cụ thể.
+     */
+    @ExceptionHandler(QuoteErrors.NotAcceptable.class)
+    public ResponseEntity<ErrorResponse> baoGiaSaiTrangThai(QuoteErrors.NotAcceptable ex) {
+        log.debug("409 QUOTE_NOT_ACCEPTABLE: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("QUOTE_NOT_ACCEPTABLE").params(ex.params()));
+    }
+
+    @ExceptionHandler(QuoteErrors.LeadTimeNotMet.class)
+    public ResponseEntity<ErrorResponse> chuaDuHanBaoTruoc(QuoteErrors.LeadTimeNotMet ex) {
+        log.debug("422 LEAD_TIME_NOT_MET: {}", ex.getMessage());
+        return ResponseEntity.unprocessableEntity()
+                .body(new ErrorResponse("LEAD_TIME_NOT_MET").params(ex.params()));
+    }
+
+    @ExceptionHandler(QuoteErrors.ProductNotQuotable.class)
+    public ResponseEntity<ErrorResponse> khongHoiGiaDuoc(QuoteErrors.ProductNotQuotable ex) {
+        log.debug("422 PRODUCT_NOT_QUOTABLE: {}", ex.getMessage());
+        return ResponseEntity.unprocessableEntity().body(loi("PRODUCT_NOT_QUOTABLE"));
     }
 
     /**
