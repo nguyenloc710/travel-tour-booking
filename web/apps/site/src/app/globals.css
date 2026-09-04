@@ -524,3 +524,39 @@ main {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.04em;
 }
+
+/* --------------------------------------------------- Yêu cầu báo giá (R4) */
+
+/* CTA của `PRIVATE_TOUR`. Trông như nút nhưng LÀ liên kết neo: nó chạy được cả
+   khi script chưa tải xong, và khách dán link ra ngoài vẫn tới đúng chỗ. */
+.detail__cta-nut {
+  display: inline-block;
+  min-height: 44px;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  background: var(--mau-nhan-manh);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.detail__cta-nut:hover {
+  text-decoration: underline;
+}
+
+/* Ô nhiều dòng xuống hàng thay vì nằm cạnh nhãn: 11rem nhãn cộng một ô textarea
+   trên cùng một dòng thì ô còn quá hẹp để đọc lại thứ mình vừa viết. */
+.dat-hang--doc {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
+.dat-hang--doc textarea {
+  min-height: 6rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--mau-vien);
+  border-radius: 6px;
+  font: inherit;
+  resize: vertical;
+}

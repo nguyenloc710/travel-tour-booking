@@ -100,6 +100,14 @@ export async function loiTiengViet(loi: unknown): Promise<string> {
       return `Đã bán ${params.seatsBooked} chỗ, không hạ sức chứa xuống ${params.capacity} được.`;
     case 'PRODUCT_HAS_ACTIVE_BOOKINGS':
       return `Còn ${params.activeBookings} đơn chưa kết thúc. Muốn ngừng bán thì tắt công tắc thị trường.`;
+    case 'QUOTE_EXPIRED':
+      return 'Báo giá đã quá hạn. Báo giá không tự gia hạn — khách muốn tiếp thì gửi yêu cầu mới.';
+    case 'QUOTE_NOT_ACCEPTABLE':
+      return `Báo giá đang ở trạng thái "${params.from}" nên không làm được việc này.`;
+    case 'PRODUCT_NOT_QUOTABLE':
+      return 'Loại sản phẩm này đặt thẳng được, không đi qua luồng báo giá.';
+    case 'LEAD_TIME_NOT_MET':
+      return `Tour này cần báo trước ${params.leadTimeDays} ngày; ngày sớm nhất là ${params.earliestDate}.`;
     case 'VALIDATION_FAILED':
       return 'Dữ liệu nhập chưa hợp lệ.';
     case 'FORBIDDEN':

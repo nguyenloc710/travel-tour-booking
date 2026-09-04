@@ -20,6 +20,7 @@ import {
 import { DatTour, type TrangThai } from '@/components/DatTour';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductFacts } from '@/components/ProductFacts';
+import { YeuCauBaoGia } from '@/components/YeuCauBaoGia';
 
 type Params = Promise<{ locale: string; section: string; slug: string }>;
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -200,9 +201,15 @@ export default async function ProductDetailPage({
           <p className="price-from price-from--contact">{t(locale, 'products.contactForPrice')}</p>
         )}
 
+        {/* CTA của tour riêng dẫn TỚI FORM BÁO GIÁ trên cùng trang, không sang
+            tab nào (docs/05 mục 6). Là một liên kết neo chứ không một nút chạy
+            JavaScript: nó hoạt động cả khi script chưa tải xong, và khách dán
+            link ra ngoài vẫn tới đúng chỗ. */}
         {sanPham.productType === 'PRIVATE_TOUR' && (
           <p className="detail__cta">
-            <strong>{t(locale, 'detail.private.cta')}</strong>
+            <a className="detail__cta-nut" href="#bao-gia">
+              {t(locale, 'detail.private.cta')}
+            </a>
           </p>
         )}
       </header>
@@ -235,6 +242,19 @@ export default async function ProductDetailPage({
       </section>
 
       <ProductFacts product={sanPham} locale={locale} />
+
+      {/* Tour riêng KHÔNG đặt trực tiếp được, nên chỗ này là điểm cuối của
+          trang chi tiết thay cho nút "Đặt tour" (docs/04). `leadTimeDays` lấy
+          từ chính sản phẩm — lịch chặn trước đúng con số của tour này, không
+          phải một con số chung gõ cứng. */}
+      {sanPham.productType === 'PRIVATE_TOUR' && (
+        <YeuCauBaoGia
+          locale={locale}
+          market={(await resolveMarket(locale)).market}
+          slug={slug}
+          leadTimeDays={sanPham.leadTimeDays}
+        />
+      )}
 
       {sanPham.mapImage !== undefined && (
         <Image
