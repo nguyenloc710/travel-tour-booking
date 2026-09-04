@@ -161,6 +161,87 @@ public class AdminBookingRepository {
         return tim.stream().findFirst();
     }
 
+    // ------------------------------------------------------------ đường ghi
+    //
+    // JdbcTemplate chứ không JPA, khác quy ước chung của đường ghi quản trị
+    // (docs/10 mục 6) — có lý do, không phải tiện tay:
+    //
+    //   · departure.seats_booked đã được đường đặt tour công khai cộng bằng một
+    //     câu UPDATE tương đối (`= seats_booked + ?`). Trừ nó bằng JPA nghĩa là
+    //     hai cơ chế ghi khác nhau trên cùng một bộ đếm tồn kho, và cái nào
+    //     thắng thì phụ thuộc thứ tự flush.
+    //   · booking_event là bảng chỉ ghi thêm, không có last_modified lẫn
+    //     soft_delete. Dựng một entity cho nó là mời người sau gọi save() lần
+    //     hai trên cùng một dòng nhật ký.
+    //   · Bước chuyển cần khoá bi quan trên đúng dòng booking.
+
+    /** Ảnh chụp một đơn vừa đủ để quyết bước chuyển. */
+    public record DonDeDoi(UUID id, BookingStatus status, UUID departureId, int paxCount) {
+    }
+
+    /**
+     * Khoá dòng đơn rồi đọc trạng thái hiện tại.
+     *
+     * <p>{@code FOR UPDATE} là thứ duy nhất chặn được hai nhân viên cùng bấm một
+     * nút: người thứ hai chờ ở đây, đọc được trạng thái <b>sau</b> khi người thứ
+     * nhất đã ghi, và rơi đúng vào máy trạng thái. Thiếu nó thì cả hai cùng đọc
+     * {@code CONFIRMED}, cùng thấy hợp lệ, và một lần huỷ trừ chỗ <b>hai lần</b>.
+     */
+    public Optional<DonDeDoi> khoaDon(String reference) {
+        return jdbc.query("""
+                SELECT b.id, b.status, b.departure_id,
+                       (SELECT count(*) FROM booking_passenger bp
+                         WHERE bp.booking_id = b.id) AS pax_count
+                FROM booking b
+                WHERE b.reference = ? AND NOT b.soft_delete
+                FOR UPDATE OF b
+                """,
+                (rs, i) -> new DonDeDoi(
+                        rs.getObject("id", UUID.class),
+                        BookingStatus.valueOf(rs.getString("status")),
+                        rs.getObject("departure_id", UUID.class),
+                        rs.getInt("pax_count")),
+                reference)
+                .stream().findFirst();
+    }
+
+    /**
+     * {@code last_modified_by} do ứng dụng ghi, {@code last_modified_at} do
+     * trigger — api/CLAUDE.md mục 7b. Đặt tay cột thời gian ở đây là tạo ra chỗ
+     * thứ hai cùng ghi một cột.
+     */
+    public void datTrangThai(UUID bookingId, BookingStatus sang, UUID nhanVienId) {
+        jdbc.update("UPDATE booking SET status = ?, last_modified_by = ? WHERE id = ?",
+                sang.name(), nhanVienId, bookingId);
+    }
+
+    public void ghiNhatKy(UUID bookingId, BookingStatus tu, BookingStatus sang,
+                          UUID nhanVienId, String note) {
+        jdbc.update("""
+                INSERT INTO booking_event (id, booking_id, from_status, to_status,
+                                           actor_type, actor_id, note)
+                VALUES (?, ?, ?, ?, 'STAFF', ?, ?)
+                """,
+                UUID.randomUUID(), bookingId, tu == null ? null : tu.name(), sang.name(),
+                nhanVienId, note);
+    }
+
+    /**
+     * Trả chỗ về kho.
+     *
+     * <p>{@code GREATEST(..., 0)} là lưới an toàn, không phải phép tính: bộ đếm
+     * âm làm mọi phép kiểm còn chỗ ở nơi khác đọc ra số vô nghĩa, và hỏng âm
+     * thầm. Nếu nó chạm 0 mà đáng lẽ không nên thì dữ liệu đã lệch từ trước —
+     * xem ghi chú ở {@code AdminBookingService.doiTrangThai}.
+     */
+    public void traChoVeKho(UUID departureId, int soKhach) {
+        jdbc.update("""
+                UPDATE departure
+                SET seats_booked = GREATEST(seats_booked - ?, 0)
+                WHERE id = ?
+                """, soKhach, departureId);
+    }
+
     // ------------------------------------------------------------ ba khối con
 
     private List<PriceLine> dongGia(UUID bookingId, String tienTe) {

@@ -98,6 +98,7 @@ import vn.travel.booking.web.generated.model.AdminBookingEvent;
 import vn.travel.booking.web.generated.model.AdminBookingPage;
 import vn.travel.booking.web.generated.model.AdminBookingPassenger;
 import vn.travel.booking.web.generated.model.AdminBookingScope;
+import vn.travel.booking.web.generated.model.AdminBookingStatusChange;
 import vn.travel.booking.web.generated.model.AdminBookingSummary;
 // Trạng thái đơn ở đây là kiểu SINH TỪ SPEC, không phải enum trong domain. Hai
 // cái trùng tên và luôn trùng giá trị; chỗ nào cần enum domain thì gọi đủ tên.
@@ -472,6 +473,30 @@ public class AdminController implements AdminApi {
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
     public ResponseEntity<AdminBookingDetail> chiTietDon(String reference) {
         return khongCache().body(sang(donDat.chiTiet(reference)));
+    }
+
+    /**
+     * Đường <b>ghi</b> của M7 — dòng "Đơn đặt: đổi trạng thái, huỷ, hoàn" của ma
+     * trận docs/22 mục 2.1.
+     *
+     * <p>Cùng vai trò với đường đọc ở v1, nhưng khai riêng chứ không dùng chung
+     * một hằng: hai dòng khác nhau trong ma trận thì là hai câu hỏi khác nhau,
+     * và ngày nào đó chúng sẽ trả lời khác nhau.
+     *
+     * <p>{@code AdminBookingTargetStatus} hẹp hơn {@code BookingStatus} nên phép
+     * chuyển qua enum của domain luôn thành công — bốn giá trị của nó là tập con
+     * đúng nghĩa, và trình biên dịch giữ cho nó đúng vì cả hai đều sinh từ spec.
+     */
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminBookingDetail> doiTrangThaiDon(
+            String reference, AdminBookingStatusChange input) {
+
+        return khongCache().body(sang(donDat.doiTrangThai(
+                reference,
+                vn.travel.booking.booking.dto.BookingStatus.valueOf(input.getToStatus().getValue()),
+                SecurityUtils.nhanVienHienTai().id(),
+                input.getNote())));
     }
 
     // ------------------------------------------------------------ ánh xạ đơn

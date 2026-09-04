@@ -10,10 +10,11 @@ Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, Postgr
 > biến khi gọi lại; bề mặt quản trị đủ để **mở bán một tour mà không cần lập
 > trình viên**: đăng nhập, ma trận quyền, bản dịch, danh sách, hàng đợi dịch,
 > bảng độ phủ, CRUD sản phẩm, gán thị trường, ngày khởi hành, bảng giá; và
-> **vận hành đơn ở mức xem** — danh sách đơn (`docs/22` M6) và chi tiết đơn kèm
-> toàn bộ `booking_event` (M7). 220 test xanh.
-> Chưa có: **đổi trạng thái đơn** từ trang quản trị, luồng báo giá `Quote`,
-> media (**Q-6**), thanh toán (**Q-3**).
+> **vận hành đơn** — danh sách đơn (`docs/22` M6), chi tiết đơn kèm toàn bộ
+> `booking_event` (M7), và nhân viên đổi trạng thái đơn: khoá bi quan, huỷ trả
+> chỗ về kho ngay, mọi lần đổi ghi một dòng nhật ký. 228 test xanh.
+> Chưa có: huỷ **hàng loạt** theo ngày khởi hành (`docs/14` mục 6.6), luồng báo
+> giá `Quote`, media (**Q-6**), thanh toán (**Q-3**).
 
 ## 0b. Bố cục package
 

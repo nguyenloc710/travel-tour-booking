@@ -30,10 +30,12 @@ openapi: 3.0.3
 #                 kèm toàn bộ nhật ký booking_event (M7). Hai endpoint chỉ ĐỌC:
 #                 đổi trạng thái đơn là đợt sau, và ma trận quyền docs/22 mục
 #                 2.1 tách hẳn "xem đơn" khỏi "đổi trạng thái đơn".
+# Phiên bản 0.12: đường GHI của M7 — nhân viên đổi trạng thái đơn. Máy trạng
+#                 thái ở docs/23 mục 4; mọi lần đổi ghi một booking_event.
 
 info:
   title: Travel Tour Booking API
-  version: 0.11.0
+  version: 0.12.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -1377,6 +1379,71 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/bookings/{reference}/status:
+    post:
+      tags: [admin]
+      operationId: doiTrangThaiDon
+      summary: Nhân viên đổi trạng thái một đơn
+      description: |
+        Đường **ghi** của M7. Máy trạng thái ở `docs/23` mục 4, và ba quy tắc của
+        nó áp nguyên ở đây:
+
+        1. **Mỗi lần đổi ghi một `booking_event`** — không có ngoại lệ, kể cả
+           thao tác của nhân viên. Ghi chú kèm theo vào cùng dòng đó.
+        2. **Không có bước lùi.** Bước chuyển không nằm trong máy trạng thái trả
+           `409 BOOKING_TRANSITION_NOT_ALLOWED` kèm `from` và `to`. Huỷ nhầm thì
+           tạo đơn mới, không đưa `CANCELLED` ngược về `CONFIRMED`.
+        3. **Rời trạng thái đang chiếm chỗ thì trả chỗ về kho NGAY**
+           (`docs/14` mục 6.5), không chờ hoàn tiền xong. Hoàn tiền và trả chỗ là
+           hai việc độc lập, và giữ chỗ trống trong lúc chờ ngân hàng là mất
+           doanh thu vô ích.
+
+        `toStatus` chỉ nhận **bốn** giá trị là quyết định của nhân viên. Ba
+        trạng thái còn lại cố tình **không** đặt tay được:
+
+        | Không cho đặt | Vì sao |
+        |---|---|
+        | `PENDING_PAYMENT` | Thuộc luồng thanh toán của khách |
+        | `PENDING_CONFIRMATION` | Do kết quả thanh toán sinh ra |
+        | `EXPIRED` | Do job quét hạn sinh ra, `docs/14` mục 6.4 |
+
+        Nhân viên đặt tay được ba trạng thái đó nghĩa là nhật ký có thể ghi một
+        lần thanh toán chưa từng xảy ra — và nhật ký đó là thứ duy nhất trả lời
+        được khi khách khiếu nại.
+
+        **Không đòi `Idempotency-Key`.** Khác ba endpoint ghi công khai
+        (`docs/13` mục 7): ở đây gọi lại lần hai rơi đúng vào máy trạng thái và
+        trả `409` vì bước chuyển thứ hai không còn hợp lệ — bản thân máy trạng
+        thái đã là cơ chế chống gọi lại.
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema: { type: string, maxLength: 20 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminBookingStatusChange'
+      responses:
+        '200':
+          description: Đơn sau khi đổi, kèm nhật ký đã có dòng mới
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBookingDetail'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+
   /api/v1/{market}/pricing/preview:
     post:
       tags: [booking]
@@ -2253,6 +2320,28 @@ components:
         size: { type: integer, format: int32, minimum: 1 }
         totalItems: { type: integer, format: int64, minimum: 0 }
         totalPages: { type: integer, format: int32, minimum: 0 }
+
+    AdminBookingTargetStatus:
+      type: string
+      description: |
+        Bốn trạng thái **nhân viên** đặt được. Tập con của `BookingStatus`, cố ý
+        hẹp hơn: `PENDING_PAYMENT`, `PENDING_CONFIRMATION` và `EXPIRED` do luồng
+        thanh toán và job quét hạn sinh ra, đặt tay được là ghi vào nhật ký một
+        việc chưa từng xảy ra.
+      enum: [CONFIRMED, COMPLETED, CANCELLED, REFUNDED]
+
+    AdminBookingStatusChange:
+      type: object
+      required: [toStatus]
+      properties:
+        toStatus: { $ref: '#/components/schemas/AdminBookingTargetStatus' }
+        note:
+          type: string
+          maxLength: 500
+          description: |
+            Vì sao đổi. Đi thẳng vào dòng `booking_event` vừa sinh ra — nơi duy
+            nhất giữ được lý do, vì bảng `booking` chỉ giữ trạng thái **hiện
+            tại**.
 
     AdminBookingPassenger:
       type: object

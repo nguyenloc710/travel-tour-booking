@@ -25,6 +25,7 @@ import vn.travel.booking.web.generated.model.AdminBookingPage;
 import vn.travel.booking.web.generated.model.AdminBookingPassenger;
 import vn.travel.booking.web.generated.model.AdminBookingSummary;
 import vn.travel.booking.web.generated.model.BookingStatus;
+import vn.travel.booking.web.generated.model.ErrorResponse;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -86,6 +87,7 @@ class AdminBookingIT {
 
     private static final String MAT_KHAU = "mat-khau-rat-dai";
     private static final String TU_VAN = "bb100000-0000-4000-8000-000000000002";
+    private static final String DEPARTURE_DK = "bb200000-0000-4000-8000-000000000001";
 
     @LocalServerPort
     int cong;
@@ -441,6 +443,109 @@ class AdminBookingIT {
                 .lay("/api/v1/admin/bookings/DK-2026-KHONGCO", String.class).getStatusCode());
     }
 
+    // ------------------------------------------------------------ M7 đường ghi
+
+    @Test
+    @DisplayName("Xác nhận đơn: trạng thái đổi và nhật ký có dòng mang tên nhân viên")
+    void xacNhanDonGhiNhatKy() {
+        AdminBookingDetail sau = doiTrangThai("tuvan@travel.test", "DK-2026-AAAA11",
+                "CONFIRMED", "Khách đã chuyển khoản");
+
+        assertNotNull(sau);
+        assertEquals(BookingStatus.CONFIRMED, sau.getStatus());
+
+        // Dòng nhật ký là bằng chứng, không phải hiệu ứng phụ: docs/23 mục 4
+        // quy tắc 1 không có ngoại lệ nào cho thao tác của nhân viên.
+        AdminBookingEvent moi = sau.getEvents().getLast();
+        assertEquals(BookingStatus.PENDING_CONFIRMATION, moi.getFromStatus());
+        assertEquals(BookingStatus.CONFIRMED, moi.getToStatus());
+        assertEquals(AdminBookingEvent.ActorTypeEnum.STAFF, moi.getActorType());
+        assertEquals("Trần Tư Vấn", moi.getActorName());
+        assertEquals("Khách đã chuyển khoản", moi.getNote());
+    }
+
+    @Test
+    @DisplayName("Huỷ đơn trả chỗ về kho NGAY")
+    void huyDonTraChoVeKho() {
+        // B2 đang CONFIRMED với 1 hành khách, trên ngày khởi hành có 4 chỗ đã bán.
+        assertEquals(4, choDaBan(DEPARTURE_DK));
+
+        doiTrangThai("tuvan@travel.test", "DK-2026-BBBB22", "CANCELLED", "Khách đổi ý");
+
+        // docs/14 mục 6.5: không chờ hoàn tiền xong. Giữ chỗ trống trong lúc chờ
+        // ngân hàng là mất doanh thu vô ích.
+        assertEquals(3, choDaBan(DEPARTURE_DK));
+    }
+
+    @Test
+    @DisplayName("Hoàn tiền KHÔNG trả chỗ lần thứ hai")
+    void hoanTienKhongTraChoLanHai() {
+        var phien = dangNhap("tuvan@travel.test");
+        goiDoi(phien, "DK-2026-BBBB22", "CANCELLED", null);
+        assertEquals(3, choDaBan(DEPARTURE_DK));
+
+        // CANCELLED → REFUNDED: chỗ đã về kho từ bước trước. Trừ thêm lần nữa là
+        // bán được nhiều hơn sức chứa, và không ai phát hiện cho tới lúc lên xe.
+        goiDoi(phien, "DK-2026-BBBB22", "REFUNDED", "Đã hoàn qua ngân hàng");
+        assertEquals(3, choDaBan(DEPARTURE_DK));
+    }
+
+    @Test
+    @DisplayName("Bước chuyển ngược trả 409 kèm from và to")
+    void buocChuyenNguocTra409() {
+        // B4 đã COMPLETED — trạng thái đã chốt, không còn đường đi tiếp.
+        ResponseEntity<ErrorResponse> phanHoi = goiDoi(
+                dangNhap("tuvan@travel.test"), "DK-2026-DDDD44", "CONFIRMED", null);
+
+        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
+        ErrorResponse loi = phanHoi.getBody();
+        assertNotNull(loi);
+        assertEquals("BOOKING_TRANSITION_NOT_ALLOWED", loi.getCode());
+        // Tham số, không phải câu tiếng người — frontend dựng câu.
+        assertEquals("COMPLETED", loi.getParams().get("from"));
+        assertEquals("CONFIRMED", loi.getParams().get("to"));
+    }
+
+    @Test
+    @DisplayName("Gọi lại lần hai rơi vào máy trạng thái, không cần Idempotency-Key")
+    void goiLaiLanHaiTra409() {
+        var phien = dangNhap("tuvan@travel.test");
+        assertEquals(HttpStatus.OK,
+                goiDoi(phien, "DK-2026-AAAA11", "CONFIRMED", null).getStatusCode());
+
+        // Bấm hai lần, hoặc trình duyệt gửi lại: lần thứ hai PENDING_CONFIRMATION
+        // không còn là trạng thái hiện tại nữa. Bản thân máy trạng thái đã là cơ
+        // chế chống gọi lại ở đây.
+        assertEquals(HttpStatus.CONFLICT,
+                goiDoi(phien, "DK-2026-AAAA11", "CONFIRMED", null).getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Nhân viên không đặt tay được EXPIRED")
+    void khongDatTayDuocExpired() {
+        // EXPIRED do job quét hạn sinh ra. Đặt tay được nghĩa là nhật ký có thể
+        // ghi một việc chưa từng xảy ra — spec để nó ngoài AdminBookingTargetStatus.
+        assertEquals(HttpStatus.BAD_REQUEST, goiDoi(
+                dangNhap("tuvan@travel.test"), "DK-2026-AAAA11", "EXPIRED", null)
+                .getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Biên tập viên không đổi được trạng thái đơn")
+    void bienTapVienKhongDoiDuocTrangThai() {
+        assertEquals(HttpStatus.FORBIDDEN, goiDoi(
+                dangNhap("bientap@travel.test"), "DK-2026-AAAA11", "CONFIRMED", null)
+                .getStatusCode());
+    }
+
+    @Test
+    @DisplayName("Đổi trạng thái đơn không tồn tại trả 404")
+    void doiTrangThaiDonKhongTonTaiTra404() {
+        assertEquals(HttpStatus.NOT_FOUND, goiDoi(
+                dangNhap("tuvan@travel.test"), "DK-2026-KHONGCO", "CONFIRMED", null)
+                .getStatusCode());
+    }
+
     // ------------------------------------------------------------ quyền
 
     @Test
@@ -484,6 +589,35 @@ class AdminBookingIT {
     }
 
     // ------------------------------------------------------------ tiện ích
+
+    /** Gọi đường ghi và trả về đơn sau khi đổi. Đỏ ngay nếu không phải 200. */
+    private AdminBookingDetail doiTrangThai(String email, String reference,
+                                            String sang, String note) {
+        ResponseEntity<AdminBookingDetail> phanHoi = dangNhap(email)
+                .goi(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
+                        than(sang, note), AdminBookingDetail.class);
+        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
+        return phanHoi.getBody();
+    }
+
+    private ResponseEntity<ErrorResponse> goiDoi(Phien phien, String reference,
+                                                 String sang, String note) {
+        return phien.goi(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
+                than(sang, note), ErrorResponse.class);
+    }
+
+    private static String than(String sang, String note) {
+        return note == null
+                ? "{\"toStatus\":\"%s\"}".formatted(sang)
+                : "{\"toStatus\":\"%s\",\"note\":\"%s\"}".formatted(sang, note);
+    }
+
+    private int choDaBan(String departureId) {
+        Integer so = jdbc.queryForObject(
+                "SELECT seats_booked FROM departure WHERE id = CAST(? AS uuid)",
+                Integer.class, departureId);
+        return so == null ? -1 : so;
+    }
 
     private static AdminBookingSummary tim(AdminBookingPage trang, String reference) {
         return trang.getItems().stream()

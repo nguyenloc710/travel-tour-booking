@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -120,6 +121,21 @@ public class GlobalExceptionHandler {
                 .body(loi("PRODUCT_HAS_ACTIVE_BOOKINGS", ex));
     }
 
+    /**
+     * Bước chuyển trạng thái đơn không nằm trong máy trạng thái (docs/23 mục 4).
+     *
+     * <p>409 chứ không 400: dữ liệu gửi lên <b>đúng dạng</b> — `CONFIRMED` là
+     * một trạng thái có thật — chỉ là nó xung đột với trạng thái hiện tại của
+     * đơn. Đây cũng là câu trả lời khi hai nhân viên cùng bấm một nút: người thứ
+     * hai nhận 409 vì bước chuyển đã xảy ra rồi.
+     */
+    @ExceptionHandler(IllegalBookingTransitionException.class)
+    public ResponseEntity<ErrorResponse> buocChuyenSai(IllegalBookingTransitionException ex) {
+        log.debug("409 BOOKING_TRANSITION_NOT_ALLOWED: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("BOOKING_TRANSITION_NOT_ALLOWED").params(ex.params()));
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> khongTimThay(NotFoundException ex) {
         log.debug("404 NOT_FOUND: {}", ex.getMessage());
@@ -174,7 +190,13 @@ public class GlobalExceptionHandler {
             // bị báo là lỗi máy chủ, và log đầy tiếng kêu cho một chuyện bình
             // thường. Đây là lỗi CỦA NGƯỜI GỌI, và 400 nói đúng điều đó.
             MissingRequestHeaderException.class,
-            MissingServletRequestParameterException.class
+            MissingServletRequestParameterException.class,
+            // THÂN yêu cầu không đọc được: JSON hỏng, hoặc một giá trị enum
+            // không có trong spec — ví dụ toStatus="EXPIRED" khi
+            // AdminBookingTargetStatus chỉ nhận bốn giá trị. Jackson ném ngoại
+            // lệ này TRƯỚC khi controller chạy, nên @Valid không bao giờ thấy
+            // nó, và thiếu dòng này thì mọi thân yêu cầu sai đều trả 500.
+            HttpMessageNotReadableException.class
     })
     public ResponseEntity<ErrorResponse> dauVaoSai(Exception ex) {
         log.debug("400 VALIDATION_FAILED: {}", ex.getMessage());

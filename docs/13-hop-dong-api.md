@@ -164,6 +164,7 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 | `UNKNOWN_PAX_TYPE` | 400 | Mã loại khách không có ở thị trường này |
 | `PRICE_TIER_NOT_CONTIGUOUS` | 400 | Thang giá hở hoặc chồng |
 | `CAPACITY_BELOW_BOOKED` | 409 | Hạ sức chứa xuống dưới số chỗ đã bán |
+| `BOOKING_TRANSITION_NOT_ALLOWED` | 409 | Bước chuyển không có trong máy trạng thái (`23` mục 4). Kèm `from` và `to` |
 | `PRODUCT_HAS_ACTIVE_BOOKINGS` | 409 | Xoá sản phẩm còn đơn chưa kết thúc |
 | `PAYMENT_FAILED` | 402 | Cổng thanh toán từ chối |
 | `RATE_LIMITED` | 429 | Quá nhiều yêu cầu |
@@ -307,8 +308,11 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
 /admin/bookings            danh sách — mặc định NEEDS_ACTION, không phải tất cả
 /admin/bookings/{reference}   một đơn: phân rã giá chụp lại, hành khách, TOÀN BỘ
                               booking_event. Tra bằng MÃ TRA CỨU, không bằng id
-                              — đó là thứ khách đọc qua điện thoại.
-                              Đổi trạng thái đơn: CHƯA CÓ, là đường ghi riêng
+                              — đó là thứ khách đọc qua điện thoại
+/admin/bookings/{reference}/status   nhân viên đổi trạng thái. Chỉ nhận bốn giá
+                              trị là quyết định của người: CONFIRMED, COMPLETED,
+                              CANCELLED, REFUNDED. Ba trạng thái còn lại do
+                              luồng thanh toán và job quét hạn sinh ra
 /admin/quotes              dựng báo giá, gửi
 /admin/leads
 /admin/translations/queue  hàng đợi dịch — bản da PUBLISHED mà vi thiếu/OUTDATED
