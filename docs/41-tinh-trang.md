@@ -74,7 +74,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
 | Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài — nhưng **cần một bản Python thật**; máy đang làm chỉ có alias rỗng của Store, xem mục 6.1 |
 | Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 160 file Java, migration `V1`–`V5` |
-| Hợp đồng API | `contracts/openapi.yaml` | **v0.11.0** — 35 endpoint |
+| Hợp đồng API | `contracts/openapi.yaml` | **v0.12.0** — 36 endpoint |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
@@ -115,8 +115,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `api/` dữ liệu tra cứu `R__` và `scripts/seed-dev.sql` | ✔ đã chạy sạch |
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
 | Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc`, 31 commit, đã đẩy hết |
-| Test | ✔ **220/220 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 04/09 trên Postgres 16 qua Testcontainers. 18 lớp: 11 IT và 7 unit thuần không context |
-| `contracts/openapi.yaml` **v0.11.0** (35 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
+| Test | ✔ **228/228 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 04/09 trên Postgres 16 qua Testcontainers. 18 lớp: 11 IT và 7 unit thuần không context |
+| `contracts/openapi.yaml` **v0.12.0** (36 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
 | `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 04/09. `i18n:check` 133 khoá, `vi` 100.0% |
@@ -151,7 +151,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Chuyển hướng slug cũ đọc `slug_history` | ✔ spec v0.10 `GET /{market}/redirects/{type}/{slug}` + trang chi tiết bắt 404 rồi chuyển hướng **308**. Chỉ chuyển khi đích thật sự xem được — xem `20` mục 6 |
 | Danh sách sản phẩm quản trị, hàng đợi dịch, bảng độ phủ | ✔ 12 test — `22` M2, M10, M12 |
 | **Vận hành đơn: danh sách (`22` M6) và chi tiết (M7)** | ✔ spec v0.11 · `GET /admin/bookings` + `/admin/bookings/{reference}` · hai màn hình `admin/don` · **17 test**. Mặc định lọc `NEEDS_ACTION` nằm ở **backend**; chi tiết trả phân rã giá đã chụp lại, hành khách kèm hộ chiếu, và **toàn bộ** `booking_event` |
-| Đổi trạng thái đơn, huỷ, hoàn từ trang quản trị | ✗ đường **ghi**, dòng riêng trong ma trận `22` mục 2.1. `booking_event` đã ghi được, chưa có endpoint cho nhân viên đổi |
+| **Đổi trạng thái đơn từ trang quản trị** | ✔ spec v0.12 · `POST /admin/bookings/{reference}/status` · khối thao tác ở màn hình M7 · **8 test**. Khoá bi quan trên dòng đơn; huỷ **trả chỗ về kho ngay** (`14` mục 6.5); mọi lần đổi ghi một `booking_event`. Nhân viên đặt được **bốn** trạng thái, ba cái còn lại do luồng thanh toán và job quét hạn sinh ra |
+| Huỷ chuyến vì thiếu khách — huỷ **hàng loạt** đơn của một ngày khởi hành | ✗ `14` mục 6.6 đòi màn hình riêng. Nay huỷ được **từng đơn một**, chưa huỷ được cả chuyến |
 | Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10 |
 | Tạo, sửa, xoá mềm sản phẩm; gán thị trường; ngày khởi hành; bảng giá; thang giá | ✔ 17 test, gồm **một bài đi hết bảy bước mở bán rồi kiểm bằng bề mặt khách** |
 | Nhân bản lịch khởi hành giữa hai thị trường — **không** chép giá | ✔ `22` M4, ADR-006 |
@@ -223,10 +224,12 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
    nó vẫn là câu hỏi rẻ nhất đang treo
 10. ~~**M6 và M7** — danh sách đơn và chi tiết đơn~~ — **xong** 04/09/2026.
     Đây là việc kỹ thuật lớn nhất **không phụ thuộc câu hỏi nào đang treo**
-11. Việc kế tiếp cùng loại, cũng không chờ ai: **đường ghi của M7** — nhân viên
-    đổi trạng thái đơn, mỗi thao tác ghi một `booking_event` (`22` mục 6). Sau đó
-    là **M13** nội dung khác và **M14** người dùng. `M8` báo giá và `M9` yêu cầu
-    tư vấn thì phải đợi luồng `Quote`, mà cái đó chưa có gì
+11. ~~**Đường ghi của M7** — nhân viên đổi trạng thái đơn~~ — **xong**
+    04/09/2026. Còn thiếu **huỷ hàng loạt** theo ngày khởi hành (`14` mục 6.6)
+12. Việc kế tiếp cùng loại, cũng không chờ ai: **M13** nội dung khác (điểm đến,
+    khách sạn, bài viết, sự kiện — API đọc đủ cả, chưa sửa được từ giao diện) và
+    **M14** người dùng và vai trò. `M8` báo giá và `M9` yêu cầu tư vấn thì phải
+    đợi luồng `Quote`, mà cái đó chưa có gì
 
 ---
 
@@ -392,6 +395,25 @@ Hai cái từ đợt 1b:
   bản ghi mang hai thẻ đang lọc xuất hiện **hai lần** và `totalItems` đếm sai
   theo. Có test riêng cho đúng trường hợp đó
 
+Ba cái từ đường ghi của M7:
+
+- **Thân yêu cầu sai kiểu trả 500, không phải 400** — và chuyện này đúng với
+  **mọi** endpoint nhận JSON, không riêng cái vừa làm. Jackson ném
+  `HttpMessageNotReadableException` **trước khi** controller chạy, nên `@Valid`
+  không bao giờ thấy nó và nó rơi xuống bộ bắt cuối. Lộ ra nhờ một bài test gửi
+  `toStatus: "EXPIRED"` — giá trị enum ngoài spec. Đã thêm vào bộ bắt
+  `VALIDATION_FAILED`
+- **`seats_booked` cộng theo tổng bản đồ `pax`, nhưng trừ theo số dòng
+  `booking_passenger`.** Hai con số này đáng lẽ luôn bằng nhau, mà **chưa có
+  ràng buộc nào bắt buộc thế**: `BookingService` không kiểm
+  `passengers.size() == tongSoKhach()`. Lệch một lần là bộ đếm tồn kho lệch mãi.
+  Câu `UPDATE` đã bọc `GREATEST(…, 0)` để không ra số âm, nhưng đó là lưới an
+  toàn chứ không phải cách sửa — chỗ sửa thật là thêm phép kiểm lúc đặt
+- **Khoá bi quan là thứ duy nhất chặn hai nhân viên cùng bấm một nút.** Thiếu
+  `FOR UPDATE` trên dòng `booking` thì cả hai cùng đọc `CONFIRMED`, cùng thấy
+  bước chuyển hợp lệ, và một lần huỷ trừ chỗ **hai lần**. Máy trạng thái không
+  cứu được: nó là hàm thuần, nó chỉ biết cái nó được cho xem
+
 Hai cái từ lần dựng CI:
 
 - **GitHub Actions không hỗ trợ neo YAML** (`&loc` / `*loc`). Danh sách đường dẫn
@@ -514,3 +536,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 04/09/2026 | Rà soát toàn repo đối chiếu với file này; sửa 4 chỗ lệch: số test, số file tài liệu, việc số 6 của mục 5, nhật ký phiên | Phát hiện **bộ công cụ kiểm trên máy đã hỏng** — thêm mục 6.1. Chưa tái kiểm được test nào |
 | 04/09/2026 | Dựng lại bộ công cụ: cài `pnpm` 11.24.0, `pnpm install`, bật Docker | Chỉ còn Python là thiếu |
 | 04/09/2026 | **M6 + M7 — vận hành đơn.** Spec v0.11, hai endpoint đọc, `AdminBookingRepository/Service`, hai màn hình `admin/don`, 17 test mới | Lỗ hổng "nhận được đơn mà không vận hành được đơn" đã khép ở phần **xem**. Phần **đổi trạng thái** vẫn chưa có — xem mục 3 |
+| 04/09/2026 | **Đường ghi của M7.** Spec v0.12, `POST /admin/bookings/{reference}/status`, khoá bi quan, trả chỗ về kho, khối thao tác có ô xác nhận nói rõ hậu quả. 8 test mới, tổng **228** | Lộ ra hai lỗi có sẵn: thân JSON sai kiểu trả 500 ở **mọi** endpoint (đã sửa), và `seats_booked` cộng/trừ theo hai nguồn khác nhau (chưa sửa — mục 6.2). Còn thiếu huỷ hàng loạt theo chuyến (`14` mục 6.6) |

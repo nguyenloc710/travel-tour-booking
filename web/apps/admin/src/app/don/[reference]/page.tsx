@@ -2,10 +2,19 @@
 
 import Link from 'next/link';
 import { use, useEffect, useState } from 'react';
-import type { AdminBookingDetail } from '@travel/api-client';
+import { ResponseError, type AdminBookingDetail } from '@travel/api-client';
 import { formatMoney } from '@travel/ui';
 import { adminApi, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
-import { mauTrangThai, ngay, ngayGio, tenTacNhan, tenTrangThai } from '@/lib/don';
+import {
+  hauQua,
+  mauTrangThai,
+  ngay,
+  ngayGio,
+  tenDongGia,
+  tenTacNhan,
+  tenTrangThai,
+  thaoTacChoPhep,
+} from '@/lib/don';
 
 /**
  * Chi tiết đơn (docs/22 M7).
@@ -15,8 +24,9 @@ import { mauTrangThai, ngay, ngayGio, tenTacNhan, tenTrangThai } from '@/lib/don
  * nút sửa và không có nút xoá** một dòng nhật ký — không phải vì khó làm, mà vì
  * có nút đó thì nhật ký hết giá trị.
  *
- * Màn hình này chỉ **đọc**. Đổi trạng thái đơn là một dòng riêng trong ma trận
- * quyền (docs/22 mục 2.1) và là việc của đợt sau.
+ * Khối "Thao tác" là đường GHI: nhân viên đổi trạng thái đơn, mỗi lần đổi ghi
+ * một dòng nhật ký. Quyền của nó là một dòng RIÊNG trong ma trận docs/22 mục
+ * 2.1, tách khỏi quyền xem — ở v1 hai dòng trùng vai trò, nhưng vẫn kiểm riêng.
  */
 export default function ChiTietDon({ params }: { params: Promise<{ reference: string }> }) {
   const { reference } = use(params);
@@ -93,6 +103,8 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
         </span>
       </div>
 
+      <ThaoTac don={don} onXong={setDon} />
+
       <section>
         <h2>Liên hệ và chuyến đi</h2>
         <table>
@@ -137,7 +149,7 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
           <tbody>
             {don.breakdown.lines.map((d, i) => (
               <tr key={`${d.kind}-${i}`}>
-                <td>{d.labelKey}</td>
+                <td>{tenDongGia(d.kind, d.labelKey)}</td>
                 <td>{d.quantity ?? '—'}</td>
                 <td>{d.unitAmount ? formatMoney(d.unitAmount, 'vi') : '—'}</td>
                 <td>{formatMoney(d.amount, 'vi')}</td>
@@ -207,7 +219,7 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
         </table>
       </section>
 
-      <section>
+      <section id="nhat-ky">
         <h2>Nhật ký ({don.events.length})</h2>
         <p className="phu">
           Toàn bộ lịch sử của đơn, cũ nhất trước. Bảng này <strong>chỉ ghi thêm</strong>:
@@ -250,4 +262,138 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
       </section>
     </main>
   );
+}
+
+/**
+ * Khối thao tác — đường **ghi** của M7.
+ *
+ * Nút chỉ hiện với bước chuyển máy trạng thái cho phép, và mỗi bước phải qua một
+ * ô xác nhận **nói rõ hậu quả** (`docs/22` mục 7). "Huỷ đơn này và trả 2 chỗ về
+ * kho, không đảo ngược được" khác hẳn "Bạn có chắc không?" — câu thứ hai không
+ * cho người bấm thêm thông tin nào để quyết.
+ *
+ * Trạng thái đã chốt thì khối này biến mất hẳn thay vì hiện nút xám: một hàng
+ * nút không bấm được chỉ làm người dùng thử rồi thắc mắc.
+ */
+function ThaoTac({
+  don,
+  onXong,
+}: {
+  don: AdminBookingDetail;
+  onXong: (d: AdminBookingDetail) => void;
+}) {
+  const [chon, setChon] = useState<string | null>(null);
+  const [ghiChu, setGhiChu] = useState('');
+  const [dangGui, setDangGui] = useState(false);
+  const [loi, setLoi] = useState('');
+
+  const thaoTac = thaoTacChoPhep(don.status);
+  if (thaoTac.length === 0) {
+    return null;
+  }
+
+  async function gui(sang: string) {
+    setDangGui(true);
+    setLoi('');
+    try {
+      const moi = await adminApi().doiTrangThaiDon({
+        reference: don.reference,
+        adminBookingStatusChange: {
+          toStatus: sang as never,
+          note: ghiChu.trim() || undefined,
+        },
+      });
+      // Máy chủ trả về cả đơn kèm nhật ký đã có dòng mới, nên không cần gọi
+      // lại lần hai để làm mới màn hình.
+      onXong(moi);
+      setChon(null);
+      setGhiChu('');
+    } catch (ex) {
+      setLoi(await loiDoiTrangThai(ex));
+    } finally {
+      setDangGui(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2>Thao tác</h2>
+
+      {loi && <p className="loi">{loi}</p>}
+
+      {chon === null && (
+        <div className="hang">
+          {thaoTac.map((t) => (
+            <button
+              key={t.sang}
+              type="button"
+              className={t.nang ? undefined : 'phu'}
+              onClick={() => {
+                setLoi('');
+                setChon(t.sang);
+              }}
+            >
+              {t.nhan}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {chon !== null && (
+        <div className="loc">
+          <p>
+            <strong>{hauQua(chon, don.passengers.length)}</strong>
+          </p>
+          <div>
+            <label htmlFor="ghi-chu">Ghi chú — vào thẳng nhật ký của đơn</label>
+            <input
+              id="ghi-chu"
+              value={ghiChu}
+              maxLength={500}
+              placeholder="vì sao đổi, ai yêu cầu"
+              onChange={(e) => setGhiChu(e.target.value)}
+              style={{ width: '100%', maxWidth: '32rem' }}
+            />
+          </div>
+          <div className="hang" style={{ marginTop: '0.75rem' }}>
+            <button type="button" disabled={dangGui} onClick={() => void gui(chon)}>
+              {dangGui ? 'Đang lưu…' : 'Xác nhận'}
+            </button>
+            <button
+              type="button"
+              className="phu"
+              disabled={dangGui}
+              onClick={() => {
+                setChon(null);
+                setGhiChu('');
+              }}
+            >
+              Thôi
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Một mã lỗi riêng của màn hình này, ngoài bảng dùng chung ở `lib/api.ts`.
+ *
+ * `BOOKING_TRANSITION_NOT_ALLOWED` mang `from` và `to`, và câu dựng từ hai tham
+ * số đó nói đúng chuyện đã xảy ra: gần như luôn là **người khác vừa đổi trạng
+ * thái đơn này** trong lúc màn hình đang mở.
+ */
+async function loiDoiTrangThai(ex: unknown): Promise<string> {
+  if (ex instanceof ResponseError && ex.response.status === 409) {
+    try {
+      const than = await ex.response.clone().json();
+      if (than.code === 'BOOKING_TRANSITION_NOT_ALLOWED') {
+        return `Đơn đang ở trạng thái "${tenTrangThai(String(than.params?.from))}" nên không chuyển sang "${tenTrangThai(String(than.params?.to))}" được. Nhiều khả năng người khác vừa đổi — tải lại trang để xem trạng thái mới nhất.`;
+      }
+    } catch {
+      // rơi xuống bảng dịch chung
+    }
+  }
+  return loiTiengViet(ex);
 }

@@ -5,15 +5,19 @@ Hai ứng dụng: website khách (`apps/site`) và trang quản trị (`apps/adm
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: lõi danh mục đã chạy** (01/09/2026). pnpm workspace, hai app
-> Next.js, ba package dùng chung, TS client sinh từ spec. Site khách có trang
-> danh sách và trang chi tiết sản phẩm, chạy thật ở cả hai locale và hai thị
-> trường. Trang quản trị vẫn là vỏ rỗng — đó là G4.
+> **Trạng thái: lõi danh mục và trang quản trị đã chạy** (04/09/2026). pnpm
+> workspace, hai app Next.js, ba package dùng chung, TS client sinh từ spec.
+> Site khách có trang danh sách, trang chi tiết, luồng đặt tour bốn bước và
+> trang xác nhận — chạy thật ở cả hai locale và hai thị trường. Trang quản trị
+> có bảy màn hình dùng được: đăng nhập, bảng điều khiển, danh sách và sửa sản
+> phẩm, tạo tour, và hai màn hình vận hành đơn (`docs/22` M6, M7) kèm đường
+> ghi đổi trạng thái.
 
 ## 0. Lệnh
 
 ```bash
-pnpm install               # cần corepack enable pnpm trước
+pnpm install               # cần pnpm: `npm i -g pnpm`. Node 25 đã bỏ corepack,
+                           # nên `corepack enable pnpm` không còn chạy được
 pnpm dev                   # site ở cổng 3000
 pnpm dev:admin             # admin ở cổng 3001
 
