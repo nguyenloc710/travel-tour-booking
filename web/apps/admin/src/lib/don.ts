@@ -103,12 +103,16 @@ export function tenTacNhan(loai: string): string {
 }
 
 /**
- * Ngày khởi hành là một ngày trên **tờ lịch**, không phải một thời điểm — đọc ở
- * UTC để nhân viên ở múi giờ nào cũng thấy đúng ngày ghi trên vé.
+ * Ngày khởi hành là một ngày trên **tờ lịch**, không phải một thời điểm.
+ *
+ * Đọc ở giờ **địa phương**, không ở UTC: client sinh từ spec dựng trường
+ * `format: date` thành nửa đêm giờ địa phương, nên ép về UTC là đổi hệ quy
+ * chiếu giữa chừng và lùi một ngày ở phía đông UTC — nhân viên ngồi ở Việt Nam
+ * đọc ngày khởi hành sai một ngày so với vé.
  */
 export function ngay(d: Date | undefined | null): string {
   return d
-    ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeZone: 'UTC' }).format(d)
+    ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(d)
     : '—';
 }
 

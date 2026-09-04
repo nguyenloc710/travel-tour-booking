@@ -118,10 +118,14 @@ export function tenDongGia(labelKey: string): string {
   return KHOA_DONG_GIA.find(([k]) => k === labelKey)?.[1] ?? labelKey;
 }
 
-/** Ngày trên **tờ lịch** — đọc ở UTC để múi giờ nào cũng thấy đúng ngày. */
+/**
+ * Ngày trên **tờ lịch**, đọc ở giờ địa phương — cùng lý do với `don.ts`: client
+ * dựng `format: date` thành nửa đêm địa phương, ép về UTC là lùi một ngày ở
+ * phía đông UTC.
+ */
 export function ngay(d: Date | undefined | null): string {
   return d
-    ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeZone: 'UTC' }).format(d)
+    ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short' }).format(d)
     : '—';
 }
 
@@ -135,8 +139,9 @@ export function ngayGio(d: Date | undefined | null): string {
 /**
  * Còn mấy ngày nữa hết hạn — số âm nghĩa là đã quá hạn.
  *
- * Tính ở UTC cho khớp với `valid_until`, vốn là một ngày trên tờ lịch chứ không
- * phải một thời điểm.
+ * So hai ngày trên **tờ lịch địa phương**, không so hai mốc thời gian: chênh
+ * lệch mili giây chia cho 86.400.000 sẽ lệch một đơn vị mỗi lần một trong hai
+ * mốc rơi qua ranh giới ngày.
  */
 export function conLai(validUntil: Date | undefined | null): number | null {
   if (!validUntil) {
@@ -145,9 +150,9 @@ export function conLai(validUntil: Date | undefined | null): number | null {
   const homNay = new Date();
   const mocHomNay = Date.UTC(homNay.getFullYear(), homNay.getMonth(), homNay.getDate());
   const mocHan = Date.UTC(
-    validUntil.getUTCFullYear(),
-    validUntil.getUTCMonth(),
-    validUntil.getUTCDate(),
+    validUntil.getFullYear(),
+    validUntil.getMonth(),
+    validUntil.getDate(),
   );
   return Math.round((mocHan - mocHomNay) / 86_400_000);
 }

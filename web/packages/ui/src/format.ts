@@ -36,18 +36,38 @@ export function formatMoney(money: Money, locale: Locale): string {
  * Nhận cả chuỗi ISO lẫn `Date`: client sinh từ spec đã đổi trường `format: date`
  * thành `Date` sẵn, còn chuỗi thì tới từ những chỗ chưa qua client.
  *
- * Luôn đọc ở múi giờ UTC. Ngày khởi hành là một ngày trên tờ lịch, không phải
- * một thời điểm — để trình duyệt áp múi giờ địa phương vào thì khách ở
- * Copenhagen và khách ở Hà Nội thấy hai ngày khác nhau cho cùng một chuyến.
+ * **Đọc ở múi giờ ĐỊA PHƯƠNG, và đó là cách duy nhất đúng ở đây** — không phải
+ * một lựa chọn tuỳ tiện, mà là hệ quả của cách `Date` tới tay hàm này.
+ *
+ * Client sinh từ spec dựng trường `format: date` thành **nửa đêm giờ địa
+ * phương** (xem `parseDate` trong runtime của nó): mốc đó biểu diễn đúng ngày
+ * trên tờ lịch ở mọi múi giờ. Định dạng nó bằng `timeZone: 'UTC'` là đổi hệ quy
+ * chiếu giữa chừng, và ở phía đông UTC thì nửa đêm địa phương rơi vào **hôm
+ * trước** theo UTC — ngày 20/03 hiện thành 19/03 cho cả đội đang ngồi ở Việt
+ * Nam. Đó là lỗi đã có thật, không phải giả định.
+ *
+ * Chuỗi cũng dựng thành nửa đêm địa phương, cùng quy ước — hai đường vào phải
+ * cho cùng một kết quả, nếu không thì lỗi chỉ hiện ở một nửa số chỗ gọi.
  */
 export function formatDate(iso: string | Date, locale: Locale): string {
-  const ngay = iso instanceof Date ? iso : new Date(`${iso}T00:00:00Z`);
+  const ngay = iso instanceof Date ? iso : nuaDemDiaPhuong(iso);
   return new Intl.DateTimeFormat(locales[locale], {
     day: 'numeric',
     month: locale === 'da' ? 'long' : '2-digit',
     year: 'numeric',
-    timeZone: 'UTC',
   }).format(ngay);
+}
+
+/**
+ * `new Date('2027-03-20')` là nửa đêm **UTC** — sai ngày ở phía tây UTC. Dựng
+ * tay theo từng thành phần để ra nửa đêm địa phương, khớp `parseDate`.
+ */
+function nuaDemDiaPhuong(iso: string): Date {
+  const chi = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!chi) {
+    return new Date(iso);
+  }
+  return new Date(Number(chi[1]), Number(chi[2]) - 1, Number(chi[3]));
 }
 
 /** Số nguyên theo quy ước từng ngôn ngữ. Dùng cho số lượng, không cho tiền. */
