@@ -22,12 +22,18 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import vn.travel.booking.admin.service.AdminBookingService;
 import vn.travel.booking.admin.service.AdminCatalogService;
 import vn.travel.booking.admin.service.AdminDepartureService;
 import vn.travel.booking.admin.service.AdminPriceTierService;
 import vn.travel.booking.admin.service.AdminProductService;
 import vn.travel.booking.admin.service.AdminProductTranslationService;
 import vn.travel.booking.admin.service.TranslationWorkService;
+import vn.travel.booking.admin.dto.AdminBookingDetailView;
+import vn.travel.booking.admin.dto.AdminBookingQuery;
+import vn.travel.booking.admin.dto.AdminBookingRow;
+import vn.travel.booking.admin.dto.BookingEventRow;
+import vn.travel.booking.admin.dto.BookingPassengerRow;
 import vn.travel.booking.admin.dto.AdminProductQuery;
 import vn.travel.booking.admin.dto.CopyResult;
 import vn.travel.booking.admin.dto.DepartureCreateInput;
@@ -49,6 +55,8 @@ import vn.travel.booking.admin.dto.ProductTranslationInput;
 import vn.travel.booking.admin.dto.ProductTranslationView;
 import vn.travel.booking.admin.dto.QueueItem;
 import vn.travel.booking.common.dto.PagedResult;
+import vn.travel.booking.common.mapper.RefMapper;
+import vn.travel.booking.pricing.mapper.PricingMapper;
 import vn.travel.booking.web.generated.api.AdminApi;
 import vn.travel.booking.web.generated.model.AdminDeparture;
 import vn.travel.booking.web.generated.model.AdminDestination;
@@ -85,8 +93,18 @@ import vn.travel.booking.web.generated.model.TranslationQueueItem;
 import vn.travel.booking.web.generated.model.LoginRequest;
 import vn.travel.booking.web.generated.model.StaffProfile;
 import vn.travel.booking.web.generated.model.TranslationStatus;
+import vn.travel.booking.web.generated.model.AdminBookingDetail;
+import vn.travel.booking.web.generated.model.AdminBookingEvent;
+import vn.travel.booking.web.generated.model.AdminBookingPage;
+import vn.travel.booking.web.generated.model.AdminBookingPassenger;
+import vn.travel.booking.web.generated.model.AdminBookingScope;
+import vn.travel.booking.web.generated.model.AdminBookingSummary;
+// Trạng thái đơn ở đây là kiểu SINH TỪ SPEC, không phải enum trong domain. Hai
+// cái trùng tên và luôn trùng giá trị; chỗ nào cần enum domain thì gọi đủ tên.
+import vn.travel.booking.web.generated.model.BookingStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -108,6 +126,7 @@ public class AdminController implements AdminApi {
     private final AdminProductService sanPham;
     private final AdminDepartureService ngayKhoiHanh;
     private final AdminPriceTierService bacGia;
+    private final AdminBookingService donDat;
     private final SecurityContextRepository khoPhien = new HttpSessionSecurityContextRepository();
 
     public AdminController(AuthenticationManager xacThuc,
@@ -116,7 +135,8 @@ public class AdminController implements AdminApi {
                            TranslationWorkService congViecDich,
                            AdminProductService sanPham,
                            AdminDepartureService ngayKhoiHanh,
-                           AdminPriceTierService bacGia) {
+                           AdminPriceTierService bacGia,
+                           AdminBookingService donDat) {
         this.xacThuc = xacThuc;
         this.banDich = banDich;
         this.danhMuc = danhMuc;
@@ -124,6 +144,7 @@ public class AdminController implements AdminApi {
         this.sanPham = sanPham;
         this.ngayKhoiHanh = ngayKhoiHanh;
         this.bacGia = bacGia;
+        this.donDat = donDat;
     }
 
     // ------------------------------------------------------------ phiên
@@ -422,6 +443,82 @@ public class AdminController implements AdminApi {
                 .stream()
                 .map(AdminController::sang)
                 .toList());
+    }
+
+    // ------------------------------------------------------------ vận hành đơn
+    //
+    // Ma trận quyền docs/22 mục 2.1, dòng "Đơn đặt: xem": CONSULTANT R, ADMIN R.
+    // EDITOR và TRANSLATOR là "–" — không thấy màn hình. Đó không phải sự thận
+    // trọng thừa: đơn đặt mang email, điện thoại, ngày sinh và số hộ chiếu của
+    // khách, còn người viết nội dung không có việc gì với dữ liệu đó (docs/31).
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminBookingPage> danhSachDon(
+            AdminBookingScope scope, BookingStatus status, String market,
+            LocalDate from, LocalDate to, String q, Integer page, Integer size) {
+
+        PagedResult<AdminBookingRow> ket_qua = donDat.danhSach(new AdminBookingQuery(
+                scope == null ? null : scope.getValue(),
+                status == null ? null : status.getValue(),
+                market, from, to, q, page, size));
+
+        return khongCache().body(new AdminBookingPage(
+                ket_qua.items().stream().map(AdminController::sang).toList(),
+                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
+    public ResponseEntity<AdminBookingDetail> chiTietDon(String reference) {
+        return khongCache().body(sang(donDat.chiTiet(reference)));
+    }
+
+    // ------------------------------------------------------------ ánh xạ đơn
+
+    private static AdminBookingSummary sang(AdminBookingRow d) {
+        return new AdminBookingSummary(
+                d.id(), d.reference(),
+                BookingStatus.fromValue(d.status().name()),
+                AdminBookingSummary.MarketEnum.fromValue(d.market()),
+                d.locale(), d.productTitle(), d.paxCount(),
+                RefMapper.sangTien(d.total()), d.contactEmail(), d.createdAt())
+                .departDate(d.departDate());
+    }
+
+    private static AdminBookingDetail sang(AdminBookingDetailView d) {
+        return new AdminBookingDetail(
+                d.id(), d.reference(),
+                BookingStatus.fromValue(d.status().name()),
+                AdminBookingDetail.MarketEnum.fromValue(d.market()),
+                d.locale(), d.productId(), d.productTitle(),
+                d.contactEmail(), d.contactPhone(), d.createdAt(),
+                PricingMapper.sangBang(d.breakdown()),
+                d.passengers().stream().map(AdminController::sang).toList(),
+                d.events().stream().map(AdminController::sang).toList())
+                .departureId(d.departureId())
+                .departDate(d.departDate());
+    }
+
+    private static AdminBookingPassenger sang(BookingPassengerRow h) {
+        return new AdminBookingPassenger(h.seq(), h.paxTypeCode(), h.fullName())
+                .dateOfBirth(h.dateOfBirth())
+                .passportNo(h.passportNo())
+                .passportExpiry(h.passportExpiry())
+                .nationality(h.nationality());
+    }
+
+    private static AdminBookingEvent sang(BookingEventRow e) {
+        return new AdminBookingEvent(
+                e.id(),
+                BookingStatus.fromValue(e.toStatus().name()),
+                AdminBookingEvent.ActorTypeEnum.fromValue(e.actorType()),
+                e.createdAt())
+                .fromStatus(e.fromStatus() == null ? null
+                        : BookingStatus.fromValue(e.fromStatus().name()))
+                .actorId(e.actorId())
+                .actorName(e.actorName())
+                .note(e.note());
     }
 
     // ------------------------------------------------------------ ánh xạ đợt 5b

@@ -4,13 +4,16 @@ Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, Postgr
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: đọc, ghi, đặt tour và quản trị đã chạy** (02/09/2026). Một module
+> **Trạng thái: đọc, ghi, đặt tour và quản trị đã chạy** (04/09/2026). Một module
 > Gradle chia theo feature (ADR-010), migration `V1`–`V5`, đủ danh mục đọc của
 > `docs/13` mục 9.1 trừ `/site-info`; engine giá, giữ chỗ, đặt tour và tính bất
 > biến khi gọi lại; bề mặt quản trị đủ để **mở bán một tour mà không cần lập
 > trình viên**: đăng nhập, ma trận quyền, bản dịch, danh sách, hàng đợi dịch,
-> bảng độ phủ, CRUD sản phẩm, gán thị trường, ngày khởi hành, bảng giá.
-> Chưa có: media (**Q-6**), thanh toán (**Q-3**).
+> bảng độ phủ, CRUD sản phẩm, gán thị trường, ngày khởi hành, bảng giá; và
+> **vận hành đơn ở mức xem** — danh sách đơn (`docs/22` M6) và chi tiết đơn kèm
+> toàn bộ `booking_event` (M7). 220 test xanh.
+> Chưa có: **đổi trạng thái đơn** từ trang quản trị, luồng báo giá `Quote`,
+> media (**Q-6**), thanh toán (**Q-3**).
 
 ## 0b. Bố cục package
 

@@ -26,10 +26,14 @@ openapi: 3.0.3
 #                Khác bề mặt công khai ở bốn điểm (docs/13 mục 2): không có
 #                market trong đường dẫn, trả MỌI bản dịch chứ không một, thấy cả
 #                nội dung chưa xuất bản, và không bao giờ cache.
+# Phiên bản 0.11: VẬN HÀNH ĐƠN — danh sách đơn (docs/22 M6) và chi tiết đơn
+#                 kèm toàn bộ nhật ký booking_event (M7). Hai endpoint chỉ ĐỌC:
+#                 đổi trạng thái đơn là đợt sau, và ma trận quyền docs/22 mục
+#                 2.1 tách hẳn "xem đơn" khỏi "đổi trạng thái đơn".
 
 info:
   title: Travel Tour Booking API
-  version: 0.10.0
+  version: 0.11.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -1252,6 +1256,127 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/bookings:
+    get:
+      tags: [admin]
+      operationId: danhSachDon
+      summary: Danh sách đơn đặt, nhìn từ trang quản trị
+      description: |
+        Màn hình M6 của `docs/22`. Đơn về rồi thì phải có chỗ để nhìn — đây là
+        chỗ đó.
+
+        **`scope` mặc định là `NEEDS_ACTION`, không phải `ALL`** (`docs/22` mục
+        6). Một danh sách vận hành mở ra mặc định "tất cả" là một danh sách
+        không dùng được sau sáu tháng: việc cần làm hôm nay chìm giữa đơn đã
+        hoàn tất từ mùa trước. `NEEDS_ACTION` là `PENDING_PAYMENT`,
+        `PENDING_CONFIRMATION` và `DRAFT` — ba trạng thái mà **nhân viên** còn
+        nợ khách một hành động.
+
+        Truyền `status` thì `scope` bị **bỏ qua**: một bộ lọc tường minh luôn
+        thắng một mặc định thông minh.
+
+        `from` và `to` lọc theo **ngày tạo đơn**, không phải ngày khởi hành. Đó
+        là câu hỏi vận hành hay gặp nhất ("tuần này về bao nhiêu đơn"), và
+        `docs/22` M1 đếm đơn quá hạn xác nhận cũng theo trục thời gian đó.
+
+        Phân trang **phía máy chủ** (`docs/22` mục 7): danh sách đơn chỉ lớn dần
+        theo thời gian và không bao giờ nhỏ lại.
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            allOf: [{ $ref: '#/components/schemas/AdminBookingScope' }]
+            default: NEEDS_ACTION
+        - name: status
+          in: query
+          description: Lọc đúng một trạng thái. Có nó thì `scope` bị bỏ qua.
+          schema: { $ref: '#/components/schemas/BookingStatus' }
+        - name: market
+          in: query
+          description: |
+            Chữ hoa — bề mặt quản trị không có market trong đường dẫn, nên đây
+            dùng thẳng mã trong CSDL.
+          schema:
+            type: string
+            enum: [DK, VN]
+        - name: from
+          in: query
+          description: Ngày tạo đơn, tính từ (bao gồm). Múi giờ UTC.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          description: Ngày tạo đơn, tính tới (bao gồm). Múi giờ UTC.
+          schema: { type: string, format: date }
+        - name: q
+          in: query
+          description: |
+            Tìm theo **mã tra cứu** hoặc **email liên hệ**, khớp một phần, không
+            phân biệt hoa thường. Khách đọc mã qua điện thoại là thao tác hằng
+            ngày của tổng đài.
+          schema: { type: string, maxLength: 120 }
+        - name: page
+          in: query
+          schema: { type: integer, format: int32, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Một trang đơn đặt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBookingPage'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/bookings/{reference}:
+    get:
+      tags: [admin]
+      operationId: chiTietDon
+      summary: Một đơn — phân rã giá, hành khách, và toàn bộ nhật ký
+      description: |
+        Màn hình M7 của `docs/22`. Ba khối, và khối thứ ba là lý do màn hình này
+        tồn tại:
+
+        1. **Phân rã giá** — đúng những dòng đã **chụp lại lúc đặt**
+           (`booking_line`). Không tính lại: đổi bảng giá hôm nay không được làm
+           đổi đơn cũ (`docs/40` tiêu chí ra số 5 của G4).
+        2. **Hành khách** — kèm hộ chiếu và quốc tịch, thứ cần cho việc làm visa.
+        3. **Toàn bộ `booking_event`** — từ trạng thái nào sang trạng thái nào,
+           ai làm, lúc nào. **Không phân trang, không cắt bớt**: một nhật ký
+           kiểm toán hiện một nửa là một nhật ký không dùng được khi có tranh
+           chấp.
+
+        Tra bằng **mã tra cứu** chứ không bằng `id`: đó là thứ khách đọc qua
+        điện thoại, và là thứ nhân viên dán vào thanh địa chỉ.
+
+        `booking_event` là bảng **chỉ ghi thêm** (`docs/11` mục 11.2) — không có
+        endpoint sửa hay xoá một dòng nhật ký, và sẽ không bao giờ có.
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          description: Mã tra cứu, ví dụ `VN-2026-8F3K2P`.
+          schema: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Đơn kèm phân rã giá, hành khách và nhật ký
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBookingDetail'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /api/v1/{market}/pricing/preview:
     post:
       tags: [booking]
@@ -2074,6 +2199,128 @@ components:
           type: integer
           format: int32
           description: Số ngày đã tồn tại ở thị trường đích nên bỏ qua.
+
+    AdminBookingScope:
+      type: string
+      description: |
+        Phạm vi mặc định của danh sách đơn (`docs/22` mục 6).
+
+        `NEEDS_ACTION` = `DRAFT`, `PENDING_PAYMENT`, `PENDING_CONFIRMATION` —
+        ba trạng thái mà nhân viên còn nợ khách một hành động. Bốn trạng thái
+        còn lại (`CONFIRMED`, `COMPLETED`, `CANCELLED`, `REFUNDED`, `EXPIRED`)
+        đã kết thúc phần việc của nhân viên.
+      enum: [NEEDS_ACTION, ALL]
+
+    AdminBookingSummary:
+      type: object
+      required: [id, reference, status, market, locale, productTitle, paxCount, total, contactEmail, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        reference: { type: string }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        market:
+          type: string
+          enum: [DK, VN]
+        locale:
+          type: string
+          description: |
+            Ngôn ngữ khách **đã đặt bằng**. Nhân viên gọi lại thì cần biết nói
+            tiếng gì — và nó độc lập với thị trường: khách Việt sống ở Đan Mạch
+            đặt ở `DK` mà đọc `vi` (`docs/02`).
+        productTitle:
+          type: string
+          description: Chụp lại lúc đặt, không đọc từ bản dịch hiện tại.
+        departDate:
+          type: string
+          format: date
+          description: Vắng với `PRIVATE_TOUR` và `COMBO` — hai loại không có `departure`.
+        paxCount:
+          type: integer
+          format: int32
+          description: Đếm từ `booking_passenger`, không phải một cột lưu sẵn.
+        total: { $ref: '#/components/schemas/Money' }
+        contactEmail: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    AdminBookingPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminBookingSummary' }
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1 }
+        totalItems: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+
+    AdminBookingPassenger:
+      type: object
+      required: [seq, paxTypeCode, fullName]
+      properties:
+        seq: { type: integer, format: int32 }
+        paxTypeCode: { type: string }
+        fullName: { type: string }
+        dateOfBirth: { type: string, format: date }
+        passportNo: { type: string }
+        passportExpiry: { type: string, format: date }
+        nationality: { type: string, minLength: 2, maxLength: 2 }
+
+    AdminBookingEvent:
+      type: object
+      required: [id, toStatus, actorType, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        fromStatus:
+          allOf: [{ $ref: '#/components/schemas/BookingStatus' }]
+          description: Vắng ở **dòng đầu tiên** — đơn vừa sinh ra không đến từ trạng thái nào.
+        toStatus: { $ref: '#/components/schemas/BookingStatus' }
+        actorType:
+          type: string
+          enum: [CUSTOMER, STAFF, SYSTEM]
+        actorId: { type: string, format: uuid }
+        actorName:
+          type: string
+          description: |
+            Tên hiển thị của nhân viên, chỉ có khi `actorType = STAFF`. Đọc từ
+            `staff_user` lúc trả về chứ **không** chụp lại vào nhật ký: đổi tên
+            hiển thị thì mọi dòng cũ cũng đổi theo, và đó là hành vi đúng — nhật
+            ký ghi *ai*, không ghi *tên gọi lúc đó*.
+        note: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    AdminBookingDetail:
+      type: object
+      required: [id, reference, status, market, locale, productId, productTitle,
+                 contactEmail, contactPhone, createdAt, breakdown, passengers, events]
+      properties:
+        id: { type: string, format: uuid }
+        reference: { type: string }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+        market:
+          type: string
+          enum: [DK, VN]
+        locale: { type: string }
+        productId: { type: string, format: uuid }
+        productTitle: { type: string }
+        departureId: { type: string, format: uuid }
+        departDate: { type: string, format: date }
+        contactEmail: { type: string }
+        contactPhone: { type: string }
+        createdAt: { type: string, format: date-time }
+        breakdown:
+          allOf: [{ $ref: '#/components/schemas/PriceBreakdown' }]
+          description: |
+            Dòng giá **chụp lại lúc đặt** (`booking_line`), không tính lại từ
+            bảng giá hiện tại.
+        passengers:
+          type: array
+          items: { $ref: '#/components/schemas/AdminBookingPassenger' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/AdminBookingEvent' }
+          description: |
+            **Toàn bộ** nhật ký, cũ nhất trước. Không phân trang, không cắt bớt.
 
     PaxCount:
       type: object

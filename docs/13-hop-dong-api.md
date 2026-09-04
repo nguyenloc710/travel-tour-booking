@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 31/08/2026
+Cập nhật: 04/09/2026
 Nguồn sự thật về: quy trình spec-first, quy ước URL và header, phân trang,
                   mã lỗi, danh mục endpoint, xác thực, tính bất biến khi gọi lại.
 Không nói về: công thức tính giá (14), lược đồ CSDL (12),
@@ -304,7 +304,11 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
 /admin/products/{id}/departures/copy     nhân bản LỊCH sang thị trường kia, KHÔNG chép giá
 /admin/departures/{id}
 /admin/departures/{id}/prices            ma trận loại khách × kiểu phòng, thay toàn bộ
-/admin/bookings            xem, đổi trạng thái
+/admin/bookings            danh sách — mặc định NEEDS_ACTION, không phải tất cả
+/admin/bookings/{reference}   một đơn: phân rã giá chụp lại, hành khách, TOÀN BỘ
+                              booking_event. Tra bằng MÃ TRA CỨU, không bằng id
+                              — đó là thứ khách đọc qua điện thoại.
+                              Đổi trạng thái đơn: CHƯA CÓ, là đường ghi riêng
 /admin/quotes              dựng báo giá, gửi
 /admin/leads
 /admin/translations/queue  hàng đợi dịch — bản da PUBLISHED mà vi thiếu/OUTDATED
