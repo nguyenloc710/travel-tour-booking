@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 01/09/2026
+Cập nhật: 02/09/2026
 Nguồn sự thật về: các môi trường chạy được, ba pipeline và điều kiện kích hoạt,
                   biến môi trường và bí mật, cách đóng gói và triển khai, thứ tự
                   chạy migration lúc triển khai, cách lùi một lần phát hành.

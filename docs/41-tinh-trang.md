@@ -2,8 +2,8 @@
 
 ```
 Trạng thái: Đã duyệt
-Cập nhật: 02/09/2026
-Phiên bản: 1.0
+Cập nhật: 04/09/2026
+Phiên bản: 1.1
 Chủ sở hữu: Chủ sản phẩm
 Người duyệt: Chủ sản phẩm
 Nguồn sự thật về: đang ở giai đoạn nào, việc đang làm, quyết định đang chờ,
@@ -23,14 +23,16 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 |---|---|
 | **Giai đoạn** | **G3 — Lõi danh mục** |
 | **Cổng gần nhất đã qua** | G2 — 01/09/2026, **qua có điều kiện**. Còn **1/3** điều kiện treo: mở một PR thật (mục 7) |
+| **Phần code của G3** | **Xong.** Tiêu chí ra 2–8 của `40` mục G3 đều đã có code; tiêu chí 1 chỉ chờ nội dung thật |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
 | **Tài liệu** | 23/26 file. Xong tầng 0, 1, 2, 4 và `30`, `31`, `34` — còn lại `32`, `33`, `35` |
+| **Nhánh** | `dung-khung-va-loi-danh-muc` — 31 commit trước `main`, đã đẩy hết lên origin, cây làm việc sạch. `main` chưa nhận gì |
 
 ---
 
 ## 2. Đã có gì
 
-### Tài liệu — 14 file
+### Tài liệu — 23 file
 
 | Tầng | File | Trạng thái |
 |---|---|---|
@@ -39,12 +41,18 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 0 | `02-thi-truong-va-da-ngon-ngu` | Nháp — **cần nâng lên Đã duyệt, xem mục 4** |
 | 0 | `03-tu-vung-nghiep-vu` | Nháp |
 | 0 | `04-phan-loai-san-pham` | Nháp — **cần nâng lên Đã duyệt** |
-| 0 | `05-trang-chi-tiet-san-pham` | Nháp |
+| 0 | `05-trang-chi-tiet-san-pham` | Nháp — **cần `Đã duyệt` trước cổng G3** |
 | 1 | `10-kien-truc-he-thong` | Nháp |
 | 1 | `11-mo-hinh-du-lieu` | Nháp |
 | 1 | `12-luoc-do-csdl` | Nháp |
 | 1 | `13-hop-dong-api` | Nháp |
 | 1 | `14-quy-tac-nghiep-vu` | Nháp |
+| 1 | `15-ke-hoach-dung-be` | Nháp |
+| 2 | `20-frontend-web` | Nháp — **cần `Đã duyệt` trước cổng G3** |
+| 2 | `21-he-thong-thiet-ke` | Nháp — **cần `Đã duyệt` trước cổng G3** |
+| 2 | `22-trang-quan-tri` | Nháp — cần `Đã duyệt` trước G4 |
+| 2 | `23-luong-dat-tour` | Nháp — cần `Đã duyệt` trước G4 |
+| 2 | `24-noi-dung-va-anh` | Nháp — cần `Đã duyệt` trước G5 |
 | 3 | `30-thanh-toan` | Nháp |
 | 3 | `31-bao-mat-va-du-lieu-ca-nhan` | Nháp — **cần người có chuyên môn pháp lý duyệt** |
 | 3 | `34-cicd-va-moi-truong` | Nháp |
@@ -64,14 +72,14 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 |---|---|---|
 | Bản Word gửi khách | `docs/Dac-ta-chuc-nang-nghiep-vu.docx` | 12 chương, sinh lại bằng `docs/tools/build-docx.py` |
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
-| Bộ kiểm tài liệu | `scripts/docs_check.py` | Chạy được ngay, không cần cài gì |
-| Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), migration `V1`–`V4` |
-| Hợp đồng API | `contracts/openapi.yaml` | v0.9 |
+| Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài — nhưng **cần một bản Python thật**; máy đang làm chỉ có alias rỗng của Store, xem mục 6.1 |
+| Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 160 file Java, migration `V1`–`V5` |
+| Hợp đồng API | `contracts/openapi.yaml` | **v0.10.0** — 33 endpoint |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
 | Lõi danh mục | `contracts/openapi.yaml` v0.2 · `api/` · `web/` | Listing + trang chi tiết, hai đầu sinh từ cùng một spec |
-| Tài liệu tầng 2 | `docs/20` … `docs/24` | Đủ 5 file, tất cả ở `Nháp` — `20`, `21`, `24` phải `Đã duyệt` trước cổng G3; `22`, `23` trước G4 |
+| Tài liệu tầng 2 | `docs/20` … `docs/24` | Đủ 5 file, tất cả ở `Nháp`. Theo `40`: `20`, `21` (cùng `05` ở tầng 0) phải `Đã duyệt` trước **G3**; `22`, `23` trước **G4**; `24` trước **G5** |
 | Migration `V2` | `12` mục 3.1, 4.6, 4.7, 6.1 · `V2__vai_tro_anh_hanh_khach_slug.sql` | 7 bảng: vai trò, ảnh kèm giấy phép, slug cũ, hành khách. 13 test |
 | **Ba màn hình đọc của trang quản trị** | `22` M2, M10, M12 · spec v0.7 · `admin/` | Danh sách sản phẩm, hàng đợi dịch, bảng độ phủ — **12 test** |
 | **Đường ghi của trang quản trị** | `22` M3, M4, M5 · spec v0.8 · `admin/` | Tạo/sửa/xoá mềm sản phẩm, gán thị trường, ngày khởi hành, nhân bản lịch, bảng giá, thang giá — **17 test** |
@@ -106,17 +114,18 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `api/` migration `V1__khoi_tao.sql` — toàn bộ lược đồ `12` | ✔ **đã chạy trên Postgres 16 thật** |
 | `api/` dữ liệu tra cứu `R__` và `scripts/seed-dev.sql` | ✔ đã chạy sạch |
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
-| Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc` |
-| Test | ✔ **196/196 xanh** |
-| `contracts/openapi.yaml` v0.2 → interface Java | ✔ sinh và biên dịch sạch |
-| `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch |
+| Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc`, 31 commit, đã đẩy hết |
+| Test | **203 phương thức `@Test`** trong 17 lớp: 10 IT dùng Testcontainers, 7 unit thuần không context. Con số `196` của bản trước đếm trước đợt web 02–03/09. **Chưa tái kiểm được trên máy hiện tại** — mục 6.1 |
+| `contracts/openapi.yaml` **v0.10.0** (33 endpoint) → interface Java | ✔ sinh và biên dịch sạch ở lần chạy 02/09 |
+| `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
-| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh |
+| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ xanh ở lần chạy 01/09 — **chưa tái kiểm được trên máy hiện tại**, mục 6.1 |
 | Chạy thật đầu-cuối: API + site, hai locale, hai market | ✔ |
 | `.github/workflows/`: `api.yml`, `web.yml`, `tai-lieu.yml` | ✔ đã dựng |
 | CI chạy trên một PR thật | ✗ **chưa mở PR nào** — điều kiện treo số 1 của G2 |
 | API đọc: `GET /{market}/products` và `/products/{slug}` | ✔ 20 test tích hợp xanh |
 | Site khách: trang danh sách + trang chi tiết, ba trạng thái, bộ lọc trong URL | ✔ chạy thật đầu-cuối |
+| Tiêu chí ra **2–8** của G3 (`40` mục G3) đã có code | ✔ rà 04/09: không-fallback bằng `INNER JOIN`; `ORDER BY … COLLATE "da-DK-x-icu"` lấy tên collation từ bảng `locale`; `f_unaccent` ở **cả hai vế** khi tìm; sitemap `da` 12 URL / `vi` 9 URL. Tiêu chí **1** chờ nội dung thật — Q-1 |
 | Sắp sản phẩm theo ngày khởi hành gần nhất | ✗ `13` mục 12 |
 | API điểm đến: `GET /destinations`, `/destinations/{slug}`, lọc sản phẩm theo điểm đến | ✔ spec v0.3, 10 test tích hợp |
 | Tầng nội dung biên tập: chủ đề, khách sạn, tham quan, lịch trình, bài viết, thẻ, buổi thuyết trình | ✔ `12` mục 4.8–4.11 và `V3` — 17 bảng, 12 test |
@@ -147,7 +156,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `price_from` tự tính từ `departure_price` | ✔ `V5` — trước đó cột này chưa bao giờ được điền |
 | Đổi loại sản phẩm sau khi tạo | ✗ **có chủ ý cấm** — `22` mục 7; `productType` là `updatable = false` ở entity |
 | Media, ảnh sản phẩm, presigned URL | ✗ **Q-6** → ADR-008 |
-| Giới hạn 10 lượt đăng nhập / 15 phút | ✗ `22` mục 9 mô tả như đã có, **chưa có gì cài** — `31` mục 6.2 |
+| Trang `blog`, `kontakt`, `foredrag` của site khách | ✗ có trong bảng `pathnames` của `packages/i18n` nhưng **chưa có trang nào** — URL hiện trả 404. Không chặn G3 (`40` mục G3 không đòi), nhưng bảng `pathnames` đang hứa nhiều hơn thứ đang có |
+| Giới hạn 10 lượt đăng nhập / 15 phút | ✗ `22` mục 9 mô tả như đã có, **chưa có gì cài** — `31` mục 6.2. Rà lại 04/09: `api/src/main` không có một dòng nào về rate limit |
 | Cờ `Secure` cho cookie phiên | ✗ chặn trước lần triển khai `prod` đầu — `34` mục 5.2 |
 
 ---
@@ -186,14 +196,21 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
 1. **Mở một PR thật** — điều kiện treo số 1 của G2, và là cái **duy nhất** còn
    lại. Cần thấy: sửa `web/` **không** kích hoạt build Gradle, sửa `contracts/`
    kích hoạt **cả hai**, sửa `docs/` chỉ kích hoạt `tai-lieu.yml`.
-   Nhánh đã đẩy; `gh` chưa cài trên máy này nên PR phải mở bằng tay
+   Nhánh đã đẩy; `gh` chưa cài trên máy này nên PR phải mở bằng tay.
+
+   Đi kèm việc này: **dựng lại bộ công cụ kiểm trên máy đang làm** (mục 6.1) rồi
+   chạy lại `./gradlew test` và `pnpm build`. Mọi con số xanh trong file này
+   hiện là **ghi chép lịch sử**, chưa tái kiểm được ở máy hiện tại — và mở PR mà
+   không chạy được gì trên máy thì CI đỏ cũng không sửa tại chỗ được
 2. ~~Viết `34-cicd-va-moi-truong` bản nháp~~ — **xong** 02/09/2026
 3. ~~Sửa câu chữ tiêu chí 5 của `40`~~ — **xong** 02/09/2026
 4. **Nội dung thật cho G3**: ít nhất 3 tour đủ hai ngôn ngữ. Đang chặn ở **Q-1**;
    không có người viết bản tiếng Đan thì hệ thống xong mà không có gì để bán
 5. Trả lời Q-8, và **duyệt `20`, `21`, `05`** — cổng G3 đòi cả ba ở `Đã duyệt`
-6. Phần G3 còn thiếu ở tầng code: trang điểm đến, trang tìm kiếm, sitemap theo
-   locale, chuyển hướng 301 đọc `slug_history`
+6. ~~Phần G3 còn thiếu ở tầng code: trang điểm đến, trang tìm kiếm, sitemap theo
+   locale, chuyển hướng 301 đọc `slug_history`~~ — **xong** 02/09/2026. Chuyển
+   hướng cài bằng **308** chứ không 301, và chỉ chuyển khi đích thật sự xem được
+   (`20` mục 6)
 7. ~~Đợt 5b~~ — **xong** 02/09/2026. Tiêu chí ra số 7 của G4 nay có một bài
    test chứng minh: tạo tour qua API quản trị, dịch, gán thị trường, nhập lịch
    và giá, rồi tour đó hiện ra ở `GET /api/v1/dk/products` kèm giá
@@ -208,6 +225,28 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
 ## 6. Chỗ dễ quên khi làm tiếp
 
 Mục có giá trị nhất của file này. Đây là những thứ đã tốn thời gian một lần rồi.
+
+### 6.1. Máy làm việc — kiểm trước khi tin bất cứ con số xanh nào
+
+Rà ngày 04/09/2026: **cả ba chuỗi kiểm của dự án đều không chạy được** trên máy
+đang làm. Không phải code hỏng — môi trường đã đổi từ lần chạy 01–02/09.
+
+| Cần | Trạng thái 04/09 | Hệ quả |
+|---|---|---|
+| `pnpm` | **không có** — và `corepack` cũng không có trên bản Node đang cài (v25.2.1) | Mọi lệnh `web/` đứng. `corepack enable pnpm` như `CLAUDE.md` gốc hướng dẫn **không chạy được ở máy này**; phải cài thẳng `npm i -g pnpm` |
+| `web/node_modules` | chưa cài | `pnpm install` trước đã |
+| `python` | chỉ có alias rỗng của Microsoft Store | `scripts/docs_check.py` không chạy — bộ quy tắc kiểm ở `42` mục 8 không tự thi hành được |
+| Docker | daemon không chạy | 10 lớp IT dùng Testcontainers không chạy; chỉ còn 7 lớp unit thuần chạy được |
+| `java` | ✔ 21.0.9 trên PATH | Chạy được |
+| `JAVA_HOME` | **rỗng**, và `~/.gradle/gradle.properties` **không còn** | Gradle rơi về `java` trên PATH — nay là 21 nên vẫn xanh, nhưng cái vá cũ ở mục 6.2 đã biến mất chứ không phải còn đó |
+
+> Bài học lặp lại của điều kiện treo số 1 (mục 7): **thứ chưa chạy được lúc này
+> thì chưa được coi là xanh.** Ba pipeline YAML trông hợp lý mà chưa chạy lần
+> nào, và một dòng "tất cả xanh" ghi từ hai ngày trước, là cùng một loại niềm
+> tin. Đây cũng là lý do việc số 1 của mục 5 gắn liền với việc dựng lại bộ công
+> cụ: mở PR mà máy không chạy được gì thì CI đỏ cũng không sửa tại chỗ được.
+
+### 6.2. Những cái đã vấp
 
 - **`unaccent()` là `STABLE`, không phải `IMMUTABLE`** — không index trực tiếp
   được. Phải bọc bằng hàm `f_unaccent` khai báo `IMMUTABLE`. `12` có sẵn, nhưng
@@ -292,7 +331,10 @@ Tám cái từ lần dựng `web/`:
   *"Dependency requires at least JVM runtime version 17"*. Đã đặt
   `org.gradle.java.home=C:/Program Files/Java/jdk-21` trong
   `~/.gradle/gradle.properties` — **không** đặt trong repo, vì đó là đường dẫn
-  của máy cá nhân (`api/gradle.properties` đã ghi rõ điều này)
+  của máy cá nhân (`api/gradle.properties` đã ghi rõ điều này). **Cập nhật
+  04/09:** file đó không còn trên máy đang làm và `JAVA_HOME` rỗng; Gradle rơi về
+  `java` trên PATH, tình cờ đúng 21 nên vẫn chạy. Máy nào có `JAVA_HOME` trỏ JDK
+  cũ thì phải đặt lại — xem mục 6.1
 
 Ba cái từ lần thêm `V2`:
 
@@ -453,3 +495,11 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 01/09/2026 | Đợt 3: engine giá thuần `domain` — 31 test, không context, không CSDL, không đồng hồ | Tổng 145 test. Chưa có endpoint tính giá; `VN` vẫn chờ Q-2 |
 | 01/09/2026 | Đợt 4: spec v0.6, `V4`, khoá bi quan, `Idempotency-Key`, máy trạng thái đơn, job quét có ShedLock | Tổng 173 test. `docs/14` mục 9.3 tick đủ |
 | 01/09/2026 | ADR-010: gộp bốn module thành một, chia theo feature như `comic-social-network-be` | 167 test (mất 6 test ranh giới cùng `archTest`) |
+| 02/09/2026 | Viết ADR-007, ADR-008, ADR-009 và hai tài liệu `30`, `31` | Cả ba ADR ở `Đề xuất` — không tự chốt được; `31` cần luật sư duyệt |
+| 02/09/2026 | Vá lỗ hổng CSRF ở bề mặt quản trị — mẫu `*` khớp cả `admin` | Đường ghi công khai vẫn miễn CSRF theo chủ ý (mục 6.2) |
+| 02/09/2026 | Đợt 5a: ba màn hình đọc của trang quản trị, viết `34-cicd-va-moi-truong`, sửa câu chữ tiêu chí 5 của `40` | Gỡ được điều kiện treo 2 và 3 của G2; điều kiện 1 (PR) còn nguyên |
+| 02/09/2026 | Đợt 5b: đường ghi của trang quản trị, migration `V5` cho `price_from`, tài khoản mồi bốn vai trò | Tiêu chí ra số 7 của G4 có test chứng minh; media vẫn chờ Q-6 |
+| 02/09/2026 | Giao diện trang quản trị: đăng nhập, bảng điều khiển, danh sách, tạo tour, sửa 4 tab | Vòng mở bán khép kín từ giao diện, không cần lập trình viên |
+| 02/09/2026 | Web khách: trang điểm đến, trang tìm tour, sitemap theo locale + `robots.txt`, chuyển hướng slug cũ **308** | Gạch xong việc số 6 của mục 5 |
+| 03/09/2026 | Web khách: luồng đặt tour bốn bước và trang xác nhận | Phần code của G3 xong; còn chờ nội dung thật (Q-1) |
+| 04/09/2026 | Rà soát toàn repo đối chiếu với file này; sửa 4 chỗ lệch: số test, số file tài liệu, việc số 6 của mục 5, nhật ký phiên | Phát hiện **bộ công cụ kiểm trên máy đã hỏng** — thêm mục 6.1. Chưa tái kiểm được test nào |
