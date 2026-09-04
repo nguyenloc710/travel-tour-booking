@@ -52,9 +52,12 @@ chay(
 );
 
 const gradlew = join(GOC, 'api', laWindows ? 'gradlew.bat' : 'gradlew');
+// Task nằm ở dự án gốc `travel-api`, không còn tiền tố `:web:`: ADR-010 gộp bốn
+// module Gradle thành một, và đường dẫn task cũ chết theo — `gradlew` báo
+// "project 'web' not found" chứ không báo gì về nguyên nhân thật.
 chay(
-  'Interface Java → api/web/build/generated/openapi',
-  `"${gradlew}" :web:contractsGenerate`,
+  'Interface Java → api/build/generated/openapi',
+  `"${gradlew}" contractsGenerate`,
   join(GOC, 'api'),
 );
 
