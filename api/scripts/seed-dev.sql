@@ -296,4 +296,91 @@ INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, curre
   ('11110000-0000-4000-8000-000000000014', 'a0000000-0000-4000-8000-000000000001',
    'DOUBLE', 11990.00, 'DKK');
 
+-- --------------------------------------------------- bài viết, thẻ, sự kiện
+--
+-- Đủ để R9, R10 và sitemap có gì mà hiện. Vẫn giữ đúng trường hợp rìa quan
+-- trọng nhất của bộ dữ liệu này: **B3 chỉ có bản `da`**, nên nó biến mất khỏi
+-- blog `vi`, khỏi sitemap `vi`, và URL `vi` của nó trả 404 — đúng chính sách
+-- không-fallback, và là thứ chỉ lộ ra khi có dữ liệu để thử.
+
+INSERT INTO tag (id, code, sort_order) VALUES
+  ('f1000000-0000-4000-8000-000000000001', 'FOOD', 1),
+  ('f1000000-0000-4000-8000-000000000002', 'CULTURE', 2),
+  ('f1000000-0000-4000-8000-000000000003', 'PRACTICAL', 3)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO tag_translation (tag_id, locale, slug, name) VALUES
+  ('f1000000-0000-4000-8000-000000000001', 'da', 'mad', 'Mad'),
+  ('f1000000-0000-4000-8000-000000000001', 'vi', 'am-thuc', 'Ẩm thực'),
+  ('f1000000-0000-4000-8000-000000000002', 'da', 'kultur', 'Kultur'),
+  ('f1000000-0000-4000-8000-000000000002', 'vi', 'van-hoa', 'Văn hoá'),
+  ('f1000000-0000-4000-8000-000000000003', 'da', 'praktisk', 'Praktisk'),
+  ('f1000000-0000-4000-8000-000000000003', 'vi', 'kinh-nghiem', 'Kinh nghiệm')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO post (id, hero_image, published_at) VALUES
+  ('f2000000-0000-4000-8000-000000000001', '/img/blog/pho.jpg',   '2026-06-02T08:00:00Z'),
+  ('f2000000-0000-4000-8000-000000000002', '/img/blog/hoian.jpg', '2026-07-14T08:00:00Z'),
+  ('f2000000-0000-4000-8000-000000000003', '/img/blog/visum.jpg', '2026-08-20T08:00:00Z')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO post_translation (post_id, locale, slug, title, excerpt, body, status) VALUES
+  ('f2000000-0000-4000-8000-000000000001', 'da', 'morgenmad-i-hanoi',
+   'Morgenmad i Hanoi', 'Pho til morgenmad lyder mærkeligt indtil man har prøvet det.',
+   ARRAY['Klokken er seks om morgenen på et gadehjørne i Hanoi.',
+         'Suppen koger fra klokken fire. Det smager man.'], 'PUBLISHED'),
+  ('f2000000-0000-4000-8000-000000000001', 'vi', 'bua-sang-o-ha-noi',
+   'Bữa sáng ở Hà Nội', 'Ăn phở buổi sáng nghe lạ với khách Bắc Âu, tới khi họ thử.',
+   ARRAY['Sáu giờ sáng, một góc phố Hà Nội.',
+         'Nồi nước dùng đun từ bốn giờ. Ăn là biết.'], 'PUBLISHED'),
+
+  ('f2000000-0000-4000-8000-000000000002', 'da', 'lanternerne-i-hoi-an',
+   'Lanternerne i Hoi An', 'Den fjortende dag i månemåneden slukker byen lyset.',
+   ARRAY['En gang om måneden slukker Hoi An gadebelysningen.',
+         'Kun lanternerne er tændt, og floden bliver til et spejl.'], 'PUBLISHED'),
+  ('f2000000-0000-4000-8000-000000000002', 'vi', 'den-long-hoi-an',
+   'Đèn lồng Hội An', 'Ngày rằm, cả phố cổ tắt đèn điện.',
+   ARRAY['Mỗi tháng một lần, Hội An tắt đèn đường.',
+         'Chỉ còn đèn lồng, và mặt sông thành một tấm gương.'], 'PUBLISHED'),
+
+  -- B3: CHỈ có bản `da`. Nó phải biến mất hoàn toàn khỏi locale `vi`.
+  ('f2000000-0000-4000-8000-000000000003', 'da', 'visum-til-vietnam',
+   'Visum til Vietnam', 'Reglerne skifter. Her er hvad der gælder i år.',
+   ARRAY['Danske statsborgere kan søge e-visum online.',
+         'Ansøg mindst tre uger før afrejse.'], 'PUBLISHED')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO post_tag (post_id, tag_id) VALUES
+  ('f2000000-0000-4000-8000-000000000001', 'f1000000-0000-4000-8000-000000000001'),
+  ('f2000000-0000-4000-8000-000000000002', 'f1000000-0000-4000-8000-000000000002'),
+  ('f2000000-0000-4000-8000-000000000003', 'f1000000-0000-4000-8000-000000000003')
+ON CONFLICT DO NOTHING;
+
+-- Buổi thuyết trình. Ngày đặt xa trong tương lai có chủ ý: endpoint chỉ trả
+-- buổi CHƯA diễn ra, nên một ngày gần sẽ làm bộ dữ liệu mồi tự rỗng đi theo
+-- thời gian và không ai hiểu vì sao trang sự kiện trống.
+INSERT INTO lecture (id, market, event_date, start_time, city, venue, seats, seats_taken) VALUES
+  ('f3000000-0000-4000-8000-000000000001', 'DK', '2027-02-11', '19:00',
+   'København', 'Kulturhuset Islands Brygge', 60, 41),
+  ('f3000000-0000-4000-8000-000000000002', 'DK', '2027-03-04', '19:00',
+   'Aarhus', 'Dokk1', 45, 45),
+  ('f3000000-0000-4000-8000-000000000003', 'VN', '2027-03-20', '18:30',
+   'Hà Nội', 'Trung tâm Văn hoá Pháp', 80, 12)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO lecture_translation (lecture_id, locale, title, description) VALUES
+  ('f3000000-0000-4000-8000-000000000001', 'da', 'Vietnam fra nord til syd',
+   'En aften om landet, maden og menneskene. Vores rejseleder fortæller.'),
+  ('f3000000-0000-4000-8000-000000000001', 'vi', 'Việt Nam từ bắc vào nam',
+   'Một buổi tối về đất nước, món ăn và con người. Trưởng đoàn của chúng tôi kể.'),
+  ('f3000000-0000-4000-8000-000000000002', 'da', 'Mekongdeltaet',
+   'Livet på floden — markeder, både og rismarker.'),
+  ('f3000000-0000-4000-8000-000000000002', 'vi', 'Đồng bằng sông Cửu Long',
+   'Cuộc sống trên sông — chợ nổi, ghe thuyền và ruộng lúa.'),
+  ('f3000000-0000-4000-8000-000000000003', 'da', 'Rejs til Danmark',
+   'For vietnamesere der vil se Skandinavien.'),
+  ('f3000000-0000-4000-8000-000000000003', 'vi', 'Du lịch Bắc Âu',
+   'Dành cho khách Việt muốn đi Scandinavia.')
+ON CONFLICT DO NOTHING;
+
 COMMIT;

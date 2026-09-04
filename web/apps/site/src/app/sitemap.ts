@@ -1,12 +1,15 @@
 import type { MetadataRoute } from 'next';
 import { defaultMarketFor, isLocale, locales, type Locale, type Market } from '@travel/i18n';
-import type { Destination, ProductPage } from '@travel/api-client';
-import { destinationsApi, productsApi, requestScope } from '@/lib/api';
+import type { Destination, PostPage, ProductPage } from '@travel/api-client';
+import { destinationsApi, postsApi, productsApi, requestScope } from '@/lib/api';
 import { SITE_URL } from '@/lib/site';
 import {
+  duongDanBlog,
   duongDanChiTiet,
   duongDanDiemDen,
+  duongDanLienHe,
   duongDanListing,
+  duongDanSuKien,
   duongDanTimTour,
 } from '@/lib/routes';
 
@@ -40,9 +43,10 @@ export default async function sitemap(props: {
   const locale: Locale = id;
   const market = defaultMarketFor(locale);
 
-  const [sanPham, diemDen] = await Promise.all([
+  const [sanPham, diemDen, baiViet] = await Promise.all([
     daySanPham(locale, market),
     dayDiemDen(locale, market),
+    dayBaiViet(locale, market),
   ]);
 
   const gocTrang: MetadataRoute.Sitemap = [
@@ -50,6 +54,11 @@ export default async function sitemap(props: {
     { url: abs(duongDanListing(locale)), changeFrequency: 'daily', priority: 0.9 },
     { url: abs(duongDanDiemDen(locale)), changeFrequency: 'weekly', priority: 0.8 },
     { url: abs(duongDanTimTour(locale)), changeFrequency: 'monthly', priority: 0.6 },
+    { url: abs(duongDanBlog(locale)), changeFrequency: 'weekly', priority: 0.5 },
+    // Sự kiện đổi theo lịch nhưng KHÔNG có trang chi tiết riêng cho từng buổi —
+    // chỉ một URL, và endpoint chỉ trả buổi chưa diễn ra.
+    { url: abs(duongDanSuKien(locale)), changeFrequency: 'weekly', priority: 0.4 },
+    { url: abs(duongDanLienHe(locale)), changeFrequency: 'yearly', priority: 0.4 },
   ];
 
   return [
@@ -63,6 +72,13 @@ export default async function sitemap(props: {
       url: abs(duongDanDiemDen(locale, slug)),
       changeFrequency: 'monthly' as const,
       priority: 0.6,
+    })),
+    ...baiViet.map((slug) => ({
+      url: abs(duongDanBlog(locale, slug)),
+      // Bài viết là nội dung đọc một lần rồi thôi — sửa hiếm, nên đừng bảo công
+      // cụ tìm kiếm quay lại hằng tuần cho một trang không đổi.
+      changeFrequency: 'yearly' as const,
+      priority: 0.4,
     })),
   ];
 }
@@ -110,6 +126,37 @@ async function dayDiemDen(locale: Locale, market: Market) {
     return [];
   }
   return ds.map((d) => d.slug);
+}
+
+/**
+ * Slug mọi bài viết của locale này.
+ *
+ * Cùng khuôn với sản phẩm: đi vòng lặp thay vì xin một trang thật to, và trần
+ * vòng lặp là chốt an toàn. Bài chưa dịch **không có mặt** — backend đã ẩn sẵn,
+ * nên sitemap `vi` ngắn hơn sitemap `da` mà không cần một điều kiện `if` nào.
+ */
+async function dayBaiViet(locale: Locale, market: Market) {
+  const slugs: string[] = [];
+  const size = 60;
+
+  for (let trang = 0; trang < 50; trang++) {
+    let ket_qua: PostPage;
+    try {
+      ket_qua = await postsApi().listPosts({
+        ...requestScope(market, locale),
+        page: trang,
+        size,
+      });
+    } catch (loi) {
+      console.error('[sitemap] listPosts thất bại', loi);
+      break;
+    }
+    slugs.push(...ket_qua.items.map((b) => b.slug));
+    if (trang + 1 >= ket_qua.totalPages) {
+      break;
+    }
+  }
+  return slugs;
 }
 
 function abs(duongDan: string): string {

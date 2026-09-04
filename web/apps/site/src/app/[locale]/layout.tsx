@@ -1,8 +1,16 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { isLocale, locales, t, type Locale } from '@travel/i18n';
 import { resolveMarket } from '@/lib/market';
 import { MarketBanner } from '@/components/MarketBanner';
+import {
+  duongDanBlog,
+  duongDanDiemDen,
+  duongDanLienHe,
+  duongDanListing,
+  duongDanSuKien,
+} from '@/lib/routes';
 import '../globals.css';
 
 export function generateStaticParams() {
@@ -57,6 +65,19 @@ export default async function LocaleLayout({
             <span>{t(locale, 'site.openingHours')}</span>
           </p>
         </header>
+
+        {/* Menu chính. Không có nó thì blog, sự kiện và liên hệ tồn tại mà
+            không ai tìm ra — trang dựng được không đồng nghĩa với trang đến
+            được. Liên kết thật, không phải menu đổ xuống cần hover: hover là
+            điều kiện duy nhất để lộ thông tin thì khách dùng cảm ứng mất lối
+            (web/CLAUDE.md mục 6). */}
+        <nav className="site-nav" aria-label={t(locale, 'nav.label')}>
+          <Link href={duongDanListing(locale)}>{t(locale, 'nav.products')}</Link>
+          <Link href={duongDanDiemDen(locale)}>{t(locale, 'nav.destinations')}</Link>
+          <Link href={duongDanBlog(locale)}>{t(locale, 'nav.blog')}</Link>
+          <Link href={duongDanSuKien(locale)}>{t(locale, 'nav.events')}</Link>
+          <Link href={duongDanLienHe(locale)}>{t(locale, 'nav.contact')}</Link>
+        </nav>
 
         {!laMacDinh && <MarketBanner locale={locale as Locale} market={market} />}
 

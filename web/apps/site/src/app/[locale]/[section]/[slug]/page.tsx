@@ -4,14 +4,23 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isLocale, t, type Locale } from '@travel/i18n';
-import { formatMoney, formatNumber, PriceFrom } from '@travel/ui';
-import type { Departure, Destination, ProductDetail } from '@travel/api-client';
-import { bookingApi, destinationsApi, laKhongTimThay, productsApi, requestScope } from '@/lib/api';
+import { formatDate, formatMoney, formatNumber, PriceFrom } from '@travel/ui';
+import type { Departure, Destination, PostDetail, ProductDetail } from '@travel/api-client';
+import {
+  bookingApi,
+  destinationsApi,
+  laKhongTimThay,
+  postsApi,
+  productsApi,
+  requestScope,
+} from '@/lib/api';
 import { resolveMarket } from '@/lib/market';
 import {
+  duongDanBlog,
   duongDanChiTiet,
   duongDanDiemDen,
   duongDanListing,
+  laBlogSegment,
   laBookingSegment,
   laConfirmationSegment,
   laDestinationsSegment,
@@ -136,6 +145,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     return { robots: { index: false, follow: false } };
   }
 
+  if (laBlogSegment(locale, section)) {
+    const bai = await layBaiViet(locale, slug);
+    return {
+      title: `${bai.title} · ${t(locale, 'site.name')}`,
+      description: bai.excerpt,
+      alternates: { canonical: duongDanBlog(locale, slug) },
+    };
+  }
+
   if (!laProductsSegment(locale, section)) return {};
 
   const sanPham = await laySanPham(locale, slug);
@@ -166,6 +184,9 @@ export default async function ProductDetailPage({
   }
   if (laConfirmationSegment(locale, section)) {
     return <XacNhanPage locale={locale} reference={slug} thamSo={await searchParams} />;
+  }
+  if (laBlogSegment(locale, section)) {
+    return <BaiVietPage locale={locale} slug={slug} />;
   }
   if (!laProductsSegment(locale, section)) notFound();
 
@@ -512,5 +533,95 @@ async function XacNhanPage({
 
       <p>{t(locale, 'confirm.next')}</p>
     </section>
+  );
+}
+
+/* ------------------------------------------------------------ R9 bài viết */
+
+/**
+ * Nạp một bài viết.
+ *
+ * **Không bắt 404 để chuyển hướng slug cũ** như trang sản phẩm: `slug_history`
+ * chỉ ghi cho `PRODUCT` và `DESTINATION` (`docs/12` mục 4.7), nên bài viết đổi
+ * slug thì URL cũ chết thật. Ghi ra đây để người sau không tưởng là bỏ sót.
+ */
+async function layBaiViet(locale: Locale, slug: string): Promise<PostDetail> {
+  const { market } = await resolveMarket(locale);
+  try {
+    return await postsApi().getPost({ ...requestScope(market, locale), slug });
+  } catch (loi) {
+    if (laKhongTimThay(loi)) {
+      // Bài chưa dịch sang locale này cũng rơi vào đây, và đó là hành vi ĐÚNG:
+      // không fallback về bản `da` cho nội dung bán hàng (docs/02 mục 4).
+      notFound();
+    }
+    throw loi;
+  }
+}
+
+/**
+ * Một bài viết (R9 chi tiết).
+ *
+ * Thân bài là **mảng đoạn văn**, không phải một khối HTML: nội dung do biên tập
+ * viên nhập, và HTML tự do từ CSDL là lỗ chèn mã chờ sẵn — cùng luật với mô tả
+ * dài của sản phẩm.
+ */
+async function BaiVietPage({ locale, slug }: { locale: Locale; slug: string }) {
+  const bai = await layBaiViet(locale, slug);
+
+  return (
+    <article className="detail">
+      <p className="detail__breadcrumb">
+        <Link href={duongDanBlog(locale)}>{t(locale, 'blog.backToList')}</Link>
+      </p>
+
+      <header className="detail__header">
+        {bai.publishedAt !== undefined && (
+          <p className="detail__meta">
+            <time dateTime={bai.publishedAt.toISOString()}>
+              {formatDate(bai.publishedAt, locale)}
+            </time>
+          </p>
+        )}
+
+        <h1>{bai.title}</h1>
+        <p className="detail__summary">{bai.excerpt}</p>
+      </header>
+
+      {bai.heroImage !== undefined && (
+        <Image
+          className="detail__image"
+          src={bai.heroImage}
+          // Bài viết chưa có trường alt riêng trong hợp đồng. Alt rỗng để trình
+          // đọc màn hình BỎ QUA, chứ không đọc lại tiêu đề lần thứ hai — lấp
+          // bằng tiêu đề nghe thì tử tế nhưng làm người dùng nghe hai lần.
+          alt=""
+          width={1200}
+          height={640}
+          priority
+          unoptimized
+        />
+      )}
+
+      <div className="detail__body">
+        {bai.body.map((doan, i) => (
+          <p key={i}>{doan}</p>
+        ))}
+      </div>
+
+      {bai.tags.length > 0 && (
+        <p className="bai-the__the">
+          {bai.tags.map((the) => (
+            <Link
+              key={the.slug}
+              className="tf-chip"
+              href={duongDanBlog(locale, undefined, new URLSearchParams({ tag: the.slug }))}
+            >
+              {the.name}
+            </Link>
+          ))}
+        </p>
+      )}
+    </article>
   );
 }

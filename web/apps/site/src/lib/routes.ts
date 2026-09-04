@@ -36,6 +36,18 @@ export function laConfirmationSegment(locale: Locale, doan: string): boolean {
   return doan === segmentFor('confirmation', locale);
 }
 
+export function laBlogSegment(locale: Locale, doan: string): boolean {
+  return doan === segmentFor('blog', locale);
+}
+
+export function laEventsSegment(locale: Locale, doan: string): boolean {
+  return doan === segmentFor('events', locale);
+}
+
+export function laContactSegment(locale: Locale, doan: string): boolean {
+  return doan === segmentFor('contact', locale);
+}
+
 /**
  * Đường dẫn có kiểu.
  *
@@ -78,6 +90,31 @@ export function duongDanDatTour(
 export function duongDanXacNhan(locale: Locale, reference: string, email: string): Route {
   const q = new URLSearchParams({ email });
   return `/${locale}/${segmentFor('confirmation', locale)}/${reference}?${q}` as Route;
+}
+
+/**
+ * Blog (R9). Danh sách có bộ lọc thẻ trong truy vấn; chi tiết thì không.
+ *
+ * Đoạn đường dẫn trùng nhau ở hai locale (`blog` cả `da` lẫn `vi`) — đó là ngoại
+ * lệ duy nhất của bảng `pathnames`, và nó không phá luật nào: luật là URL phải
+ * đọc được bằng chính ngôn ngữ đó, mà "blog" đọc được ở cả hai.
+ */
+export function duongDanBlog(
+  locale: Locale,
+  slug?: string,
+  thamSo?: URLSearchParams,
+): Route {
+  const goc = `/${locale}/${segmentFor('blog', locale)}`;
+  const truyVan = thamSo?.toString();
+  return `${slug ? `${goc}/${slug}` : goc}${truyVan ? `?${truyVan}` : ''}` as Route;
+}
+
+export function duongDanSuKien(locale: Locale): Route {
+  return `/${locale}/${segmentFor('events', locale)}` as Route;
+}
+
+export function duongDanLienHe(locale: Locale): Route {
+  return `/${locale}/${segmentFor('contact', locale)}` as Route;
 }
 
 export function duongDanTimTour(locale: Locale, thamSo?: URLSearchParams): Route {

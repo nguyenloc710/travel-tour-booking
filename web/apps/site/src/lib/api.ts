@@ -2,6 +2,8 @@ import {
   BookingApi,
   Configuration,
   DestinationsApi,
+  LecturesApi,
+  PostsApi,
   ProductsApi,
   RegionsApi,
   ResponseError,
@@ -32,6 +34,14 @@ export function productsApi(): ProductsApi {
 
 export function destinationsApi(): DestinationsApi {
   return new DestinationsApi(configuration());
+}
+
+export function postsApi(): PostsApi {
+  return new PostsApi(configuration());
+}
+
+export function lecturesApi(): LecturesApi {
+  return new LecturesApi(configuration());
 }
 
 /**

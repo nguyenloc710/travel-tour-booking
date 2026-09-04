@@ -560,3 +560,142 @@ main {
   font: inherit;
   resize: vertical;
 }
+
+/* ------------------------------------------------- Menu chính, R9, R10, R11 */
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+/* Vùng chạm tối thiểu 44px — khách lớn tuổi, ngón tay không chính xác. */
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--mau-chu);
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current='page'] {
+  text-decoration: underline;
+}
+
+.bai-luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.bai-the {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--mau-vien);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.bai-the__anh {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.bai-the__than {
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.bai-the__ten {
+  font-size: 1.15rem;
+  margin: 0 0 0.35rem;
+}
+
+.bai-the__ten a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.bai-the__ten a:hover {
+  text-decoration: underline;
+}
+
+.bai-the__ngay {
+  color: #555;
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+}
+
+.bai-the__the {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+.su-kien {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 0;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.su-kien__muc {
+  border: 1px solid var(--mau-vien);
+  border-left: 4px solid var(--mau-nhan-manh);
+  border-radius: 8px;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.su-kien__muc h2 {
+  font-size: 1.15rem;
+  margin: 0.25rem 0 0.35rem;
+}
+
+.su-kien__khi {
+  font-weight: 700;
+  margin: 0;
+}
+
+.su-kien__dau,
+.su-kien__cho {
+  color: #555;
+  margin: 0.35rem 0 0;
+}
+
+.lien-he {
+  display: grid;
+  grid-template-columns: minmax(9rem, max-content) 1fr;
+  gap: 0.6rem 1.5rem;
+  margin-top: 1.5rem;
+  max-width: 44rem;
+}
+
+.lien-he dt {
+  font-weight: 700;
+}
+
+.lien-he dd {
+  margin: 0;
+}
+
+.lien-he address {
+  font-style: normal;
+}
+
+@media (max-width: 32rem) {
+  .lien-he {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .lien-he dd {
+    margin-bottom: 0.8rem;
+  }
+}
