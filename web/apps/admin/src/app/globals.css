@@ -88,9 +88,27 @@ a:hover {
   min-width: 0;
 }
 
+/*
+ * KHÔNG giới hạn bề rộng. Đây là bề mặt vận hành, không phải trang đọc: danh
+ * sách đơn có tám cột, và cái cap 1180px trước đây bỏ trống hơn 500px bên phải
+ * ở màn 1920 trong khi chính cái bảng vẫn phải cuộn ngang.
+ *
+ * Câu văn thì vẫn cần giới hạn — một dòng chữ dài 1600px không đọc nổi. Nên
+ * chặn ở CHỖ CÓ CHỮ (quy tắc ngay dưới), không chặn ở khung.
+ */
 main {
   padding: 1.75rem 2rem 5rem;
-  max-width: 1180px;
+}
+
+/*
+ * Dòng giải thích và trạng thái rỗng giữ độ dài đọc được, dù khung đã trải hết.
+ * Khách của trang quản trị là nhân viên đọc cả ngày — docs/22 mục 7.
+ */
+main > .phu,
+section > .phu,
+.dau-trang .phu,
+.trong {
+  max-width: 78ch;
 }
 
 /* ============================================================ thanh dọc */
@@ -357,6 +375,28 @@ h2 {
 }
 
 /* ============================================================ bảng */
+
+/*
+ * Full width đúng cho bảng NHIỀU CỘT (danh sách đơn có tám), sai cho bảng
+ * khoá/giá trị: trải 1600px thì nhãn cách giá trị bảy trăm pixel, mắt phải chạy
+ * hết chiều ngang màn hình để ghép một cặp. Bảng hai cột vì thế tự chặn.
+ */
+.bang-doi {
+  max-width: 46rem;
+}
+
+.bang-doi th {
+  width: 14rem;
+}
+
+/*
+ * Cột tiền căn PHẢI. Hàng nghìn thẳng cột hàng nghìn thì so hai số là liếc mắt,
+ * còn căn trái thì phải đọc từng chữ số — quy ước kế toán, không phải thẩm mỹ.
+ */
+.so {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 
 table {
   border-collapse: separate;

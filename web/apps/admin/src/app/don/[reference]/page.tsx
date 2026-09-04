@@ -107,7 +107,7 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
 
       <section>
         <h2>Liên hệ và chuyến đi</h2>
-        <table>
+        <table className="bang-doi">
           <tbody>
             <tr>
               <th scope="row">Email</th>
@@ -141,18 +141,18 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
           <thead>
             <tr>
               <th>Dòng</th>
-              <th>Số lượng</th>
-              <th>Đơn giá</th>
-              <th>Thành tiền</th>
+              <th className="so">Số lượng</th>
+              <th className="so">Đơn giá</th>
+              <th className="so">Thành tiền</th>
             </tr>
           </thead>
           <tbody>
             {don.breakdown.lines.map((d, i) => (
               <tr key={`${d.kind}-${i}`}>
                 <td>{tenDongGia(d.kind, d.labelKey)}</td>
-                <td>{d.quantity ?? '—'}</td>
-                <td>{d.unitAmount ? formatMoney(d.unitAmount, 'vi') : '—'}</td>
-                <td>{formatMoney(d.amount, 'vi')}</td>
+                <td className="so">{d.quantity ?? '—'}</td>
+                <td className="so">{d.unitAmount ? formatMoney(d.unitAmount, 'vi') : '—'}</td>
+                <td className="so">{formatMoney(d.amount, 'vi')}</td>
               </tr>
             ))}
           </tbody>
@@ -161,7 +161,7 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
               <th scope="row" colSpan={3}>
                 Tổng
               </th>
-              <td>
+              <td className="so">
                 <strong>{formatMoney(don.breakdown.total, 'vi')}</strong>
               </td>
             </tr>
@@ -169,13 +169,13 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
               <th scope="row" colSpan={3}>
                 Đặt cọc
               </th>
-              <td>{formatMoney(don.breakdown.deposit, 'vi')}</td>
+              <td className="so">{formatMoney(don.breakdown.deposit, 'vi')}</td>
             </tr>
             <tr>
               <th scope="row" colSpan={3}>
                 Còn lại
               </th>
-              <td>{formatMoney(don.breakdown.balance, 'vi')}</td>
+              <td className="so">{formatMoney(don.breakdown.balance, 'vi')}</td>
             </tr>
           </tfoot>
         </table>
