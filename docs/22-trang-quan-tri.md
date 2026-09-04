@@ -107,7 +107,7 @@ danh sách tồn tại ở ba chỗ và lệch nhau dần.
 | M10 | Hàng đợi dịch | Mục 4.1 |
 | M11 | Dịch song song | Mục 4.2 |
 | M12 | Bảng độ phủ dịch | Mục 4.3 |
-| M13 | Nội dung khác | Điểm đến, khách sạn, tham quan, bài viết, sự kiện |
+| M13 | Nội dung khác | Điểm đến, khách sạn, tham quan, bài viết, sự kiện. **Đợt đầu làm ba loại có trong ma trận mục 2.1**: điểm đến, bài viết, sự kiện |
 | M14 | Người dùng và vai trò | Chỉ `ADMIN` |
 
 M1 không phải trang trang trí. Ba việc trên đó — đơn quá hạn xác nhận, báo giá

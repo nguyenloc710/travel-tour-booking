@@ -32,6 +32,10 @@ openapi: 3.0.3
 #                 2.1 tách hẳn "xem đơn" khỏi "đổi trạng thái đơn".
 # Phiên bản 0.12: đường GHI của M7 — nhân viên đổi trạng thái đơn. Máy trạng
 #                 thái ở docs/23 mục 4; mọi lần đổi ghi một booking_event.
+# Phiên bản 0.14: NỘI DUNG KHÁC (docs/22 M13) và NGƯỜI DÙNG (M14) — điểm đến,
+#                 bài viết và buổi thuyết trình sửa được từ giao diện, và ADMIN
+#                 gán được vai trò. Trước đợt này ba nhóm nội dung đó chỉ có
+#                 đường ĐỌC, còn vai trò thì phải sửa bằng SQL tay.
 # Phiên bản 0.13: BÁO GIÁ — khách gửi yêu cầu báo giá cho PRIVATE_TOUR, nhân
 #                 viên dựng bảng giá rồi gửi (docs/22 M8). Vòng đời và bảy quy
 #                 tắc ở docs/14 mục 7. Đây là thứ làm cho CTA "Yêu cầu báo giá"
@@ -39,7 +43,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.13.0
+  version: 0.14.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -1630,6 +1634,478 @@ paths:
         '409':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/destinations/{id}:
+    get:
+      tags: [admin]
+      operationId: chiTietDiemDenQuanTri
+      summary: Một điểm đến, kèm mọi bản dịch
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '200':
+          description: Điểm đến
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDestinationDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [admin]
+      operationId: suaDiemDen
+      summary: Sửa phần không phụ thuộc ngôn ngữ của một điểm đến
+      description: |
+        `code` **không có ở đây**: nó là định danh nội bộ mà dữ liệu mồi, tài
+        liệu và câu chuyện của cả đội đang trỏ tới. Đổi mã là đổi thứ người ta
+        gọi tên nhau bằng, và không có màn hình nào cho việc đó.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminDestinationPatch' }
+      responses:
+        '200':
+          description: Điểm đến sau khi sửa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDestinationDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [admin]
+      operationId: xoaDiemDen
+      summary: Xoá mềm một điểm đến
+      description: |
+        **Xoá mềm** — `soft_delete = TRUE`, không `DELETE` thật (`docs/22` mục 7).
+
+        Còn sản phẩm nào trỏ tới thì từ chối bằng `409 DESTINATION_IN_USE` kèm số
+        sản phẩm. Xoá một điểm đến đang được dùng làm cả sản phẩm mất chỗ hiển
+        thị mà **không có gì nổ** — nó chỉ lặng lẽ biến mất khỏi listing, vì truy
+        vấn sản phẩm `INNER JOIN destination_translation`.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '204':
+          description: Đã xoá mềm
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/destinations/{id}/translations/{locale}:
+    put:
+      tags: [admin]
+      operationId: luuBanDichDiemDen
+      summary: Lưu bản dịch của một điểm đến
+      description: |
+        Quyền phụ thuộc **cả vai trò lẫn locale**: `EDITOR` sửa bản nguồn,
+        `TRANSLATOR` sửa bản dịch, `ADMIN` sửa cả hai (`docs/22` mục 2.1 điều 2).
+        Người dịch sửa bản nguồn là làm hai bản lệch nhau mà không ai biết bản
+        nào đúng.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: locale
+          in: path
+          required: true
+          schema: { type: string, enum: [da, vi] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminDestinationTranslationInput' }
+      responses:
+        '200':
+          description: Điểm đến sau khi lưu bản dịch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminDestinationDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/posts:
+    get:
+      tags: [admin]
+      operationId: danhSachBaiViet
+      summary: Danh sách bài viết, mọi trạng thái và mọi ngôn ngữ
+      parameters:
+        - name: q
+          in: query
+          description: Khớp một phần tiêu đề, ở bất kỳ ngôn ngữ nào.
+          schema: { type: string, maxLength: 120 }
+        - name: page
+          in: query
+          schema: { type: integer, format: int32, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Một trang bài viết
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPostPage' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [admin]
+      operationId: taoBaiViet
+      summary: Tạo một bài viết
+      description: |
+        Thân yêu cầu mang **luôn bản ngôn ngữ nguồn**, cùng khuôn với
+        `POST /admin/products`: một bài viết không có bản `da` là một dòng không
+        hiện ở đâu và không ai tìm lại được để sửa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPostCreate' }
+      responses:
+        '201':
+          description: Đã tạo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPostDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/posts/{id}:
+    get:
+      tags: [admin]
+      operationId: chiTietBaiViet
+      summary: Một bài viết, kèm mọi bản dịch
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '200':
+          description: Bài viết
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPostDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [admin]
+      operationId: suaBaiViet
+      summary: Sửa phần không phụ thuộc ngôn ngữ của một bài viết
+      description: |
+        **Thẻ không sửa ở đây** — nó có endpoint riêng, `PUT .../tags`.
+
+        Lý do là một giới hạn thật của bộ sinh mã, không phải sở thích: trường
+        mảng vắng mặt trong JSON được dựng thành **danh sách rỗng**, nên
+        `{"heroImage":"…"}` và `{"tagIds":[]}` tới tay controller giống hệt nhau.
+        Gộp thẻ vào `PATCH` nghĩa là đổi mỗi cái ảnh bìa cũng lặng lẽ gỡ sạch thẻ
+        của bài. Tách ra thì mỗi endpoint nói đúng một việc, và cùng khuôn với
+        `price-tiers`, `prices` và `roles` — tất cả đều `PUT` thay toàn bộ.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPostPatch' }
+      responses:
+        '200':
+          description: Bài viết sau khi sửa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPostDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [admin]
+      operationId: xoaBaiViet
+      summary: Xoá mềm một bài viết
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '204':
+          description: Đã xoá mềm
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/posts/{id}/tags:
+    put:
+      tags: [admin]
+      operationId: datTheChoBaiViet
+      summary: Thay toàn bộ tập thẻ của một bài viết
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPostTagAssignment' }
+      responses:
+        '200':
+          description: Bài viết sau khi gán thẻ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPostDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/posts/{id}/translations/{locale}:
+    put:
+      tags: [admin]
+      operationId: luuBanDichBaiViet
+      summary: Lưu bản dịch của một bài viết
+      description: |
+        Cùng luật quyền với bản dịch sản phẩm và điểm đến.
+
+        `status` đi theo đúng ba giá trị của `product_translation`: `DRAFT`,
+        `TRANSLATED`, `PUBLISHED`. Bề mặt khách chỉ đọc `PUBLISHED`, nên đây là
+        công tắc "bài này lên website".
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: locale
+          in: path
+          required: true
+          schema: { type: string, enum: [da, vi] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPostTranslationInput' }
+      responses:
+        '200':
+          description: Bài viết sau khi lưu bản dịch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPostDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/lectures:
+    get:
+      tags: [admin]
+      operationId: danhSachSuKienQuanTri
+      summary: Danh sách buổi thuyết trình, gồm cả buổi đã diễn ra
+      description: |
+        Khác bề mặt khách ở một điểm quan trọng: **trả cả buổi đã qua**. Bề mặt
+        khách lọc `event_date >= hôm nay` vì khách không đăng ký được buổi hôm
+        qua; nhân viên thì vẫn cần xem lại và sửa buổi cũ.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, format: int32, minimum: 0, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, format: int32, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Một trang buổi thuyết trình
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLecturePage' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [admin]
+      operationId: taoSuKien
+      summary: Tạo một buổi thuyết trình
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLectureCreate' }
+      responses:
+        '201':
+          description: Đã tạo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLectureDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/lectures/{id}:
+    get:
+      tags: [admin]
+      operationId: chiTietSuKien
+      summary: Một buổi thuyết trình, kèm mọi bản dịch
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '200':
+          description: Buổi thuyết trình
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLectureDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [admin]
+      operationId: suaSuKien
+      summary: Sửa phần không phụ thuộc ngôn ngữ của một buổi thuyết trình
+      description: |
+        Hạ `seats` xuống dưới số người đã đăng ký trả `409 CAPACITY_BELOW_BOOKED`
+        — cùng mã lỗi với ngày khởi hành, vì đó cùng một câu chuyện: không lấy
+        lại được chỗ đã hứa cho người đã đăng ký.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLecturePatch' }
+      responses:
+        '200':
+          description: Buổi thuyết trình sau khi sửa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLectureDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [admin]
+      operationId: xoaSuKien
+      summary: Xoá mềm một buổi thuyết trình
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '204':
+          description: Đã xoá mềm
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/lectures/{id}/translations/{locale}:
+    put:
+      tags: [admin]
+      operationId: luuBanDichSuKien
+      summary: Lưu bản dịch của một buổi thuyết trình
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: locale
+          in: path
+          required: true
+          schema: { type: string, enum: [da, vi] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminLectureTranslationInput' }
+      responses:
+        '200':
+          description: Buổi thuyết trình sau khi lưu bản dịch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminLectureDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/tags:
+    get:
+      tags: [admin]
+      operationId: danhSachThe
+      summary: Thẻ, để chọn khi gán cho bài viết
+      description: |
+        Cùng vai trò với `GET /admin/destinations`: danh sách để chọn trong một
+        ô, không phải trang danh mục. Tên trả ở **ngôn ngữ nguồn**.
+      responses:
+        '200':
+          description: Mọi thẻ chưa xoá
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AdminTag' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/users:
+    get:
+      tags: [admin]
+      operationId: danhSachNguoiDung
+      summary: Người dùng và vai trò của họ
+      description: |
+        Màn hình M14 của `docs/22` — **chỉ `ADMIN`** (ma trận mục 2.1).
+
+        Không trả `password_hash`, và sẽ không bao giờ trả. Đưa băm mật khẩu ra
+        khỏi máy chủ là biến một lần rò rỉ log thành một lần rò rỉ mật khẩu.
+      responses:
+        '200':
+          description: Mọi người dùng chưa xoá
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AdminStaffUser' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/users/{id}:
+    patch:
+      tags: [admin]
+      operationId: suaNguoiDung
+      summary: Bật hoặc tắt một tài khoản, đổi tên hiển thị
+      description: |
+        **Tắt tài khoản chứ không xoá.** Người nghỉ việc vẫn đứng tên trong
+        `booking_event` và trong `last_modified_by` của mọi bản ghi họ từng sửa;
+        xoá họ đi là làm nhật ký kiểm toán trỏ vào hư không.
+
+        `ADMIN` bật cuối cùng không tắt được → `409 LAST_ADMIN`. Không còn
+        `ADMIN` nào đang bật thì không ai vào lại được màn hình này để sửa, và
+        lối ra duy nhất là `UPDATE` tay trên cơ sở dữ liệu.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminStaffUserPatch' }
+      responses:
+        '200':
+          description: Người dùng sau khi sửa
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminStaffUser' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/users/{id}/roles:
+    put:
+      tags: [admin]
+      operationId: datVaiTro
+      summary: Thay toàn bộ tập vai trò của một người dùng
+      description: |
+        `PUT` thay sạch, không `POST` thêm từng cái: vai trò là một **tập**, và
+        màn hình cho người ta tick vài ô rồi bấm Lưu. Một endpoint thêm cộng một
+        endpoint xoá nghĩa là bỏ tick rồi bấm Lưu sẽ không gỡ được gì.
+
+        Gỡ vai trò `ADMIN` cuối cùng trả `409 LAST_ADMIN`, cùng lý do với việc
+        tắt tài khoản.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminRoleAssignment' }
+      responses:
+        '200':
+          description: Người dùng sau khi đổi vai trò
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminStaffUser' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
   /api/v1/{market}/pricing/preview:
     post:
       tags: [booking]
@@ -2823,6 +3299,347 @@ components:
               type: array
               items: { $ref: '#/components/schemas/QuoteLine' }
               description: Rỗng khi chưa ai dựng bảng giá.
+
+    AdminContentLocaleState:
+      type: string
+      description: |
+        Một locale của một bản ghi nội dung đang ở đâu. Dùng cho cột "đã dịch
+        chưa" của danh sách M13 — cùng ba giá trị với `product_translation`, để
+        hai bề mặt không gọi cùng một trạng thái bằng hai cái tên.
+      enum: [MISSING, DRAFT, TRANSLATED, PUBLISHED]
+
+    AdminDestinationTranslationInput:
+      type: object
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+          maxLength: 160
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          description: |
+            **Không ký tự có dấu** ở cả hai ngôn ngữ (`CLAUDE.md` quy tắc 7):
+            `hoi-an` chứ không `hội-an`, `halong-bugten` chứ không
+            `halong-bugten` có `æ ø å`. Cơ sở dữ liệu cũng từ chối bằng
+            `ck_dt_slug`, nhưng báo sớm hơn thì đỡ mất một lần gõ lại.
+        name: { type: string, minLength: 1, maxLength: 120 }
+        summary: { type: string }
+
+    AdminDestinationTranslation:
+      type: object
+      required: [locale, slug, name, isSource]
+      properties:
+        locale: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        summary: { type: string }
+        isSource:
+          type: boolean
+          description: Bản `da` — ngôn ngữ nguồn (ADR-004).
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminDestinationPatch:
+      type: object
+      properties:
+        regionId: { type: string, format: uuid }
+        sortOrder: { type: integer, format: int32, minimum: 0, maximum: 999 }
+
+    AdminDestinationDetail:
+      type: object
+      required: [id, code, regionId, regionName, sortOrder, translations]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        regionId: { type: string, format: uuid }
+        regionName: { type: string }
+        sortOrder: { type: integer, format: int32 }
+        productCount:
+          type: integer
+          format: int32
+          description: |
+            Số sản phẩm đang trỏ tới điểm đến này. Màn hình cần nó để nói trước
+            hậu quả của nút Xoá thay vì để người dùng gặp `409`.
+        translations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminDestinationTranslation' }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminTag:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name:
+          type: string
+          description: Tên ở **ngôn ngữ nguồn**. Trang quản trị dùng một ngôn ngữ.
+
+    AdminPostTranslationInput:
+      type: object
+      required: [slug, title, excerpt, body, status]
+      properties:
+        slug:
+          type: string
+          maxLength: 160
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+        title: { type: string, minLength: 1, maxLength: 200 }
+        excerpt: { type: string, minLength: 1 }
+        body:
+          type: array
+          minItems: 1
+          items: { type: string }
+          description: |
+            **Từng đoạn văn một, không phải một khối HTML.** Nội dung do biên tập
+            viên nhập, và HTML tự do đi thẳng từ cơ sở dữ liệu ra trang là một lỗ
+            chèn mã chờ sẵn.
+        status: { $ref: '#/components/schemas/TranslationStatus' }
+
+    AdminPostTranslation:
+      type: object
+      required: [locale, slug, title, excerpt, body, status, isSource]
+      properties:
+        locale: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        body:
+          type: array
+          items: { type: string }
+        status: { $ref: '#/components/schemas/TranslationStatus' }
+        isSource: { type: boolean }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminPostCreate:
+      type: object
+      required: [translation]
+      properties:
+        heroImage: { type: string }
+        publishedAt:
+          type: string
+          format: date-time
+          description: |
+            Vắng nghĩa là **chưa xuất bản theo lịch**. Trạng thái xuất bản thật
+            nằm ở `status` của từng bản dịch; trường này chỉ là ngày hiện trên
+            trang, và hai thứ đó cố tình tách nhau.
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
+        translation:
+          allOf: [{ $ref: '#/components/schemas/AdminPostTranslationInput' }]
+          description: Bản **ngôn ngữ nguồn** (`da`). Bắt buộc — xem mô tả endpoint.
+
+    AdminPostPatch:
+      type: object
+      properties:
+        heroImage: { type: string }
+        publishedAt: { type: string, format: date-time }
+
+    AdminPostTagAssignment:
+      type: object
+      required: [tagIds]
+      properties:
+        tagIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: |
+            Tập thẻ **sau khi** lưu. Mảng rỗng là gỡ hết — ở đây không có nhập
+            nhằng nào, vì trường là bắt buộc và người gọi luôn nói rõ ý mình.
+
+    AdminPostSummary:
+      type: object
+      required: [id, title, locales, tags]
+      properties:
+        id: { type: string, format: uuid }
+        title:
+          type: string
+          description: Tiêu đề ở ngôn ngữ nguồn, hoặc ở locale nào có nếu bản nguồn thiếu.
+        heroImage: { type: string }
+        publishedAt: { type: string, format: date-time }
+        locales:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/AdminContentLocaleState' }
+          description: |
+            Trạng thái từng locale, khoá là mã locale. Đây là cột quan trọng nhất
+            của danh sách: `MISSING` ở `vi` nghĩa là bài này **không tồn tại** với
+            khách đọc tiếng Việt.
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/AdminTag' }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminPostPage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminPostSummary' }
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1 }
+        totalItems: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+
+    AdminPostDetail:
+      type: object
+      required: [id, tags, translations]
+      properties:
+        id: { type: string, format: uuid }
+        heroImage: { type: string }
+        publishedAt: { type: string, format: date-time }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/AdminTag' }
+        translations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminPostTranslation' }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminLectureTranslationInput:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1 }
+
+    AdminLectureTranslation:
+      type: object
+      required: [locale, title, description, isSource]
+      properties:
+        locale: { type: string }
+        title: { type: string }
+        description: { type: string }
+        isSource: { type: boolean }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminLectureCreate:
+      type: object
+      required: [market, eventDate, city, seats, translation]
+      properties:
+        market:
+          type: string
+          enum: [DK, VN]
+          description: |
+            Buổi thuyết trình thuộc **một thị trường**, không phải một ngôn ngữ:
+            buổi ở København thuộc `DK` dù nói bằng tiếng gì. Bản dịch của nó thì
+            vẫn có cả hai locale.
+        eventDate: { type: string, format: date }
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Giờ địa phương, dạng `HH:MM`.
+        city: { type: string, minLength: 1, maxLength: 64 }
+        venue: { type: string, maxLength: 160 }
+        seats: { type: integer, format: int32, minimum: 1, maximum: 5000 }
+        translation:
+          allOf: [{ $ref: '#/components/schemas/AdminLectureTranslationInput' }]
+          description: Bản **ngôn ngữ nguồn** (`da`).
+
+    AdminLecturePatch:
+      type: object
+      properties:
+        eventDate: { type: string, format: date }
+        startTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$' }
+        city: { type: string, minLength: 1, maxLength: 64 }
+        venue: { type: string, maxLength: 160 }
+        seats: { type: integer, format: int32, minimum: 1, maximum: 5000 }
+
+    AdminLectureSummary:
+      type: object
+      required: [id, market, eventDate, city, seats, seatsTaken, title, locales]
+      properties:
+        id: { type: string, format: uuid }
+        market:
+          type: string
+          enum: [DK, VN]
+        eventDate: { type: string, format: date }
+        startTime: { type: string }
+        city: { type: string }
+        venue: { type: string }
+        seats: { type: integer, format: int32 }
+        seatsTaken:
+          type: integer
+          format: int32
+          description: |
+            Số đã đăng ký. Bề mặt khách trả **chỗ còn lại** vì đó là thứ khách
+            quyết định theo; bề mặt quản trị trả cả hai vế, vì nhân viên cần biết
+            sức chứa hạ được tới đâu.
+        title: { type: string }
+        locales:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/AdminContentLocaleState' }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminLecturePage:
+      type: object
+      required: [items, page, size, totalItems, totalPages]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminLectureSummary' }
+        page: { type: integer, format: int32, minimum: 0 }
+        size: { type: integer, format: int32, minimum: 1 }
+        totalItems: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int32, minimum: 0 }
+
+    AdminLectureDetail:
+      type: object
+      required: [id, market, eventDate, city, seats, seatsTaken, translations]
+      properties:
+        id: { type: string, format: uuid }
+        market:
+          type: string
+          enum: [DK, VN]
+        eventDate: { type: string, format: date }
+        startTime: { type: string }
+        city: { type: string }
+        venue: { type: string }
+        seats: { type: integer, format: int32 }
+        seatsTaken: { type: integer, format: int32 }
+        translations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminLectureTranslation' }
+        lastModifiedAt: { type: string, format: date-time }
+        lastModifiedBy: { type: string }
+
+    AdminStaffUser:
+      type: object
+      required: [id, email, displayName, isActive, roles]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+        isActive: { type: boolean }
+        roles:
+          type: array
+          items: { type: string, enum: [CONSULTANT, EDITOR, TRANSLATOR, ADMIN] }
+          description: |
+            Một người mang được **nhiều** vai trò — ở công ty quy mô này, một
+            người thường vừa viết vừa dịch (`docs/22` mục 2). Quyền vẫn tính theo
+            vai trò, để lúc đội lớn lên thì không phải viết lại.
+
+    AdminStaffUserPatch:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 120 }
+        isActive: { type: boolean }
+
+    AdminRoleAssignment:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          items: { type: string, enum: [CONSULTANT, EDITOR, TRANSLATOR, ADMIN] }
+          description: |
+            Tập vai trò **sau khi** lưu. Mảng rỗng nghĩa là người này đăng nhập
+            được nhưng không thấy màn hình nào — trạng thái hợp lệ, dùng cho
+            người mới chờ phân việc.
 
     PaxCount:
       type: object

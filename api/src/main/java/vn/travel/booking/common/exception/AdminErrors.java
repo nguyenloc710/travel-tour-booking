@@ -3,7 +3,7 @@ package vn.travel.booking.common.exception;
 import java.util.Map;
 
 /**
- * Bảy tình huống của đường <b>ghi</b> quản trị, mỗi cái một mã lỗi ở
+ * Chín tình huống của đường <b>ghi</b> quản trị, mỗi cái một mã lỗi ở
  * docs/13 mục 5.1.
  *
  * <p>Cùng khuôn với {@link BookingErrors}: một lớp cho một mã, không một lớp
@@ -100,6 +100,34 @@ public final class AdminErrors {
         public CapacityBelowBooked(int capacity, int seatsBooked) {
             super("sức chứa " + capacity + " nhỏ hơn số chỗ đã bán " + seatsBooked,
                     Map.of("capacity", capacity, "seatsBooked", seatsBooked));
+        }
+    }
+
+    /**
+     * Xoá điểm đến còn sản phẩm trỏ tới. HTTP 409.
+     *
+     * <p>Không có gì nổ nếu cứ cho xoá — sản phẩm chỉ <b>lặng lẽ biến mất</b>
+     * khỏi listing, vì truy vấn của nó {@code INNER JOIN destination_translation}.
+     * Đó là kiểu hỏng tệ nhất: đúng chính sách không-fallback đang làm việc của
+     * nó, nên không có lỗi nào ghi ra, và không ai nối được hai sự việc với nhau.
+     */
+    public static class DestinationInUse extends CoThamSo {
+        public DestinationInUse(int soSanPham) {
+            super("còn " + soSanPham + " sản phẩm trỏ tới điểm đến này",
+                    Map.of("productCount", soSanPham));
+        }
+    }
+
+    /**
+     * Tắt hoặc gỡ vai trò của {@code ADMIN} đang bật cuối cùng. HTTP 409.
+     *
+     * <p>Không còn {@code ADMIN} nào đang bật thì không ai vào lại được màn hình
+     * người dùng để sửa, và lối ra duy nhất là {@code UPDATE} tay trên cơ sở dữ
+     * liệu lúc nửa đêm.
+     */
+    public static class LastAdmin extends CoThamSo {
+        public LastAdmin(String chiTiet) {
+            super(chiTiet, Map.of());
         }
     }
 

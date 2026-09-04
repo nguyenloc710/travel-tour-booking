@@ -167,6 +167,8 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 | `CAPACITY_BELOW_BOOKED` | 409 | Hạ sức chứa xuống dưới số chỗ đã bán |
 | `BOOKING_TRANSITION_NOT_ALLOWED` | 409 | Bước chuyển không có trong máy trạng thái (`23` mục 4). Kèm `from` và `to` |
 | `PRODUCT_HAS_ACTIVE_BOOKINGS` | 409 | Xoá sản phẩm còn đơn chưa kết thúc |
+| `DESTINATION_IN_USE` | 409 | Xoá điểm đến còn sản phẩm trỏ tới |
+| `LAST_ADMIN` | 409 | Tắt hoặc gỡ vai trò của `ADMIN` đang bật cuối cùng |
 | `PAYMENT_FAILED` | 402 | Cổng thanh toán từ chối |
 | `RATE_LIMITED` | 429 | Quá nhiều yêu cầu |
 | `INTERNAL_ERROR` | 500 | Kèm `traceId` |
@@ -326,9 +328,39 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
 /admin/leads
 /admin/translations/queue  hàng đợi dịch — bản da PUBLISHED mà vi thiếu/OUTDATED
 /admin/translations/coverage   bảng độ phủ
-/admin/content/{type}      điểm đến, khách sạn, tham quan, bài viết, sự kiện
-/admin/users
+
+/admin/destinations                  danh sách để chọn, và CRUD
+/admin/destinations/{id}             PATCH miền và thứ tự; DELETE là xoá MỀM
+/admin/destinations/{id}/translations/{locale}
+/admin/posts · /admin/posts/{id}     bài viết
+/admin/posts/{id}/tags               thay TOÀN BỘ tập thẻ — xem ghi chú dưới
+/admin/posts/{id}/translations/{locale}
+/admin/lectures · /admin/lectures/{id}   buổi thuyết trình, gồm cả buổi đã qua
+/admin/lectures/{id}/translations/{locale}
+/admin/tags                          danh sách để chọn
+
+/admin/users                         M14 — chỉ ADMIN
+/admin/users/{id}                    bật/tắt tài khoản, đổi tên hiển thị
+/admin/users/{id}/roles              thay TOÀN BỘ tập vai trò
 ```
+
+> **Không có `/admin/content/{type}`.** Bản trước của mục này ghi một đường dẫn
+> gộp như vậy, và nó mâu thuẫn với chính câu mở đầu ở trên: `content/{type}`
+> nhóm theo **màn hình** M13, không theo tài nguyên. Ba loại nội dung cũng có ba
+> hình dạng dữ liệu khác hẳn nhau, nên một endpoint gộp sẽ phải mang một thân
+> yêu cầu `oneOf` mà cả hai phía đều phải tự phân nhánh.
+
+> **Thẻ của bài viết đi qua endpoint riêng**, không nằm trong `PATCH`. Đây là
+> giới hạn thật của bộ sinh mã, không phải sở thích: trường mảng vắng mặt trong
+> JSON được dựng thành **danh sách rỗng**, nên `{"heroImage":"…"}` và
+> `{"tagIds":[]}` tới tay controller giống hệt nhau — gộp lại thì đổi mỗi cái
+> ảnh bìa cũng lặng lẽ gỡ sạch thẻ của bài. Cùng khuôn `PUT` thay toàn bộ với
+> `price-tiers`, `prices` và `roles`.
+
+> **Khách sạn và điểm tham quan chưa có đường ghi.** Hai bảng đó gắn vào sản
+> phẩm và chưa có cả đường đọc quản trị; `docs/22` M13 có kể tên chúng, còn ma
+> trận quyền mục 2.1 thì chỉ liệt kê điểm đến, bài viết và sự kiện. Đợt này làm
+> theo ma trận.
 
 Ba endpoint dịch thuật phục vụ đúng ba màn hình của `02` mục 8.
 

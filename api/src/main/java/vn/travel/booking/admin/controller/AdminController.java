@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import vn.travel.booking.admin.service.AdminBookingService;
+import vn.travel.booking.admin.service.AdminContentService;
+import vn.travel.booking.admin.service.AdminUserService;
 import vn.travel.booking.admin.service.AdminCatalogService;
 import vn.travel.booking.admin.service.AdminDepartureService;
 import vn.travel.booking.admin.service.AdminPriceTierService;
@@ -56,6 +58,24 @@ import vn.travel.booking.quote.dto.AdminQuoteRow;
 import vn.travel.booking.quote.dto.QuoteLineDraft;
 import vn.travel.booking.quote.dto.QuoteLineRow;
 import vn.travel.booking.admin.dto.AdminProductRow;
+import vn.travel.booking.admin.dto.ContentLocaleState;
+import vn.travel.booking.admin.dto.DestinationDetailView;
+import vn.travel.booking.admin.dto.DestinationTranslationInput;
+import vn.travel.booking.admin.dto.DestinationTranslationView;
+import vn.travel.booking.admin.dto.LectureCreateInput;
+import vn.travel.booking.admin.dto.LectureDetailView;
+import vn.travel.booking.admin.dto.LecturePatchInput;
+import vn.travel.booking.admin.dto.LectureRow;
+import vn.travel.booking.admin.dto.LectureTranslationInput;
+import vn.travel.booking.admin.dto.LectureTranslationView;
+import vn.travel.booking.admin.dto.PostCreateInput;
+import vn.travel.booking.admin.dto.PostDetailView;
+import vn.travel.booking.admin.dto.PostPatchInput;
+import vn.travel.booking.admin.dto.PostRow;
+import vn.travel.booking.admin.dto.PostTranslationInput;
+import vn.travel.booking.admin.dto.PostTranslationView;
+import vn.travel.booking.admin.dto.StaffUserView;
+import vn.travel.booking.admin.dto.TagView;
 import vn.travel.booking.admin.dto.CoverageRow;
 import vn.travel.booking.admin.dto.ProductTranslationInput;
 import vn.travel.booking.admin.dto.ProductTranslationView;
@@ -106,6 +126,30 @@ import vn.travel.booking.web.generated.model.AdminBookingPassenger;
 import vn.travel.booking.web.generated.model.AdminBookingScope;
 import vn.travel.booking.web.generated.model.AdminBookingStatusChange;
 import vn.travel.booking.web.generated.model.AdminBookingSummary;
+import vn.travel.booking.web.generated.model.AdminContentLocaleState;
+import vn.travel.booking.web.generated.model.AdminDestinationDetail;
+import vn.travel.booking.web.generated.model.AdminDestinationPatch;
+import vn.travel.booking.web.generated.model.AdminDestinationTranslation;
+import vn.travel.booking.web.generated.model.AdminDestinationTranslationInput;
+import vn.travel.booking.web.generated.model.AdminLectureCreate;
+import vn.travel.booking.web.generated.model.AdminLectureDetail;
+import vn.travel.booking.web.generated.model.AdminLecturePage;
+import vn.travel.booking.web.generated.model.AdminLecturePatch;
+import vn.travel.booking.web.generated.model.AdminLectureSummary;
+import vn.travel.booking.web.generated.model.AdminLectureTranslation;
+import vn.travel.booking.web.generated.model.AdminLectureTranslationInput;
+import vn.travel.booking.web.generated.model.AdminPostCreate;
+import vn.travel.booking.web.generated.model.AdminPostDetail;
+import vn.travel.booking.web.generated.model.AdminPostPage;
+import vn.travel.booking.web.generated.model.AdminPostPatch;
+import vn.travel.booking.web.generated.model.AdminPostSummary;
+import vn.travel.booking.web.generated.model.AdminPostTagAssignment;
+import vn.travel.booking.web.generated.model.AdminPostTranslation;
+import vn.travel.booking.web.generated.model.AdminPostTranslationInput;
+import vn.travel.booking.web.generated.model.AdminRoleAssignment;
+import vn.travel.booking.web.generated.model.AdminStaffUser;
+import vn.travel.booking.web.generated.model.AdminStaffUserPatch;
+import vn.travel.booking.web.generated.model.AdminTag;
 import vn.travel.booking.web.generated.model.AdminQuoteDetail;
 import vn.travel.booking.web.generated.model.AdminQuoteFilter;
 import vn.travel.booking.web.generated.model.AdminQuotePage;
@@ -120,7 +164,11 @@ import vn.travel.booking.web.generated.model.BookingStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -143,6 +191,8 @@ public class AdminController implements AdminApi {
     private final AdminPriceTierService bacGia;
     private final AdminBookingService donDat;
     private final AdminQuoteService baoGia;
+    private final AdminContentService noiDung;
+    private final AdminUserService nguoiDung;
     private final SecurityContextRepository khoPhien = new HttpSessionSecurityContextRepository();
 
     public AdminController(AuthenticationManager xacThuc,
@@ -153,7 +203,9 @@ public class AdminController implements AdminApi {
                            AdminDepartureService ngayKhoiHanh,
                            AdminPriceTierService bacGia,
                            AdminBookingService donDat,
-                           AdminQuoteService baoGia) {
+                           AdminQuoteService baoGia,
+                           AdminContentService noiDung,
+                           AdminUserService nguoiDung) {
         this.xacThuc = xacThuc;
         this.banDich = banDich;
         this.danhMuc = danhMuc;
@@ -163,6 +215,8 @@ public class AdminController implements AdminApi {
         this.bacGia = bacGia;
         this.donDat = donDat;
         this.baoGia = baoGia;
+        this.noiDung = noiDung;
+        this.nguoiDung = nguoiDung;
     }
 
     // ------------------------------------------------------------ phiên
@@ -848,7 +902,352 @@ public class AdminController implements AdminApi {
                 .unitAmount(RefMapper.sangTien(l.unitAmount()));
     }
 
+    // ------------------------------------------------------------ nội dung khác
+    //
+    // Ma trận quyền docs/22 mục 2.1, dòng "Nội dung khác: điểm đến, bài viết,
+    // sự kiện": CONSULTANT R, EDITOR W, TRANSLATOR W (bản `vi`), ADMIN W.
+    //
+    // `@PreAuthorize` ở đây chỉ trả lời "ai được vào cửa". Luật "vào rồi thì sửa
+    // được locale nào" nằm ở AdminContentService, vì nó phụ thuộc cả vai trò lẫn
+    // locale đang sửa — thứ một biểu thức trên chữ ký phương thức không nói được.
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminDestinationDetail> chiTietDiemDenQuanTri(UUID id) {
+        return khongCache().body(sang(noiDung.diemDen(id, AcceptLanguages.SOURCE)));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<AdminDestinationDetail> suaDiemDen(
+            UUID id, AdminDestinationPatch input) {
+
+        return khongCache().body(sang(noiDung.suaDiemDen(
+                id, input.getRegionId(), input.getSortOrder(),
+                AcceptLanguages.SOURCE, SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    /**
+     * Xoá mềm một điểm đến — <b>chỉ {@code ADMIN}</b>.
+     *
+     * <p>Hẹp hơn quyền sửa có chủ ý. Sửa tên một điểm đến là việc biên tập; xoá
+     * nó đi có thể làm cả một nhóm sản phẩm biến mất khỏi website mà không có
+     * lỗi nào ghi ra, và đó là quyết định ở tầng khác.
+     */
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> xoaDiemDen(UUID id) {
+        noiDung.xoaDiemDen(id, SecurityUtils.nhanVienHienTai().id());
+        return khongCache(HttpStatus.NO_CONTENT).build();
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminDestinationDetail> luuBanDichDiemDen(
+            UUID id, String locale, AdminDestinationTranslationInput input) {
+
+        return khongCache().body(sang(noiDung.luuBanDichDiemDen(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+                new DestinationTranslationInput(
+                        input.getSlug(), input.getName(), input.getSummary()),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<List<AdminTag>> danhSachThe() {
+        return khongCache().body(noiDung.the(AcceptLanguages.SOURCE).stream()
+                .map(AdminController::sang).toList());
+    }
+
+    // -------------------------------------------------------------- bài viết
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminPostPage> danhSachBaiViet(String q, Integer page, Integer size) {
+        PagedResult<PostRow> ket_qua = noiDung.danhSachBaiViet(
+                q, page, size, AcceptLanguages.SOURCE);
+
+        return khongCache().body(new AdminPostPage(
+                ket_qua.items().stream().map(AdminController::sang).toList(),
+                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminPostDetail> taoBaiViet(AdminPostCreate input) {
+        return khongCache(HttpStatus.CREATED).body(sang(noiDung.taoBaiViet(
+                new PostCreateInput(
+                        input.getHeroImage(),
+                        input.getPublishedAt(),
+                        input.getTagIds(),
+                        sang(input.getTranslation())),
+                AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminPostDetail> chiTietBaiViet(UUID id) {
+        return khongCache().body(sang(noiDung.baiViet(id, AcceptLanguages.SOURCE)));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<AdminPostDetail> suaBaiViet(UUID id, AdminPostPatch input) {
+        return khongCache().body(sang(noiDung.suaBaiViet(
+                id,
+                new PostPatchInput(input.getHeroImage(), input.getPublishedAt()),
+                AcceptLanguages.SOURCE, SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<AdminPostDetail> datTheChoBaiViet(
+            UUID id, AdminPostTagAssignment input) {
+
+        return khongCache().body(sang(noiDung.datTheChoBaiViet(
+                id, input.getTagIds(), AcceptLanguages.SOURCE,
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<Void> xoaBaiViet(UUID id) {
+        noiDung.xoaBaiViet(id, SecurityUtils.nhanVienHienTai().id());
+        return khongCache(HttpStatus.NO_CONTENT).build();
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminPostDetail> luuBanDichBaiViet(
+            UUID id, String locale, AdminPostTranslationInput input) {
+
+        return khongCache().body(sang(noiDung.luuBanDichBaiViet(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+                sang(input), SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    // ------------------------------------------------------- buổi thuyết trình
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminLecturePage> danhSachSuKienQuanTri(Integer page, Integer size) {
+        PagedResult<LectureRow> ket_qua = noiDung.danhSachSuKien(
+                page, size, AcceptLanguages.SOURCE);
+
+        return khongCache().body(new AdminLecturePage(
+                ket_qua.items().stream().map(AdminController::sang).toList(),
+                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminLectureDetail> taoSuKien(AdminLectureCreate input) {
+        return khongCache(HttpStatus.CREATED).body(sang(noiDung.taoSuKien(
+                new LectureCreateInput(
+                        input.getMarket().getValue(),
+                        input.getEventDate(),
+                        gio(input.getStartTime()),
+                        input.getCity(),
+                        input.getVenue(),
+                        input.getSeats(),
+                        new LectureTranslationInput(
+                                input.getTranslation().getTitle(),
+                                input.getTranslation().getDescription())),
+                AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminLectureDetail> chiTietSuKien(UUID id) {
+        return khongCache().body(sang(noiDung.suKien(id, AcceptLanguages.SOURCE)));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<AdminLectureDetail> suaSuKien(UUID id, AdminLecturePatch input) {
+        return khongCache().body(sang(noiDung.suaSuKien(
+                id,
+                new LecturePatchInput(
+                        input.getEventDate(), gio(input.getStartTime()),
+                        input.getCity(), input.getVenue(), input.getSeats()),
+                AcceptLanguages.SOURCE, SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
+    public ResponseEntity<Void> xoaSuKien(UUID id) {
+        noiDung.xoaSuKien(id, SecurityUtils.nhanVienHienTai().id());
+        return khongCache(HttpStatus.NO_CONTENT).build();
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
+    public ResponseEntity<AdminLectureDetail> luuBanDichSuKien(
+            UUID id, String locale, AdminLectureTranslationInput input) {
+
+        return khongCache().body(sang(noiDung.luuBanDichSuKien(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+                new LectureTranslationInput(input.getTitle(), input.getDescription()),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    // ------------------------------------------------------ người dùng (M14)
+    //
+    // Dòng cuối cùng của ma trận docs/22 mục 2.1: chỉ ADMIN, cả đọc lẫn ghi.
+    // Ba vai trò kia không thấy màn hình — danh sách người dùng là bản đồ của
+    // chính hệ thống phân quyền, và đọc được nó là biết nên nhắm vào ai.
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AdminStaffUser>> danhSachNguoiDung() {
+        return khongCache().body(nguoiDung.danhSach().stream()
+                .map(AdminController::sang).toList());
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminStaffUser> suaNguoiDung(UUID id, AdminStaffUserPatch input) {
+        return khongCache().body(sang(nguoiDung.sua(
+                id, input.getDisplayName(), input.getIsActive(),
+                SecurityUtils.nhanVienHienTai().id())));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AdminStaffUser> datVaiTro(UUID id, AdminRoleAssignment input) {
+        return khongCache().body(sang(nguoiDung.datVaiTro(
+                id, input.getRoles().stream().map(AdminRoleAssignment.RolesEnum::getValue).toList())));
+    }
+
+    // ---------------------------------------------------- ánh xạ nội dung khác
+
+    private static AdminDestinationDetail sang(DestinationDetailView d) {
+        return new AdminDestinationDetail(
+                d.id(), d.code(), d.regionId(),
+                // Miền chưa có bản dịch ở ngôn ngữ nguồn thì để trống thay vì
+                // nổ: đó là dữ liệu thiếu, không phải lỗi lập trình, và màn hình
+                // vẫn phải mở được để người ta sửa.
+                d.regionName() == null ? "" : d.regionName(),
+                d.sortOrder(),
+                d.translations().stream().map(AdminController::sang).toList())
+                .productCount(d.productCount())
+                .lastModifiedAt(d.lastModifiedAt())
+                .lastModifiedBy(d.lastModifiedBy());
+    }
+
+    private static AdminDestinationTranslation sang(DestinationTranslationView t) {
+        return new AdminDestinationTranslation(t.locale(), t.slug(), t.name(), t.isSource())
+                .summary(t.summary())
+                .lastModifiedAt(t.lastModifiedAt())
+                .lastModifiedBy(t.lastModifiedBy());
+    }
+
+    private static AdminTag sang(TagView t) {
+        return new AdminTag(t.id(), t.code(), t.name());
+    }
+
+    private static AdminPostSummary sang(PostRow p) {
+        return new AdminPostSummary(
+                p.id(), p.title(),
+                trangThaiLocale(p.locales()),
+                p.tags().stream().map(AdminController::sang).toList())
+                .heroImage(p.heroImage())
+                .publishedAt(p.publishedAt())
+                .lastModifiedAt(p.lastModifiedAt())
+                .lastModifiedBy(p.lastModifiedBy());
+    }
+
+    private static AdminPostDetail sang(PostDetailView p) {
+        return new AdminPostDetail(
+                p.id(),
+                p.tags().stream().map(AdminController::sang).toList(),
+                p.translations().stream().map(AdminController::sang).toList())
+                .heroImage(p.heroImage())
+                .publishedAt(p.publishedAt())
+                .lastModifiedAt(p.lastModifiedAt())
+                .lastModifiedBy(p.lastModifiedBy());
+    }
+
+    private static AdminPostTranslation sang(PostTranslationView t) {
+        return new AdminPostTranslation(
+                t.locale(), t.slug(), t.title(), t.excerpt(), t.body(),
+                TranslationStatus.fromValue(t.status()), t.isSource())
+                .lastModifiedAt(t.lastModifiedAt())
+                .lastModifiedBy(t.lastModifiedBy());
+    }
+
+    private static PostTranslationInput sang(AdminPostTranslationInput input) {
+        return new PostTranslationInput(
+                input.getSlug(), input.getTitle(), input.getExcerpt(),
+                input.getBody(), input.getStatus().getValue());
+    }
+
+    private static AdminLectureSummary sang(LectureRow l) {
+        return new AdminLectureSummary(
+                l.id(),
+                AdminLectureSummary.MarketEnum.fromValue(l.market()),
+                l.eventDate(), l.city(), l.seats(), l.seatsTaken(), l.title(),
+                trangThaiLocale(l.locales()))
+                .startTime(chuoiGio(l.startTime()))
+                .venue(l.venue())
+                .lastModifiedAt(l.lastModifiedAt())
+                .lastModifiedBy(l.lastModifiedBy());
+    }
+
+    private static AdminLectureDetail sang(LectureDetailView l) {
+        return new AdminLectureDetail(
+                l.id(),
+                AdminLectureDetail.MarketEnum.fromValue(l.market()),
+                l.eventDate(), l.city(), l.seats(), l.seatsTaken(),
+                l.translations().stream().map(AdminController::sang).toList())
+                .startTime(chuoiGio(l.startTime()))
+                .venue(l.venue())
+                .lastModifiedAt(l.lastModifiedAt())
+                .lastModifiedBy(l.lastModifiedBy());
+    }
+
+    private static AdminLectureTranslation sang(LectureTranslationView t) {
+        return new AdminLectureTranslation(t.locale(), t.title(), t.description(), t.isSource())
+                .lastModifiedAt(t.lastModifiedAt())
+                .lastModifiedBy(t.lastModifiedBy());
+    }
+
+    private static AdminStaffUser sang(StaffUserView u) {
+        return new AdminStaffUser(
+                u.id(), u.email(), u.displayName(), u.isActive(),
+                u.roles().stream().map(AdminStaffUser.RolesEnum::fromValue).toList());
+    }
+
+    private static Map<String, AdminContentLocaleState> trangThaiLocale(
+            Map<String, ContentLocaleState> nguon) {
+
+        Map<String, AdminContentLocaleState> ra = new LinkedHashMap<>();
+        nguon.forEach((locale, trangThai) ->
+                ra.put(locale, AdminContentLocaleState.fromValue(trangThai.name())));
+        return ra;
+    }
+
+    /**
+     * Giờ bắt đầu đi qua hợp đồng dưới dạng <b>chuỗi</b> {@code HH:MM}, không
+     * phải một kiểu thời gian.
+     *
+     * <p>Nó là giờ <b>địa phương của buổi thuyết trình</b>, không mang múi giờ,
+     * và cũng không phải một thời điểm trên trục thời gian. Cho nó thành
+     * {@code date-time} là mời mỗi tầng tự gán một múi giờ khác nhau.
+     */
+    private static LocalTime gio(String hhmm) {
+        return hhmm == null || hhmm.isBlank() ? null : LocalTime.parse(hhmm);
+    }
+
+    private static String chuoiGio(LocalTime gio) {
+        return gio == null ? null : gio.truncatedTo(ChronoUnit.MINUTES).toString();
+    }
+
     private static ServletRequestAttributes servlet() {
+
         return (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
     }
 

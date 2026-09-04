@@ -115,6 +115,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("CAPACITY_BELOW_BOOKED", ex));
     }
 
+    @ExceptionHandler(AdminErrors.DestinationInUse.class)
+    public ResponseEntity<ErrorResponse> diemDenConDungToi(AdminErrors.DestinationInUse ex) {
+        log.debug("409 DESTINATION_IN_USE: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DESTINATION_IN_USE", ex));
+    }
+
+    /**
+     * Tắt {@code ADMIN} cuối cùng. 409 chứ không 403: người gọi <b>có</b> quyền
+     * làm việc này, chỉ là trạng thái hiện tại của hệ thống không cho phép — và
+     * lúc khác, khi đã có ADMIN thứ hai, thì được.
+     */
+    @ExceptionHandler(AdminErrors.LastAdmin.class)
+    public ResponseEntity<ErrorResponse> adminCuoiCung(AdminErrors.LastAdmin ex) {
+        log.warn("409 LAST_ADMIN: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("LAST_ADMIN", ex));
+    }
+
     @ExceptionHandler(AdminErrors.ProductHasActiveBookings.class)
     public ResponseEntity<ErrorResponse> conDonChuaXong(AdminErrors.ProductHasActiveBookings ex) {
         log.warn("409 PRODUCT_HAS_ACTIVE_BOOKINGS: {}", ex.getMessage());
