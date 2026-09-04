@@ -9,6 +9,7 @@ import { adminApi, laChuaDangNhap } from '@/lib/api';
 const MUC = [
   ['/', 'Bảng điều khiển', 'M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5Z'],
   ['/san-pham', 'Sản phẩm', 'M3 7l9-4 9 4-9 4-9-4Zm0 5l9 4 9-4M3 17l9 4 9-4'],
+  ['/don', 'Đơn đặt', 'M6 2h9l5 5v15H6V2Zm9 0v5h5M9 12h7M9 16h7'],
 ] as const;
 
 /**

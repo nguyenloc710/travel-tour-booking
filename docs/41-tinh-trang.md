@@ -74,7 +74,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
 | Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài — nhưng **cần một bản Python thật**; máy đang làm chỉ có alias rỗng của Store, xem mục 6.1 |
 | Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 160 file Java, migration `V1`–`V5` |
-| Hợp đồng API | `contracts/openapi.yaml` | **v0.10.0** — 33 endpoint |
+| Hợp đồng API | `contracts/openapi.yaml` | **v0.11.0** — 35 endpoint |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
@@ -115,11 +115,11 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `api/` dữ liệu tra cứu `R__` và `scripts/seed-dev.sql` | ✔ đã chạy sạch |
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
 | Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc`, 31 commit, đã đẩy hết |
-| Test | **203 phương thức `@Test`** trong 17 lớp: 10 IT dùng Testcontainers, 7 unit thuần không context. Con số `196` của bản trước đếm trước đợt web 02–03/09. **Chưa tái kiểm được trên máy hiện tại** — mục 6.1 |
-| `contracts/openapi.yaml` **v0.10.0** (33 endpoint) → interface Java | ✔ sinh và biên dịch sạch ở lần chạy 02/09 |
+| Test | ✔ **220/220 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 04/09 trên Postgres 16 qua Testcontainers. 18 lớp: 11 IT và 7 unit thuần không context |
+| `contracts/openapi.yaml` **v0.11.0** (35 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
-| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ xanh ở lần chạy 01/09 — **chưa tái kiểm được trên máy hiện tại**, mục 6.1 |
+| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 04/09. `i18n:check` 133 khoá, `vi` 100.0% |
 | Chạy thật đầu-cuối: API + site, hai locale, hai market | ✔ |
 | `.github/workflows/`: `api.yml`, `web.yml`, `tai-lieu.yml` | ✔ đã dựng |
 | CI chạy trên một PR thật | ✗ **chưa mở PR nào** — điều kiện treo số 1 của G2 |
@@ -146,10 +146,12 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Sitemap theo locale và `robots.txt` | ✔ `/sitemap/da.xml` 12 URL · `/sitemap/vi.xml` 9 URL — chênh lệch chính là chính sách không-fallback |
 | **Luồng đặt tour trên web khách** — R7 bốn bước, R8 xác nhận | ✔ giữ chỗ ở bước 1, tính giá lại mỗi lần đổi, tạo đơn, tra cứu bằng mã + email |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
-| Đọc và ghi bốn nhóm bảng đó qua API | ✗ lược đồ đã có, chưa có endpoint nào chạm tới |
+| Đọc và ghi bốn nhóm bảng đó qua API | **Ba trong bốn đã có** (rà 04/09, dòng cũ ghi ✗ là sai): `staff_user_role` đọc ở `auth/StaffRoleRepository`, `slug_history` đọc qua `GET /redirects`, `booking_passenger` **ghi thật** trong luồng đặt tour. Chỉ `media_asset` là **chưa một dòng nào chạm tới** — chặn ở Q-6 |
 | `product.hero_image` và `map_image` trỏ tới `media_asset` | ✗ đổi phá vỡ tương thích, phải tách hai lần triển khai — `12` mục 10 |
 | Chuyển hướng slug cũ đọc `slug_history` | ✔ spec v0.10 `GET /{market}/redirects/{type}/{slug}` + trang chi tiết bắt 404 rồi chuyển hướng **308**. Chỉ chuyển khi đích thật sự xem được — xem `20` mục 6 |
 | Danh sách sản phẩm quản trị, hàng đợi dịch, bảng độ phủ | ✔ 12 test — `22` M2, M10, M12 |
+| **Vận hành đơn: danh sách (`22` M6) và chi tiết (M7)** | ✔ spec v0.11 · `GET /admin/bookings` + `/admin/bookings/{reference}` · hai màn hình `admin/don` · **17 test**. Mặc định lọc `NEEDS_ACTION` nằm ở **backend**; chi tiết trả phân rã giá đã chụp lại, hành khách kèm hộ chiếu, và **toàn bộ** `booking_event` |
+| Đổi trạng thái đơn, huỷ, hoàn từ trang quản trị | ✗ đường **ghi**, dòng riêng trong ma trận `22` mục 2.1. `booking_event` đã ghi được, chưa có endpoint cho nhân viên đổi |
 | Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10 |
 | Tạo, sửa, xoá mềm sản phẩm; gán thị trường; ngày khởi hành; bảng giá; thang giá | ✔ 17 test, gồm **một bài đi hết bảy bước mở bán rồi kiểm bằng bề mặt khách** |
 | Nhân bản lịch khởi hành giữa hai thị trường — **không** chép giá | ✔ `22` M4, ADR-006 |
@@ -219,6 +221,12 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
 9. **Trả lời Q-3.** Nó không còn xoá được cả `30` nữa — `30` mục 1 cho thấy ba
    trong năm mục sống sót dù trả lời thế nào. Nhưng nó vẫn quyết mục 3 và 4, và
    nó vẫn là câu hỏi rẻ nhất đang treo
+10. ~~**M6 và M7** — danh sách đơn và chi tiết đơn~~ — **xong** 04/09/2026.
+    Đây là việc kỹ thuật lớn nhất **không phụ thuộc câu hỏi nào đang treo**
+11. Việc kế tiếp cùng loại, cũng không chờ ai: **đường ghi của M7** — nhân viên
+    đổi trạng thái đơn, mỗi thao tác ghi một `booking_event` (`22` mục 6). Sau đó
+    là **M13** nội dung khác và **M14** người dùng. `M8` báo giá và `M9` yêu cầu
+    tư vấn thì phải đợi luồng `Quote`, mà cái đó chưa có gì
 
 ---
 
@@ -228,17 +236,18 @@ Mục có giá trị nhất của file này. Đây là những thứ đã tốn 
 
 ### 6.1. Máy làm việc — kiểm trước khi tin bất cứ con số xanh nào
 
-Rà ngày 04/09/2026: **cả ba chuỗi kiểm của dự án đều không chạy được** trên máy
-đang làm. Không phải code hỏng — môi trường đã đổi từ lần chạy 01–02/09.
+Rà đầu ngày 04/09/2026: **cả ba chuỗi kiểm của dự án đều không chạy được** trên
+máy đang làm — không phải code hỏng, môi trường đã đổi từ lần chạy 01–02/09.
+Dựng lại trong cùng ngày; bảng dưới là trạng thái **sau** khi dựng.
 
-| Cần | Trạng thái 04/09 | Hệ quả |
+| Cần | Trạng thái cuối ngày 04/09 | Ghi chú |
 |---|---|---|
-| `pnpm` | **không có** — và `corepack` cũng không có trên bản Node đang cài (v25.2.1) | Mọi lệnh `web/` đứng. `corepack enable pnpm` như `CLAUDE.md` gốc hướng dẫn **không chạy được ở máy này**; phải cài thẳng `npm i -g pnpm` |
-| `web/node_modules` | chưa cài | `pnpm install` trước đã |
-| `python` | chỉ có alias rỗng của Microsoft Store | `scripts/docs_check.py` không chạy — bộ quy tắc kiểm ở `42` mục 8 không tự thi hành được |
-| Docker | daemon không chạy | 10 lớp IT dùng Testcontainers không chạy; chỉ còn 7 lớp unit thuần chạy được |
-| `java` | ✔ 21.0.9 trên PATH | Chạy được |
+| `pnpm` | ✔ **đã cài** 11.24.0 bằng `npm i -g pnpm` | `corepack` **không có** trên bản Node đang cài (v25.2.1), nên `corepack enable pnpm` như `CLAUDE.md` gốc hướng dẫn không chạy được ở máy này. Trình cài đặt đặt nó ở `%APPDATA%\npm`, thư mục đó có thể **chưa nằm trong PATH** của terminal đang mở — mở lại terminal, hoặc gọi bằng đường dẫn đầy đủ |
+| `web/node_modules` | ✔ đã cài | |
+| Docker | ✔ đang chạy | Testcontainers dùng được |
+| `java` | ✔ 21.0.9 trên PATH | |
 | `JAVA_HOME` | **rỗng**, và `~/.gradle/gradle.properties` **không còn** | Gradle rơi về `java` trên PATH — nay là 21 nên vẫn xanh, nhưng cái vá cũ ở mục 6.2 đã biến mất chứ không phải còn đó |
+| `python` | ✗ **vẫn chỉ có alias rỗng** của Microsoft Store | `scripts/docs_check.py` không chạy — bộ quy tắc kiểm ở `42` mục 8 vẫn chưa tự thi hành được. Đây là thứ duy nhất còn thiếu |
 
 > Bài học lặp lại của điều kiện treo số 1 (mục 7): **thứ chưa chạy được lúc này
 > thì chưa được coi là xanh.** Ba pipeline YAML trông hợp lý mà chưa chạy lần
@@ -503,3 +512,5 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 02/09/2026 | Web khách: trang điểm đến, trang tìm tour, sitemap theo locale + `robots.txt`, chuyển hướng slug cũ **308** | Gạch xong việc số 6 của mục 5 |
 | 03/09/2026 | Web khách: luồng đặt tour bốn bước và trang xác nhận | Phần code của G3 xong; còn chờ nội dung thật (Q-1) |
 | 04/09/2026 | Rà soát toàn repo đối chiếu với file này; sửa 4 chỗ lệch: số test, số file tài liệu, việc số 6 của mục 5, nhật ký phiên | Phát hiện **bộ công cụ kiểm trên máy đã hỏng** — thêm mục 6.1. Chưa tái kiểm được test nào |
+| 04/09/2026 | Dựng lại bộ công cụ: cài `pnpm` 11.24.0, `pnpm install`, bật Docker | Chỉ còn Python là thiếu |
+| 04/09/2026 | **M6 + M7 — vận hành đơn.** Spec v0.11, hai endpoint đọc, `AdminBookingRepository/Service`, hai màn hình `admin/don`, 17 test mới | Lỗ hổng "nhận được đơn mà không vận hành được đơn" đã khép ở phần **xem**. Phần **đổi trạng thái** vẫn chưa có — xem mục 3 |
