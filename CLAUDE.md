@@ -3,10 +3,11 @@
 Dự án: **website bán tour du lịch Việt Nam**, hai thị trường, hai ngôn ngữ.
 Gồm website khách, API và trang quản trị.
 
-> **Trạng thái: G2 xong phần code, đang làm lõi danh mục của G3.** `api/`,
-> `web/` và `.github/workflows/` đã dựng và chạy được; khách xem được danh sách
-> tour và trang chi tiết đúng thị trường, đúng ngôn ngữ. Còn thiếu một PR thật
-> để xác nhận CI, và hai tài liệu `20`, `21` của G3. Mọi lệnh bên dưới chạy được thật.
+> **Trạng thái: G2 xong phần code, phần code của G3 và phần lớn G4 đã chạy.**
+> Khách xem được danh sách tour, trang chi tiết, blog, sự kiện và liên hệ; đặt
+> được tour và gửi được yêu cầu báo giá. Trang quản trị có đủ mười màn hình:
+> sản phẩm, đơn, báo giá, nội dung khác, người dùng. Còn thiếu một PR thật để
+> xác nhận CI, và hai tài liệu `20`, `21` của G3. Mọi lệnh bên dưới chạy được thật.
 >
 > **Cần JDK 21 và pnpm.** `JAVA_HOME` trỏ JDK cũ thì đặt `org.gradle.java.home`
 > trong `~/.gradle/gradle.properties`; pnpm bật bằng `corepack enable pnpm`.

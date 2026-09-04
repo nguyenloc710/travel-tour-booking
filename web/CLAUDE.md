@@ -5,13 +5,13 @@ Hai ứng dụng: website khách (`apps/site`) và trang quản trị (`apps/adm
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: lõi danh mục và trang quản trị đã chạy** (04/09/2026). pnpm
+> **Trạng thái: site khách và trang quản trị đã chạy đủ** (05/09/2026). pnpm
 > workspace, hai app Next.js, ba package dùng chung, TS client sinh từ spec.
-> Site khách có trang danh sách, trang chi tiết, luồng đặt tour bốn bước và
-> trang xác nhận — chạy thật ở cả hai locale và hai thị trường. Trang quản trị
-> có bảy màn hình dùng được: đăng nhập, bảng điều khiển, danh sách và sửa sản
-> phẩm, tạo tour, và hai màn hình vận hành đơn (`docs/22` M6, M7) kèm đường
-> ghi đổi trạng thái.
+> Site khách có danh sách, chi tiết, điểm đến, tìm tour, luồng đặt tour bốn
+> bước, trang xác nhận, form yêu cầu báo giá, blog, sự kiện và liên hệ — chạy
+> thật ở cả hai locale và hai thị trường. Trang quản trị có mười một màn hình:
+> đăng nhập, bảng điều khiển, sản phẩm (danh sách, tạo, sửa 4 tab), đơn (danh
+> sách, chi tiết), báo giá (danh sách, chi tiết), nội dung khác, người dùng.
 
 ## 0. Lệnh
 

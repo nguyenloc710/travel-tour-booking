@@ -4,17 +4,18 @@ Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, Postgr
 
 Đọc `../CLAUDE.md` trước — bốn điều quan trọng nhất của cả dự án nằm ở đó.
 
-> **Trạng thái: đọc, ghi, đặt tour và quản trị đã chạy** (04/09/2026). Một module
-> Gradle chia theo feature (ADR-010), migration `V1`–`V5`, đủ danh mục đọc của
-> `docs/13` mục 9.1 trừ `/site-info`; engine giá, giữ chỗ, đặt tour và tính bất
-> biến khi gọi lại; bề mặt quản trị đủ để **mở bán một tour mà không cần lập
-> trình viên**: đăng nhập, ma trận quyền, bản dịch, danh sách, hàng đợi dịch,
-> bảng độ phủ, CRUD sản phẩm, gán thị trường, ngày khởi hành, bảng giá; và
-> **vận hành đơn** — danh sách đơn (`docs/22` M6), chi tiết đơn kèm toàn bộ
-> `booking_event` (M7), và nhân viên đổi trạng thái đơn: khoá bi quan, huỷ trả
-> chỗ về kho ngay, mọi lần đổi ghi một dòng nhật ký. 228 test xanh.
-> Chưa có: huỷ **hàng loạt** theo ngày khởi hành (`docs/14` mục 6.6), luồng báo
-> giá `Quote`, media (**Q-6**), thanh toán (**Q-3**).
+> **Trạng thái: đọc, ghi, đặt tour, báo giá và quản trị đã chạy** (05/09/2026).
+> Một module Gradle chia theo feature (ADR-010), migration `V1`–`V6`, đủ danh mục
+> đọc của `docs/13` mục 9.1 trừ `/site-info`; engine giá, giữ chỗ, đặt tour và
+> tính bất biến khi gọi lại; **luồng báo giá `PRIVATE_TOUR`** đủ bảy quy tắc của
+> `docs/14` mục 7, kèm job quét hạn; và bề mặt quản trị đủ để **vận hành mà
+> không cần lập trình viên**: đăng nhập, ma trận quyền, bản dịch, CRUD sản phẩm,
+> gán thị trường, ngày khởi hành, bảng giá, vận hành đơn (`docs/22` M6, M7), báo
+> giá (M8), nội dung khác (M13 — điểm đến, bài viết, sự kiện) và người dùng
+> (M14). 276 test xanh.
+> Chưa có: huỷ **hàng loạt** theo ngày khởi hành (`docs/14` mục 6.6), sinh
+> `Booking` từ báo giá đã chấp nhận (**Q-3**), M9 yêu cầu tư vấn (thiếu bảng
+> `lead`), giới hạn số lần gọi, media (**Q-6**), thanh toán (**Q-3**).
 
 ## 0b. Bố cục package
 

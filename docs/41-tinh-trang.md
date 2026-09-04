@@ -2,8 +2,8 @@
 
 ```
 Trạng thái: Đã duyệt
-Cập nhật: 04/09/2026
-Phiên bản: 1.1
+Cập nhật: 05/09/2026
+Phiên bản: 1.2
 Chủ sở hữu: Chủ sản phẩm
 Người duyệt: Chủ sản phẩm
 Nguồn sự thật về: đang ở giai đoạn nào, việc đang làm, quyết định đang chờ,
@@ -26,7 +26,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | **Phần code của G3** | **Xong.** Tiêu chí ra 2–8 của `40` mục G3 đều đã có code; tiêu chí 1 chỉ chờ nội dung thật |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
 | **Tài liệu** | 23/26 file. Xong tầng 0, 1, 2, 4 và `30`, `31`, `34` — còn lại `32`, `33`, `35` |
-| **Nhánh** | `dung-khung-va-loi-danh-muc` — 31 commit trước `main`, đã đẩy hết lên origin, cây làm việc sạch. `main` chưa nhận gì |
+| **Nhánh** | `dung-khung-va-loi-danh-muc` — 44 commit trước `main`, cây làm việc sạch. `main` chưa nhận gì |
 
 ---
 
@@ -72,9 +72,9 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 |---|---|---|
 | Bản Word gửi khách | `docs/Dac-ta-chuc-nang-nghiep-vu.docx` | 12 chương, sinh lại bằng `docs/tools/build-docx.py` |
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
-| Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài — nhưng **cần một bản Python thật**; máy đang làm chỉ có alias rỗng của Store, xem mục 6.1 |
-| Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 160 file Java, migration `V1`–`V5` |
-| Hợp đồng API | `contracts/openapi.yaml` | **v0.12.0** — 36 endpoint |
+| Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài. Máy đang làm **nay đã có Python 3.12 thật** — mục 6.1 đã lạc hậu |
+| Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 204 file Java, migration `V1`–`V6` |
+| Hợp đồng API | `contracts/openapi.yaml` | **v0.14.0** — 54 endpoint |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
@@ -85,6 +85,9 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | **Đường ghi của trang quản trị** | `22` M3, M4, M5 · spec v0.8 · `admin/` | Tạo/sửa/xoá mềm sản phẩm, gán thị trường, ngày khởi hành, nhân bản lịch, bảng giá, thang giá — **17 test** |
 | **Giao diện trang quản trị** | `web/apps/admin` · 5 màn hình | Đăng nhập, bảng điều khiển, danh sách, tạo tour, sửa 4 tab. Vòng mở bán khép kín **từ giao diện** |
 | Migration `V5` — `price_from` thành cột trigger sở hữu | `11` mục 12 · `12` mục 6.1 và quy tắc kiểm 5 | Ba trigger; dữ liệu mồi bỏ giá đặt tay, nay suy từ `departure_price` |
+| **Luồng báo giá `PRIVATE_TOUR`** | `14` mục 7 · `23` mục 7 · spec v0.13 · `V6` | Khách gửi yêu cầu, tư vấn viên dựng bảng giá rồi gửi. Máy trạng thái thuần, job quét hạn, form trên site khách, hai màn hình M8 — **26 test** |
+| **Nội dung khác và người dùng** | `22` M13, M14 · spec v0.14 | Điểm đến, bài viết, buổi thuyết trình sửa được từ giao diện; ADMIN gán được vai trò. Bốn màn hình quản trị — **22 test** |
+| **Ba trang còn thiếu của site khách** | `20` R9, R10, R11 | Blog kèm lọc thẻ, sự kiện, liên hệ. Menu chính ở header; sitemap nhận thêm bài viết |
 
 ---
 
@@ -114,12 +117,12 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `api/` migration `V1__khoi_tao.sql` — toàn bộ lược đồ `12` | ✔ **đã chạy trên Postgres 16 thật** |
 | `api/` dữ liệu tra cứu `R__` và `scripts/seed-dev.sql` | ✔ đã chạy sạch |
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
-| Đã commit và đẩy lên GitHub | ✔ nhánh `dung-khung-va-loi-danh-muc`, 31 commit, đã đẩy hết |
-| Test | ✔ **228/228 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 04/09 trên Postgres 16 qua Testcontainers. 18 lớp: 11 IT và 7 unit thuần không context |
-| `contracts/openapi.yaml` **v0.12.0** (36 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
+| Đã commit | ✔ nhánh `dung-khung-va-loi-danh-muc`, 44 commit trước `main`. **Bảy commit mới nhất chưa đẩy** lên origin |
+| Test | ✔ **276/276 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 05/09 trên Postgres 16 qua Testcontainers. 21 lớp: 13 IT và 8 unit thuần không context |
+| `contracts/openapi.yaml` **v0.14.0** (54 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
-| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 04/09. `i18n:check` 133 khoá, `vi` 100.0% |
+| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 05/09. `i18n:check` **178 khoá**, `vi` 100.0%. **`typecheck` phải chạy SAU `build`** ở máy local — xem mục 6.3 |
 | Chạy thật đầu-cuối: API + site, hai locale, hai market | ✔ |
 | `.github/workflows/`: `api.yml`, `web.yml`, `tai-lieu.yml` | ✔ đã dựng |
 | CI chạy trên một PR thật | ✗ **chưa mở PR nào** — điều kiện treo số 1 của G2 |
@@ -153,13 +156,20 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | **Vận hành đơn: danh sách (`22` M6) và chi tiết (M7)** | ✔ spec v0.11 · `GET /admin/bookings` + `/admin/bookings/{reference}` · hai màn hình `admin/don` · **17 test**. Mặc định lọc `NEEDS_ACTION` nằm ở **backend**; chi tiết trả phân rã giá đã chụp lại, hành khách kèm hộ chiếu, và **toàn bộ** `booking_event` |
 | **Đổi trạng thái đơn từ trang quản trị** | ✔ spec v0.12 · `POST /admin/bookings/{reference}/status` · khối thao tác ở màn hình M7 · **8 test**. Khoá bi quan trên dòng đơn; huỷ **trả chỗ về kho ngay** (`14` mục 6.5); mọi lần đổi ghi một `booking_event`. Nhân viên đặt được **bốn** trạng thái, ba cái còn lại do luồng thanh toán và job quét hạn sinh ra |
 | Huỷ chuyến vì thiếu khách — huỷ **hàng loạt** đơn của một ngày khởi hành | ✗ `14` mục 6.6 đòi màn hình riêng. Nay huỷ được **từng đơn một**, chưa huỷ được cả chuyến |
-| Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10 |
+| Hàng đợi dịch cho **điểm đến** và **buổi thuyết trình** | ✗ có chủ ý: bảng dịch của chúng không có `status` lẫn `translated_at` — `12` mục 10. Nhưng **M13 nay hiện trạng thái từng locale**, nên chỗ thiếu bản dịch vẫn nhìn thấy được |
+| **Luồng báo giá** — khách gửi yêu cầu, nhân viên dựng giá và gửi | ✔ `14` mục 7 đủ bảy quy tắc; job `QuoteSweeper` cho báo giá quá hạn sang `EXPIRED` |
+| Từ báo giá `ACCEPTED` sinh ra `Booking` | ✗ quy tắc 3 của `14` mục 7. Bước sau đó là đặt cọc, mà đặt cọc chờ **Q-3** |
+| **M13 nội dung khác** — điểm đến, bài viết, sự kiện | ✔ CRUD, bản dịch, xoá mềm cả chùm; luật quyền theo vai trò **và** locale |
+| M13 cho **khách sạn** và **điểm tham quan** | ✗ hai bảng đó gắn vào sản phẩm và chưa có cả đường đọc quản trị. `22` M13 kể tên chúng, ma trận mục 2.1 thì không |
+| **M14 người dùng và vai trò** | ✔ chỉ `ADMIN`; `LAST_ADMIN` chặn tự khoá mình ra ngoài |
+| Tạo người dùng mới, đặt lại mật khẩu | ✗ cần luồng mời qua email, mà email chưa có gì — đợt 5, **Q-3** |
 | Tạo, sửa, xoá mềm sản phẩm; gán thị trường; ngày khởi hành; bảng giá; thang giá | ✔ 17 test, gồm **một bài đi hết bảy bước mở bán rồi kiểm bằng bề mặt khách** |
 | Nhân bản lịch khởi hành giữa hai thị trường — **không** chép giá | ✔ `22` M4, ADR-006 |
 | `price_from` tự tính từ `departure_price` | ✔ `V5` — trước đó cột này chưa bao giờ được điền |
 | Đổi loại sản phẩm sau khi tạo | ✗ **có chủ ý cấm** — `22` mục 7; `productType` là `updatable = false` ở entity |
 | Media, ảnh sản phẩm, presigned URL | ✗ **Q-6** → ADR-008 |
-| Trang `blog`, `kontakt`, `foredrag` của site khách | ✗ có trong bảng `pathnames` của `packages/i18n` nhưng **chưa có trang nào** — URL hiện trả 404. Không chặn G3 (`40` mục G3 không đòi), nhưng bảng `pathnames` đang hứa nhiều hơn thứ đang có |
+| **`pnpm contracts:generate`** | ✔ sửa 05/09 — nó gọi `:web:contractsGenerate`, đường dẫn task chết từ khi ADR-010 gộp module |
+| Trang `blog`, `kontakt`, `foredrag` của site khách | ✔ **xong 05/09** — R9 kèm lọc thẻ lặp lại được, R10, R11. Bảng `pathnames` không còn hứa nhiều hơn thứ đang có |
 | Giới hạn 10 lượt đăng nhập / 15 phút | ✗ `22` mục 9 mô tả như đã có, **chưa có gì cài** — `31` mục 6.2. Rà lại 04/09: `api/src/main` không có một dòng nào về rate limit |
 | Cờ `Secure` cho cookie phiên | ✗ chặn trước lần triển khai `prod` đầu — `34` mục 5.2 |
 
@@ -226,10 +236,17 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
     Đây là việc kỹ thuật lớn nhất **không phụ thuộc câu hỏi nào đang treo**
 11. ~~**Đường ghi của M7** — nhân viên đổi trạng thái đơn~~ — **xong**
     04/09/2026. Còn thiếu **huỷ hàng loạt** theo ngày khởi hành (`14` mục 6.6)
-12. Việc kế tiếp cùng loại, cũng không chờ ai: **M13** nội dung khác (điểm đến,
-    khách sạn, bài viết, sự kiện — API đọc đủ cả, chưa sửa được từ giao diện) và
-    **M14** người dùng và vai trò. `M8` báo giá và `M9` yêu cầu tư vấn thì phải
-    đợi luồng `Quote`, mà cái đó chưa có gì
+12. ~~**M13** nội dung khác và **M14** người dùng và vai trò~~ — **xong**
+    05/09/2026, cùng với **M8 báo giá** (luồng `Quote` nay đã có) và ba trang
+    còn thiếu của site khách
+13. **Việc kế tiếp không chờ ai**, theo thứ tự đáng làm trước:
+    - **Đảo thứ tự `typecheck` và `build` trong `web.yml`** — mục 6.3. Rẻ nhất,
+      và nó quyết định tín hiệu CI của PR đầu tiên có đáng tin không
+    - **Giới hạn số lần gọi** (`13` mục 8, `22` mục 9, `31` mục 6.2) — vẫn chưa
+      có một dòng nào, dù ba tài liệu đều mô tả như đã có
+    - **M9 yêu cầu tư vấn** — cần bảng `lead`, chưa có trong lược đồ
+    - **Huỷ hàng loạt** theo ngày khởi hành (`14` mục 6.6)
+    - Trang chi tiết theo **tab** như `05` mục 4 mô tả; nay là một trang cuộn phẳng
 
 ---
 
@@ -251,6 +268,33 @@ Dựng lại trong cùng ngày; bảng dưới là trạng thái **sau** khi d�
 | `java` | ✔ 21.0.9 trên PATH | |
 | `JAVA_HOME` | **rỗng**, và `~/.gradle/gradle.properties` **không còn** | Gradle rơi về `java` trên PATH — nay là 21 nên vẫn xanh, nhưng cái vá cũ ở mục 6.2 đã biến mất chứ không phải còn đó |
 | `python` | ✗ **vẫn chỉ có alias rỗng** của Microsoft Store | `scripts/docs_check.py` không chạy — bộ quy tắc kiểm ở `42` mục 8 vẫn chưa tự thi hành được. Đây là thứ duy nhất còn thiếu |
+
+### 6.3. `pnpm typecheck` cần một lần `build` đi trước
+
+Ở máy local, `pnpm typecheck` chạy một mình sẽ **đỏ** với mọi đường dẫn mới thêm:
+`typedRoutes` của Next đọc bảng đường dẫn sinh ra ở `.next/types/routes.d.ts`, và
+bảng đó chỉ được dựng lại lúc `build`. Bảng cũ thì đường dẫn mới chưa có tên
+trong đó.
+
+Ở CI thì ngược lại, và tệ hơn: `web.yml` chạy `typecheck` **trước** `build`, mà
+lần chạy đầu trên máy sạch thì `.next/` chưa tồn tại — không có bảng nào cả, nên
+`typedRoutes` **không kiểm gì hết** và mọi `href` sai đều lọt. Đã thử: xoá
+`.next/types` rồi chạy `tsc --noEmit` cho `apps/admin` → exit 0.
+
+Cách sửa là đảo thứ tự hai bước trong `web.yml`, hoặc chạy `next typegen` trước
+bước kiểm kiểu. Chưa làm — nó không chặn việc gì hôm nay, nhưng nó làm tín hiệu
+xanh của CI mất giá trị đúng ở chỗ dễ tin nhất.
+
+### 6.4. Ngày trên tờ lịch: client dựng nửa đêm ĐỊA PHƯƠNG
+
+Client sinh từ spec dựng trường `format: date` thành nửa đêm **giờ địa phương**
+(xem `parseDate` trong runtime của nó). Định dạng lại bằng `timeZone: 'UTC'` là
+đổi hệ quy chiếu giữa chừng, và ở phía đông UTC — tức là ở Việt Nam — thì nó lùi
+**một ngày**.
+
+Lỗi này đã có thật ở `formatDate` của `packages/ui` và ở hai hàm `ngay()` của
+trang quản trị, và nó lặng lẽ: ngày khởi hành trên danh sách đơn lệch một ngày so
+với vé. Sửa 05/09, kèm hai test ở `packages/ui` canh cho nó không quay lại.
 
 > Bài học lặp lại của điều kiện treo số 1 (mục 7): **thứ chưa chạy được lúc này
 > thì chưa được coi là xanh.** Ba pipeline YAML trông hợp lý mà chưa chạy lần
