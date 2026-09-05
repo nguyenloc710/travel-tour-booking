@@ -122,6 +122,7 @@
   "error.PRODUCT_NOT_QUOTABLE": "Denne rejse bookes direkte og kræver ikke et tilbud.",
   "error.QUOTE_EXPIRED": "Tilbuddet er udløbet. Send en ny anmodning, så laver vi et nyt.",
   "error.QUOTE_NOT_ACCEPTABLE": "Tilbuddet er ikke længere på det trin.",
+  "error.SINGLE_PRICE_MISSING": "Vi kan ikke beregne tillægget for enkeltværelse på denne afgang. Ring til os, så finder vi prisen.",
   "error.generic": "Der opstod en fejl. Prøv igen.",
   "events.empty": "Der er ingen foredrag planlagt lige nu.",
   "events.empty.help": "Ring til os på {phone}, så fortæller vi, hvornår det næste er.",

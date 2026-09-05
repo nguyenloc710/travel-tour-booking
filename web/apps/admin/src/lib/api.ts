@@ -100,6 +100,17 @@ export async function loiTiengViet(loi: unknown): Promise<string> {
       return `Đã bán ${params.seatsBooked} chỗ, không hạ sức chứa xuống ${params.capacity} được.`;
     case 'PRODUCT_HAS_ACTIVE_BOOKINGS':
       return `Còn ${params.activeBookings} đơn chưa kết thúc. Muốn ngừng bán thì tắt công tắc thị trường.`;
+    case 'SINGLE_PRICE_MISSING':
+      // Ba dạng tham số, ba câu: cả sản phẩm (lúc bật bán), một ngày khởi hành
+      // (lúc lưu bảng giá thiếu dòng), và một loại khách (lúc giá phòng đơn
+      // không cao hơn phòng đôi).
+      if (params.departureCount !== undefined) {
+        return `Còn ${params.departureCount} ngày khởi hành chưa có giá phòng đơn, sớm nhất là ${params.firstDepartureDate}. Nhập nốt bảng giá rồi bật bán lại — thiếu dòng đó thì khách đi một mình đặt được ở giá chia đôi phòng.`;
+      }
+      if (params.paxTypeCode !== undefined) {
+        return `Giá phòng đơn ${params.singleAmount} của loại khách "${params.paxTypeCode}" không cao hơn giá phòng đôi ${params.doubleAmount}. Phụ thu tính bằng hiệu hai số đó, nên như vậy là phụ thu bằng 0.`;
+      }
+      return 'Bảng giá của tour có lưu trú phải có dòng phòng đơn (SINGLE). Thiếu nó thì phụ thu phòng đơn bằng 0 và khách đi một mình trả giá chia đôi phòng.';
     case 'QUOTE_EXPIRED':
       return 'Báo giá đã quá hạn. Báo giá không tự gia hạn — khách muốn tiếp thì gửi yêu cầu mới.';
     case 'QUOTE_NOT_ACCEPTABLE':

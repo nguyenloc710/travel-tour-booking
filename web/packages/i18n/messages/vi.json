@@ -122,6 +122,7 @@
   "error.PRODUCT_NOT_QUOTABLE": "Tour này đặt thẳng được, không cần báo giá.",
   "error.QUOTE_EXPIRED": "Báo giá đã hết hạn. Bạn gửi yêu cầu mới, chúng tôi sẽ làm lại một bản.",
   "error.QUOTE_NOT_ACCEPTABLE": "Báo giá không còn ở bước đó nữa.",
+  "error.SINGLE_PRICE_MISSING": "Chúng tôi chưa tính được phụ thu phòng đơn cho ngày khởi hành này. Gọi cho chúng tôi để có giá.",
   "error.generic": "Đã có lỗi xảy ra. Vui lòng thử lại.",
   "events.empty": "Hiện chưa có buổi nào được lên lịch.",
   "events.empty.help": "Gọi cho chúng tôi theo số {phone}, chúng tôi sẽ báo buổi gần nhất.",
