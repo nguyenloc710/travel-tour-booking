@@ -189,24 +189,30 @@ sách chặng trong nội dung.
 
 ### 7.1b. Ảnh mẫu cho môi trường dev
 
-`scripts/sinh-anh-mau.py` sinh 35 tệp SVG vào `web/apps/site/public/img/`. Chúng
-**không phải ảnh của sản phẩm** — chỉ là hình khối phẳng đủ để mắt đọc ra "đây
-là một tấm ảnh phong cảnh".
+`scripts/tai-anh-mau.py` tải 29 tấm về `web/apps/site/public/img/`, và sinh
+`NGUON.md` cạnh chúng — sổ ghi **nguồn · giấy phép · phạm vi · hạn dùng** mà mục
+8 đòi phải biết cho mỗi ảnh.
 
 Vì sao cần: dữ liệu mồi trỏ tới `/img/…` từ ngày đầu nhưng chưa bao giờ có tệp
 thật nào ở đó, nên mọi thẻ đều hiện khung vỡ. Ảnh vỡ còn **che mất lỗi bố cục**:
 một thẻ có ảnh cao 320px xếp khác hẳn một thẻ có ảnh cao 0px.
 
-Hai điều chúng phải giữ, và ảnh thật cũng phải giữ:
+Ba điều đáng ghi lại:
 
-- **tỷ lệ 3:2** — thẻ và khối mở đầu đều dựng theo tỷ lệ đó, ảnh khác tỷ lệ bị
-  `object-fit: cover` cắt hai đầu
-- **vùng tối ở đáy** — chỗ chữ trắng đè lên. `21` mục 5.0.b lặp lại lớp phủ này
-  ở CSS đúng vì ảnh thật sẽ không có nó
+- **Nguồn là Unsplash, giấy phép cho phép dùng thương mại và không bắt ghi
+  công.** Mục 8 cấm "ảnh tìm trên mạng", và ý của lệnh cấm nằm ở câu đầu mục:
+  không dùng ảnh **chưa rõ nguồn**. Ảnh có giấy phép tra được thì thuộc dòng
+  "ảnh mua có giấy phép" của bảng, với điều kiện lưu lại chứng từ — và `NGUON.md`
+  chính là chỗ lưu.
+- **Ảnh TẢI VỀ, không nhúng thẳng từ CDN.** Nhúng thẳng thì mỗi lượt xem gửi địa
+  chỉ IP của khách sang một CDN nước ngoài mà khách không hề đồng ý (`31`). Tải
+  về còn bỏ được một phụ thuộc lúc chạy.
+- **Đây vẫn là ảnh mẫu, không phải ảnh của sản phẩm.** Không tấm nào chụp đúng
+  khách sạn hay đúng chuyến đi nó đang minh hoạ, nên chúng **không** dùng được
+  cho bản chạy thật. Có ảnh thật thì xoá cả thư mục lẫn `NGUON.md`.
 
-Có ảnh thật thì xoá cả thư mục đi. Chúng là SVG, không phải JPEG, nên chúng
-**không** thoả mục 7.1 — đó là chủ ý, và cũng là lý do không được đẩy lên đâu
-ngoài máy dev.
+Chữ `alt` phải mô tả **tấm ảnh đang hiện**. Đổi ảnh mà giữ nguyên chữ `alt` cũ là
+nói sai với đúng nhóm người phụ thuộc vào nó nhất — xem mục 6.
 
 ### 7.2. Ảnh chụp cái gì
 

@@ -146,8 +146,8 @@ INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, map_image, rating, review_count,
                      consultant_id, created_by, last_modified_by) VALUES
   ('f0000000-0000-4000-8000-000000000001', 'GROUP_TOUR',
-   'e0000000-0000-4000-8000-000000000001', 16, '/img/tour/bac-nam.svg',
-   '/img/ban-do/bac-nam.svg', 4.6, 87,
+   'e0000000-0000-4000-8000-000000000001', 16, '/img/tour/p01-bac-nam.jpg',
+   NULL, 4.6, 87,
    'c0000000-0000-4000-8000-000000000011',
    'c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000001')
 ON CONFLICT DO NOTHING;
@@ -166,14 +166,14 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
          'Vi tager begge dele på seksten dage, med nattog i midten og fire dage i deltaet til sidst.',
          'Gruppen er på højst 22, og rejselederen er dansk hele vejen.'],
    ARRAY['Dansk rejseleder hele vejen','Højst 22 rejsende','Overnatning i Halong-bugten','Alle måltider undtagen tre aftener','Nattog i stedet for indenrigsfly'],
-   'Solnedgang over Halong-bugten', 'PUBLISHED', now()),
+   'Kalkstensøer i Halong-bugten set fra luften', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000001', 'vi', 'viet-nam-tu-bac-vao-nam',
    'Việt Nam từ Bắc vào Nam', 'Mười sáu ngày từ Hà Nội xuống Cửu Long, có trưởng đoàn',
    ARRAY['Đất nước dài một nghìn rưỡi cây số, và hai đầu không giống nhau. Phía bắc mát và nhiều núi, phía nam phẳng và nóng quanh năm.',
          'Chúng tôi đi cả hai trong mười sáu ngày, giữa chặng là tàu đêm, cuối chặng là bốn ngày ở đồng bằng.',
          'Đoàn tối đa 22 người, trưởng đoàn theo suốt hành trình.'],
    ARRAY['Trưởng đoàn theo suốt hành trình','Tối đa 22 khách','Ngủ đêm trên vịnh Hạ Long','Bao bữa, trừ ba buổi tối','Đi tàu đêm thay vì bay nội địa'],
-   'Hoàng hôn trên Vịnh Hạ Long', 'PUBLISHED', now())
+   'Đảo đá vôi trên vịnh Hạ Long nhìn từ trên cao', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 -- price_from KHÔNG đặt tay từ migration V5: nó là cột vật chất hoá do trigger
@@ -189,7 +189,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, rating, review_count) VALUES
   ('f0000000-0000-4000-8000-000000000002', 'CRUISE',
-   'e0000000-0000-4000-8000-000000000002', 3, '/img/tour/halong.svg',
+   'e0000000-0000-4000-8000-000000000002', 3, '/img/tour/p02-du-thuyen-ha-long.jpg',
    4.8, 34)
 ON CONFLICT DO NOTHING;
 
@@ -217,7 +217,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, rating, review_count) VALUES
   ('f0000000-0000-4000-8000-000000000003', 'INDIVIDUAL_PACKAGE',
-   'e0000000-0000-4000-8000-000000000003', 9, '/img/tour/hoi-an.svg',
+   'e0000000-0000-4000-8000-000000000003', 9, '/img/tour/p03-hoi-an.jpg',
    4.2, 19)
 ON CONFLICT DO NOTHING;
 
@@ -346,9 +346,9 @@ INSERT INTO tag_translation (tag_id, locale, slug, name) VALUES
 ON CONFLICT DO NOTHING;
 
 INSERT INTO post (id, hero_image, published_at) VALUES
-  ('f2000000-0000-4000-8000-000000000001', '/img/blog/pho.svg',    '2026-06-02T08:00:00Z'),
-  ('f2000000-0000-4000-8000-000000000002', '/img/blog/hoi-an.svg', '2026-07-14T08:00:00Z'),
-  ('f2000000-0000-4000-8000-000000000003', '/img/blog/visum.svg',  '2026-08-20T08:00:00Z')
+  ('f2000000-0000-4000-8000-000000000001', '/img/blog/pho.jpg',    '2026-06-02T08:00:00Z'),
+  ('f2000000-0000-4000-8000-000000000002', '/img/blog/hoi-an.jpg', '2026-07-14T08:00:00Z'),
+  ('f2000000-0000-4000-8000-000000000003', '/img/blog/visum.jpg',  '2026-08-20T08:00:00Z')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO post_translation (post_id, locale, slug, title, excerpt, body, status) VALUES
@@ -508,25 +508,25 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO hotel (id, destination_id, name, stars, image) VALUES
   ('a1000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001',
-   'Sofitel Legend Metropole Hanoi', 5, '/img/khach-san/metropole.svg'),
+   'Sofitel Legend Metropole Hanoi', 5, '/img/khach-san/metropole.jpg'),
   ('a1000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000002',
-   'Paradise Elegance', 4, '/img/khach-san/emeraude.svg'),
+   'Paradise Elegance', 4, '/img/khach-san/paradise-ha-long.jpg'),
   ('a1000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000007',
-   'Azerai La Residence', 5, '/img/khach-san/anantara.svg'),
+   'Azerai La Residence', 5, '/img/khach-san/azerai-hue.jpg'),
   ('a1000000-0000-4000-8000-000000000004', 'e0000000-0000-4000-8000-000000000003',
-   'Almanity Hoi An', 4, '/img/khach-san/almanity.svg'),
+   'Almanity Hoi An', 4, '/img/khach-san/almanity-hoi-an.jpg'),
   ('a1000000-0000-4000-8000-000000000005', 'e0000000-0000-4000-8000-000000000005',
-   'Topas Ecolodge', 4, '/img/khach-san/topas.svg'),
+   'Topas Ecolodge', 4, '/img/khach-san/topas-sa-pa.jpg'),
   ('a1000000-0000-4000-8000-000000000006', 'e0000000-0000-4000-8000-000000000004',
-   'Victoria Can Tho', 4, '/img/khach-san/victoria.svg'),
+   'Victoria Can Tho', 4, '/img/khach-san/victoria-can-tho.jpg'),
   ('a1000000-0000-4000-8000-000000000007', 'e0000000-0000-4000-8000-000000000010',
-   'Salinda Resort', 5, '/img/khach-san/salinda.svg'),
+   'Salinda Resort', 5, '/img/khach-san/salinda-phu-quoc.jpg'),
   ('a1000000-0000-4000-8000-000000000008', 'e0000000-0000-4000-8000-000000000006',
-   'Tam Coc Garden', 4, '/img/khach-san/tam-coc.svg'),
+   'Tam Coc Garden', 4, '/img/khach-san/tam-coc.jpg'),
   ('a1000000-0000-4000-8000-000000000009', 'e0000000-0000-4000-8000-000000000008',
-   'Fusion Maia', 5, '/img/khach-san/fusion.svg'),
+   'Fusion Maia', 5, '/img/khach-san/fusion-da-nang.jpg'),
   ('a1000000-0000-4000-8000-000000000010', 'e0000000-0000-4000-8000-000000000009',
-   'Hotel des Arts', 5, '/img/khach-san/des-arts.svg')
+   'Hotel des Arts', 5, '/img/khach-san/des-arts-sai-gon.jpg')
 ON CONFLICT (destination_id, name) WHERE NOT soft_delete DO NOTHING;
 
 INSERT INTO hotel_translation (hotel_id, locale, description) VALUES
@@ -560,10 +560,10 @@ ON CONFLICT DO NOTHING;
 -- quản trị nội dung sẽ cần tới nó trước khi ai kịp nhập tay mười dòng.
 
 INSERT INTO excursion (id, destination_id, code, duration_hours, image) VALUES
-  ('a2000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001', 'VAN_MIEU',   3, '/img/tham-quan/van-mieu.svg'),
-  ('a2000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000002', 'SUNG_SOT',   2, '/img/tham-quan/hang-sung-sot.svg'),
-  ('a2000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000003', 'DEN_LONG',   2, '/img/tham-quan/den-long.svg'),
-  ('a2000000-0000-4000-8000-000000000004', 'e0000000-0000-4000-8000-000000000004', 'CAI_RANG',   4, '/img/tham-quan/cho-noi.svg'),
+  ('a2000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001', 'VAN_MIEU',   3, NULL),
+  ('a2000000-0000-4000-8000-000000000002', 'e0000000-0000-4000-8000-000000000002', 'SUNG_SOT',   2, NULL),
+  ('a2000000-0000-4000-8000-000000000003', 'e0000000-0000-4000-8000-000000000003', 'DEN_LONG',   2, NULL),
+  ('a2000000-0000-4000-8000-000000000004', 'e0000000-0000-4000-8000-000000000004', 'CAI_RANG',   4, NULL),
   ('a2000000-0000-4000-8000-000000000005', 'e0000000-0000-4000-8000-000000000005', 'CAT_CAT',    5, NULL),
   ('a2000000-0000-4000-8000-000000000006', 'e0000000-0000-4000-8000-000000000006', 'TAM_COC',    4, NULL),
   ('a2000000-0000-4000-8000-000000000007', 'e0000000-0000-4000-8000-000000000007', 'DAI_NOI',    3, NULL),
@@ -610,8 +610,8 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, map_image, is_new, rating, review_count, consultant_id) VALUES
   ('f0000000-0000-4000-8000-000000000004', 'GROUP_TOUR',
-   'e0000000-0000-4000-8000-000000000005', 10, '/img/tour/sapa.svg',
-   '/img/ban-do/bac-nam.svg', FALSE, 4.7, 63, 'c0000000-0000-4000-8000-000000000011')
+   'e0000000-0000-4000-8000-000000000005', 10, '/img/tour/p04-sa-pa.jpg',
+   NULL, FALSE, 4.7, 63, 'c0000000-0000-4000-8000-000000000011')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_group_tour (product_id, min_pax, max_pax, guaranteed_threshold,
@@ -628,14 +628,14 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
          'Vi tager nattoget op til Lao Cai og bliver to nætter i bjergene. Der er tid til at gå, og der er tid til at lade være.',
          'Turen slutter, hvor den begyndte, med en fri dag i Hanoi inden hjemrejsen.'],
    ARRAY['Dansk rejseleder hele vejen','To nætter i bjergene ved Sapa','Overnatning ombord i Halong-bugten','Maksimalt 18 rejsende'],
-   'Risterrasser ved Sapa i morgentåge', 'PUBLISHED', now()),
+   'Risterrasser i bjergene ved Sapa', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000004', 'vi', 'mien-bac-va-sa-pa',
    'Miền Bắc và Sa Pa', 'Mười ngày giữa núi và vịnh, có trưởng đoàn đi cùng',
    ARRAY['Miền Bắc là Việt Nam mà phần lớn người ta đã thấy qua ảnh: núi đá dựng giữa nước, ruộng bậc thang trong sương, và một thủ đô lấy vỉa hè làm bếp.',
          'Chúng tôi đi tàu đêm lên Lào Cai và ở lại hai đêm trên núi. Có thời gian để đi bộ, và cũng có thời gian để không làm gì.',
          'Chuyến đi kết thúc ở nơi nó bắt đầu, với một ngày tự do tại Hà Nội trước khi bay về.'],
    ARRAY['Trưởng đoàn theo suốt hành trình','Hai đêm trên núi Sa Pa','Ngủ đêm trên tàu ở vịnh Hạ Long','Tối đa 18 khách'],
-   'Ruộng bậc thang Sa Pa trong sương sớm', 'PUBLISHED', now())
+   'Ruộng bậc thang trên núi ở Sa Pa', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
@@ -649,8 +649,8 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, map_image, is_new, rating, review_count, consultant_id) VALUES
   ('f0000000-0000-4000-8000-000000000005', 'GROUP_TOUR',
-   'e0000000-0000-4000-8000-000000000007', 8, '/img/tour/hue-danang.svg',
-   '/img/ban-do/mien-trung.svg', TRUE, 4.5, 41, 'c0000000-0000-4000-8000-000000000012')
+   'e0000000-0000-4000-8000-000000000007', 8, '/img/tour/p05-mien-trung.jpg',
+   NULL, TRUE, 4.5, 41, 'c0000000-0000-4000-8000-000000000012')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_group_tour (product_id, min_pax, max_pax, guaranteed_threshold,
@@ -666,13 +666,13 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['Midten af landet er den smalle del: fra kysten til grænsen er der halvtreds kilometer, og alt ligger tæt.',
          'Vi bor to steder — Hue og Hoi An — og kører den korte strækning imellem over Hai Van-passet.'],
    ARRAY['Kun to hoteller på otte dage','Kejserbyen og My Son på samme rejse','Fri dag ved kysten','Lavt tempo'],
-   'Kejsergrav ved Parfumefloden', 'PUBLISHED', now()),
+   'Pagode i Hue under blå himmel', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000005', 'vi', 'mien-trung-viet-nam',
    'Miền Trung Việt Nam', 'Tám ngày giữa lăng tẩm và biển',
    ARRAY['Khúc giữa đất nước là khúc hẹp nhất: từ bờ biển tới biên giới chỉ năm mươi cây số, cái gì cũng gần.',
          'Chúng tôi ở hai nơi — Huế và Hội An — và đi đoạn ngắn giữa hai nơi đó qua đèo Hải Vân.'],
    ARRAY['Chỉ hai khách sạn trong tám ngày','Kinh thành và Mỹ Sơn trong cùng chuyến','Một ngày tự do bên biển','Nhịp đi chậm'],
-   'Lăng tẩm bên sông Hương', 'PUBLISHED', now())
+   'Ngôi chùa ở Huế dưới trời xanh', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
@@ -686,7 +686,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, review_count, consultant_id) VALUES
   ('f0000000-0000-4000-8000-000000000006', 'PRIVATE_TOUR',
-   'e0000000-0000-4000-8000-000000000001', 12, '/img/tour/rieng-gia-dinh.svg',
+   'e0000000-0000-4000-8000-000000000001', 12, '/img/tour/p06-gia-dinh.jpg',
    TRUE, 0, 'c0000000-0000-4000-8000-000000000011')
 ON CONFLICT DO NOTHING;
 
@@ -703,14 +703,14 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
          'Vi lægger den sammen med jer: kortere køreture, hoteller med pool, og et par dage hvor der ikke står noget i programmet.',
          'Forslaget herunder er et udgangspunkt på tolv dage. Alt kan laves om.'],
    ARRAY['Egen guide og chauffør','Ruten lægges sammen med jer','Hoteller valgt efter pool og plads','Ingen faste afrejsedatoer'],
-   'Familie på cykel mellem rismarker', 'PUBLISHED', now()),
+   'Flod gennem en grøn dal i Ninh Binh', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000006', 'vi', 'viet-nam-cung-tre-nho',
    'Việt Nam cùng trẻ nhỏ', 'Tour riêng, ngày của bạn, nhịp của bạn',
    ARRAY['Đi cùng trẻ con không phải là chuyến đi cũ bớt vài giờ ngồi xe. Đó là một lộ trình khác.',
          'Chúng tôi dựng lộ trình cùng bạn: chặng xe ngắn hơn, khách sạn có bể bơi, và vài ngày không ghi gì trong chương trình.',
          'Gợi ý dưới đây là một khung mười hai ngày. Sửa được hết.'],
    ARRAY['Hướng dẫn viên và lái xe riêng','Lộ trình dựng cùng bạn','Khách sạn chọn theo bể bơi và chỗ chơi','Không có ngày khởi hành cố định'],
-   'Gia đình đạp xe giữa ruộng lúa', 'PUBLISHED', now())
+   'Dòng sông giữa thung lũng xanh ở Ninh Bình', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
@@ -732,7 +732,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, rating, review_count, consultant_id) VALUES
   ('f0000000-0000-4000-8000-000000000007', 'CRUISE',
-   'e0000000-0000-4000-8000-000000000004', 5, '/img/tour/mekong.svg',
+   'e0000000-0000-4000-8000-000000000004', 5, '/img/tour/p07-du-thuyen-mekong.jpg',
    FALSE, 4.8, 27, 'c0000000-0000-4000-8000-000000000012')
 ON CONFLICT DO NOTHING;
 
@@ -748,13 +748,13 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['Deltaet ses bedst fra vandet. Vejene går udenom, floden går igennem.',
          'Skibet lægger til seks steder på fem dage, og der er en udflugt i land ved hver.'],
    ARRAY['Seks anløb på fem dage','Alle måltider ombord','Fire kabinekategorier','Udflugt i land hver dag'],
-   'Skib på Mekong ved solnedgang', 'PUBLISHED', now()),
+   'Både på floden i Mekong-deltaet', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000007', 'vi', 'du-thuyen-song-cuu-long',
    'Du thuyền sông Cửu Long', 'Năm ngày từ Sài Gòn xuống Cần Thơ',
    ARRAY['Đồng bằng nhìn từ mặt nước là rõ nhất. Đường bộ đi vòng, còn sông thì đi xuyên qua.',
          'Tàu cập sáu điểm trong năm ngày, và mỗi điểm đều có một chuyến lên bờ.'],
    ARRAY['Sáu điểm dừng trong năm ngày','Bao trọn bữa ăn trên tàu','Bốn hạng cabin','Ngày nào cũng có chuyến lên bờ'],
-   'Tàu trên sông Cửu Long lúc hoàng hôn', 'PUBLISHED', now())
+   'Ghe thuyền trên sông ở đồng bằng sông Cửu Long', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
@@ -766,7 +766,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, rating, review_count) VALUES
   ('f0000000-0000-4000-8000-000000000008', 'COMBO',
-   'e0000000-0000-4000-8000-000000000010', 10, '/img/tour/phu-quoc.svg',
+   'e0000000-0000-4000-8000-000000000010', 10, '/img/tour/p08-hoi-an-phu-quoc.jpg',
    FALSE, 4.4, 18)
 ON CONFLICT DO NOTHING;
 
@@ -802,7 +802,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, rating, review_count) VALUES
   ('f0000000-0000-4000-8000-000000000009', 'DAY_TOUR',
-   'e0000000-0000-4000-8000-000000000001', NULL, '/img/tour/ha-noi-pho.svg',
+   'e0000000-0000-4000-8000-000000000001', NULL, '/img/tour/p09-am-thuc-ha-noi.jpg',
    FALSE, 4.9, 112)
 ON CONFLICT DO NOTHING;
 
@@ -818,13 +818,13 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['Vi går, vi spiser, vi går videre. Ingen restauranter — kun de steder hvor der står plastikstole på fortovet.',
          'Turen slutter med kaffe med æg, som lyder værre end det er.'],
    ARRAY['Otte smagsstop','Maksimalt otte deltagere','Vegetarisk rute muligt','Bestilles indtil dagen før'],
-   'Plastikstole på et fortov i Hanoi', 'PUBLISHED', now()),
+   'En skål pho med kød og grøntsager', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000009', 'vi', 'am-thuc-duong-pho-ha-noi',
    'Ẩm thực đường phố Hà Nội', 'Bốn tiếng, tám điểm, một cái bụng',
    ARRAY['Đi bộ, ăn, rồi đi tiếp. Không vào nhà hàng — chỉ những chỗ kê ghế nhựa ra vỉa hè.',
          'Kết thúc bằng cà phê trứng, nghe thì lạ mà uống thì không.'],
    ARRAY['Tám điểm nếm','Tối đa tám khách','Có lộ trình chay','Đặt tới hôm trước'],
-   'Ghế nhựa trên vỉa hè Hà Nội', 'PUBLISHED', now())
+   'Một bát phở có thịt và rau', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
@@ -836,7 +836,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, rating, review_count) VALUES
   ('f0000000-0000-4000-8000-000000000010', 'INDIVIDUAL_PACKAGE',
-   'e0000000-0000-4000-8000-000000000010', 7, '/img/tour/ninh-binh.svg',
+   'e0000000-0000-4000-8000-000000000010', 7, '/img/tour/p10-phu-quoc.jpg',
    FALSE, 4.3, 22)
 ON CONFLICT DO NOTHING;
 
@@ -869,7 +869,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, rating, review_count, consultant_id) VALUES
   ('f0000000-0000-4000-8000-000000000011', 'GROUP_TOUR',
-   'e0000000-0000-4000-8000-000000000009', 12, '/img/tour/saigon.svg',
+   'e0000000-0000-4000-8000-000000000009', 12, '/img/tour/p11-mien-nam.jpg',
    FALSE, 4.6, 55, 'c0000000-0000-4000-8000-000000000013')
 ON CONFLICT DO NOTHING;
 
@@ -904,7 +904,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO product (id, product_type, primary_destination_id, duration_days,
                      hero_image, is_new, rating, review_count) VALUES
   ('f0000000-0000-4000-8000-000000000012', 'DAY_TOUR',
-   'e0000000-0000-4000-8000-000000000006', NULL, '/img/tour/combo-da-nang.svg',
+   'e0000000-0000-4000-8000-000000000006', NULL, '/img/tour/p12-ninh-binh.jpg',
    TRUE, 4.7, 64)
 ON CONFLICT DO NOTHING;
 
@@ -920,13 +920,13 @@ INSERT INTO product_translation (product_id, locale, slug, title, short_descript
    ARRAY['De samme kalkstensklipper som ude i bugten, men med rismarker imellem i stedet for hav.',
          'Vi henter klokken otte og er tilbage i Hanoi til aftensmad.'],
    ARRAY['Afhentning på hotellet i Hanoi','Robåd gennem grotterne','Frokost undervejs','Hjemme igen til aften'],
-   'Kalkstensklipper over rismarker i Ninh Binh', 'PUBLISHED', now()),
+   'Pagode omgivet af vand og bjerge i Ninh Binh', 'PUBLISHED', now()),
   ('f0000000-0000-4000-8000-000000000012', 'vi', 'ninh-binh-mot-ngay',
    'Ninh Bình một ngày', 'Hạ Long trên cạn, cách Hà Nội hai tiếng',
    ARRAY['Vẫn những khối đá vôi như ngoài vịnh, chỉ khác là giữa chúng là ruộng lúa chứ không phải biển.',
          'Đón lúc tám giờ, về tới Hà Nội kịp bữa tối.'],
    ARRAY['Đón tại khách sạn ở Hà Nội','Đi đò xuyên hang','Có bữa trưa','Về trong ngày'],
-   'Núi đá vôi trên ruộng lúa Ninh Bình', 'PUBLISHED', now())
+   'Ngôi chùa giữa sông nước và núi đá ở Ninh Bình', 'PUBLISHED', now())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO product_market (product_id, market, is_published, published_at) VALUES
@@ -1498,9 +1498,9 @@ INSERT INTO tag_translation (tag_id, locale, slug, name) VALUES
 ON CONFLICT DO NOTHING;
 
 INSERT INTO post (id, hero_image, published_at) VALUES
-  ('f2000000-0000-4000-8000-000000000004', '/img/blog/mua-mua.svg', '2026-05-11T08:00:00Z'),
-  ('f2000000-0000-4000-8000-000000000005', '/img/blog/tau-hoa.svg', '2026-08-04T08:00:00Z'),
-  ('f2000000-0000-4000-8000-000000000006', '/img/blog/cho-noi.svg', '2026-09-01T08:00:00Z')
+  ('f2000000-0000-4000-8000-000000000004', '/img/blog/mua-mua.jpg', '2026-05-11T08:00:00Z'),
+  ('f2000000-0000-4000-8000-000000000005', '/img/blog/tau-hoa.jpg', '2026-08-04T08:00:00Z'),
+  ('f2000000-0000-4000-8000-000000000006', '/img/blog/cho-noi.jpg', '2026-09-01T08:00:00Z')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO post_translation (post_id, locale, slug, title, excerpt, body, status) VALUES
