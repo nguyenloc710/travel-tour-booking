@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { t, type Locale, type Market } from '@travel/i18n';
 import { formatMoney } from '@travel/ui';
 import type { Booking, Departure, PriceBreakdown } from '@travel/api-client';
@@ -57,6 +57,34 @@ export function DatTour({
   const [loi, setLoi] = useState('');
   const [dangGui, setDangGui] = useState(false);
 
+  /*
+   * Khoá idempotency sinh MỘT LẦN cho một lần đặt, không sinh lại ở mỗi lần
+   * thử — `docs/13` mục 7 và `docs/23` mục 5.2 nói thẳng điều đó, và mã ở đây
+   * từng làm ngược lại: gọi `crypto.randomUUID()` ngay trong hàm gửi.
+   *
+   * Sinh lại là mất TOÀN BỘ tác dụng của khoá, và mất đúng vào ba tình huống
+   * nó sinh ra để chống: khách bấm nút hai lần, mạng di động gửi lại yêu cầu
+   * sau khi máy chủ đã xử lý xong, và khách bấm Back rồi bấm lại. Mỗi lần như
+   * thế là một đơn thừa mà không ai phát hiện cho tới khi khách gọi điện hỏi
+   * vì sao bị trừ tiền hai lần.
+   *
+   * Một khoá cho đơn, và một khoá cho MỖI ngày khởi hành: chọn lại ngày khác
+   * là một lần giữ chỗ khác nên phải khoá khác, còn thử lại đúng ngày đó thì
+   * phải là cùng khoá.
+   */
+  const [khoaDon] = useState(() => crypto.randomUUID());
+  const khoaGiuCho = useRef(new Map<string, string>());
+
+  function khoaChoNgay(departureId: string): string {
+    const bang = khoaGiuCho.current;
+    let khoa = bang.get(departureId);
+    if (khoa === undefined) {
+      khoa = crypto.randomUUID();
+      bang.set(departureId, khoa);
+    }
+    return khoa;
+  }
+
   const ngay = ngayKhoiHanh.find((d) => d.id === trangThai.departureId);
   const tongKhach = trangThai.pax.reduce((tong, p) => tong + p.count, 0);
   const khoaPax = JSON.stringify(trangThai.pax);
@@ -111,9 +139,7 @@ export function DatTour({
     try {
       const giu = await bookingApi().giuCho({
         ...phamVi,
-        // Khoá do client sinh MỘT LẦN cho một lần giữ chỗ, không sinh lại ở mỗi
-        // lần thử — sinh lại là mất toàn bộ tác dụng (docs/23 mục 5.2).
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: khoaChoNgay(d.id),
         seatHoldRequest: { departureId: d.id, seats: Math.max(tongKhach, 1) },
       });
       di({ buoc: 2, departureId: d.id, holdId: giu.id, hetHan: giu.expiresAt.toISOString() });
@@ -128,7 +154,7 @@ export function DatTour({
     try {
       const don: Booking = await bookingApi().datTour({
         ...phamVi,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: khoaDon,
         bookingRequest: {
           departureId: trangThai.departureId as string,
           seatHoldId: trangThai.holdId,
@@ -167,8 +193,17 @@ export function DatTour({
         </p>
       )}
 
+      {/* `dangChon` là ngày khách đã bấm ở bảng của trang chi tiết. Bước 1 làm
+          nổi nó lên để khách thấy lựa chọn của mình được mang sang, nhưng VẪN
+          phải bấm một lần nữa: giữ chỗ là một lần ghi, và tự ghi khi trang vừa
+          mở nghĩa là Next nạp trước lúc rê chuột cũng giữ chỗ. */}
       {trangThai.buoc === 1 && (
-        <Buoc1 locale={locale} ngayKhoiHanh={ngayKhoiHanh} chon={chonNgay} />
+        <Buoc1
+          locale={locale}
+          ngayKhoiHanh={ngayKhoiHanh}
+          chon={chonNgay}
+          dangChon={trangThai.departureId}
+        />
       )}
       {trangThai.buoc === 2 && <Buoc2 locale={locale} trangThai={trangThai} doi={di} />}
       {trangThai.buoc === 3 && (
@@ -195,10 +230,12 @@ function Buoc1({
   locale,
   ngayKhoiHanh,
   chon,
+  dangChon,
 }: {
   locale: Locale;
   ngayKhoiHanh: Departure[];
   chon: (d: Departure) => void;
+  dangChon?: string;
 }) {
   // Ngày đã đóng bán thì không chọn được — kiểm ở frontend để khách khỏi mất
   // công; backend vẫn kiểm lại bằng DEPARTURE_CLOSED và DEPARTURE_SOLD_OUT
@@ -214,28 +251,38 @@ function Buoc1({
     );
   }
 
+  const daChon = dangChon !== undefined && moBan.some((d) => d.id === dangChon);
+
   return (
-    <ul className="dat-ngay">
-      {moBan.map((d) => (
-        <li key={d.id}>
-          <button type="button" onClick={() => chon(d)}>
-            <strong>{ngayDai(d.departDate, locale)}</strong>
-            <span>
-              {/* Số ít và số nhiều là hai khoá riêng: tiếng Đan viết "1 plads"
-                  chứ không "1 pladser". Tiếng Việt không phân biệt nên hai khoá
-                  trùng nội dung — vẫn giữ đủ hai, để bộ kiểm độ phủ so được
-                  từng khoá một. */}
-              {t(
-                locale,
-                d.seatsAvailable === 1 ? 'booking.seatsLeft.one' : 'booking.seatsLeft.many',
-                { count: String(d.seatsAvailable) },
-              )}
-              {d.departureCity ? ` · ${d.departureCity}` : ''}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      {daChon && <p className="dat-da-chon">{t(locale, 'booking.preselected')}</p>}
+
+      <ul className="dat-ngay">
+        {moBan.map((d) => (
+          <li key={d.id}>
+            <button
+              type="button"
+              onClick={() => chon(d)}
+              aria-current={d.id === dangChon ? 'true' : undefined}
+            >
+              <strong>{ngayDai(d.departDate, locale)}</strong>
+              <span>
+                {/* Số ít và số nhiều là hai khoá riêng: tiếng Đan viết "1 plads"
+                    chứ không "1 pladser". Tiếng Việt không phân biệt nên hai khoá
+                    trùng nội dung — vẫn giữ đủ hai, để bộ kiểm độ phủ so được
+                    từng khoá một. */}
+                {t(
+                  locale,
+                  d.seatsAvailable === 1 ? 'booking.seatsLeft.one' : 'booking.seatsLeft.many',
+                  { count: String(d.seatsAvailable) },
+                )}
+                {d.departureCity ? ` · ${d.departureCity}` : ''}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

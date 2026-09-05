@@ -26,6 +26,7 @@
   "booking.pax.adults": "Voksne",
   "booking.pax.count": "Antal",
   "booking.phone": "Telefon",
+  "booking.preselected": "Du valgte denne dato på rejsens side. Bekræft den herunder, så reserverer vi pladserne.",
   "booking.priceHeading": "Prisen",
   "booking.seatsLeft.many": "{count} pladser tilbage",
   "booking.seatsLeft.one": "{count} plads tilbage",

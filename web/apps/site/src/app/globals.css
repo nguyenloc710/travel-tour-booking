@@ -2227,3 +2227,21 @@ main > .tran {
 .lich-trinh {
   margin-left: 2rem;
 }
+
+/* --------------------------------------------- Ngày mang sang từ trang chi tiết */
+
+/* Khách bấm "Book" ở bảng ngày khởi hành thì ngày ấy đi theo sang bước 1 và
+   được làm nổi lên. Đánh dấu bằng CẢ đường viền lẫn `aria-current`, không chỉ
+   bằng màu — docs/21 mục 2 quy tắc 2. */
+.dat-da-chon {
+  max-width: var(--cot-chu);
+  margin: 0 0 var(--k6);
+  padding: var(--k4);
+  border-left: 3px solid var(--mau-keu-goi);
+  background: var(--mau-nen-diu);
+}
+
+.dat-ngay button[aria-current] {
+  border-color: var(--mau-keu-goi);
+  border-width: 2px;
+}

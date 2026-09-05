@@ -520,10 +520,20 @@ async function TabGiaVaNgay({
                   {d.status === 'OPEN' || d.status === 'FEW_SEATS' || d.status === 'GUARANTEED' ? (
                     <Link
                       className="nut"
+                      /* Tham số tên `ngay`, KHÔNG phải `departureId`: đó là
+                         tên trang đặt tour đọc (`docTrangThai`), và tên cũ là
+                         một tham số không ai đọc. Hệ quả cũ: ngày khách vừa bấm
+                         bị vứt, và vì không có ngày nên bước 2 cũng bị đẩy về
+                         bước 1 — khách phải chọn lại từ đầu.
+
+                         Và `buoc: '1'`, không phải '2': giữ chỗ chỉ tạo khi
+                         khách bấm chọn ngày ở bước 1 (docs/23 mục 3.1), nên
+                         bước 2 mà chưa giữ chỗ thì luôn bị đẩy ngược lại. Nay
+                         bước 1 làm nổi ngày ấy lên và khách xác nhận một lần. */
                       href={duongDanDatTour(
                         locale,
                         slug,
-                        new URLSearchParams({ buoc: '2', departureId: d.id }),
+                        new URLSearchParams({ buoc: '1', ngay: d.id }),
                       )}
                     >
                       {t(locale, 'detail.departures.book')}

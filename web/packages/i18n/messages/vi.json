@@ -26,6 +26,7 @@
   "booking.pax.adults": "Người lớn",
   "booking.pax.count": "Số lượng",
   "booking.phone": "Điện thoại",
+  "booking.preselected": "Bạn đã chọn ngày này ở trang tour. Xác nhận lại bên dưới để chúng tôi giữ chỗ.",
   "booking.priceHeading": "Giá",
   "booking.seatsLeft.many": "Còn {count} chỗ",
   "booking.seatsLeft.one": "Còn {count} chỗ",
