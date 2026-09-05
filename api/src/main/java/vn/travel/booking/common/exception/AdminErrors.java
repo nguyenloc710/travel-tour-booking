@@ -15,7 +15,7 @@ import java.util.Map;
  * hay "đã bán 8 chỗ, không hạ sức chứa xuống 5 được" thì sửa được ngay. Tham số
  * là dữ liệu, không phải câu tiếng người — frontend vẫn là chỗ dịch.
  *
- * <p>Cả bảy đều là luật <b>liên trường</b> hoặc luật cần tra CSDL, tức là thứ
+ * <p>Cả chín đều là luật <b>liên trường</b> hoặc luật cần tra CSDL, tức là thứ
  * schema của OpenAPI không diễn đạt được. Luật một trường thì để
  * {@code @Valid} bắt và trả {@code VALIDATION_FAILED} như cũ.
  */

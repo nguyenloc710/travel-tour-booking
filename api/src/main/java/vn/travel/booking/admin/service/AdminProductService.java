@@ -12,6 +12,7 @@ import vn.travel.booking.admin.dto.TranslationState;
 import vn.travel.booking.admin.repository.AdminProductTranslationRepository;
 import vn.travel.booking.common.exception.AdminErrors;
 import vn.travel.booking.common.exception.NotFoundException;
+import vn.travel.booking.common.exception.SinglePriceMissingException;
 import vn.travel.booking.common.repository.LocaleRepository;
 import vn.travel.booking.market.repository.MarketRepository;
 import vn.travel.booking.product.dto.ProductTypeBlocks;
@@ -219,6 +220,10 @@ public class AdminProductService {
         market.cauHinh(maThiTruong)
                 .orElseThrow(() -> new NotFoundException("market=" + maThiTruong));
 
+        if (banRa) {
+            kiemGiaPhongDon(id, maThiTruong);
+        }
+
         ProductMarketEntity pm = thiTruong.findByProductIdAndMarket(id, maThiTruong)
                 .orElseGet(() -> new ProductMarketEntity(id, maThiTruong));
 
@@ -235,6 +240,39 @@ public class AdminProductService {
     }
 
     // ------------------------------------------------------------ kiểm
+
+    /**
+     * Mọi ngày khởi hành của sản phẩm có lưu trú qua đêm phải có giá phòng đơn.
+     *
+     * <p>Quy tắc kiểm 23 của docs/12 mục 9, cưỡng chế ngay ở công tắc mở bán.
+     * Bộ kiểm ở {@code scripts/kiem-nhat-quan.sql} vẫn chạy trong CI, nhưng CI
+     * chỉ nói cho lập trình viên biết — công tắc này nói cho đúng người đang mở
+     * bán, đúng lúc họ mở, và đó là chỗ duy nhất sửa được ngay.
+     *
+     * <p><b>Chỉ kiểm khi BẬT.</b> Chặn cả đường tắt là giam một sản phẩm dữ liệu
+     * sai ở trạng thái đang bán — đúng điều ngược lại với thứ quy tắc này muốn.
+     *
+     * <p>{@code DAY_TOUR} không kiểm: tour trong ngày không có đêm nào để ở
+     * phòng, nên phụ thu phòng đơn không có nghĩa.
+     */
+    private void kiemGiaPhongDon(UUID id, String maThiTruong) {
+        List<String> thieu = jdbc.queryForList("""
+                SELECT d.depart_date::text
+                FROM departure d
+                JOIN product p ON p.id = d.product_id
+                WHERE d.product_id = ? AND d.market = ? AND NOT d.soft_delete
+                  AND p.product_type <> 'DAY_TOUR'
+                  AND NOT EXISTS (
+                        SELECT 1 FROM departure_price dp
+                        WHERE dp.departure_id = d.id AND dp.occupancy = 'SINGLE')
+                ORDER BY d.depart_date
+                """, String.class, id, maThiTruong);
+
+        if (!thieu.isEmpty()) {
+            throw SinglePriceMissingException.cuaSanPham(
+                    maThiTruong, thieu.size(), thieu.getFirst());
+        }
+    }
 
     /**
      * Đúng <b>một</b> khối, và khối đó khớp {@code productType}.

@@ -132,6 +132,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("LAST_ADMIN", ex));
     }
 
+    /**
+     * Ngày khởi hành thiếu giá phòng đơn — cả lúc bật bán lẫn lúc tính giá.
+     *
+     * <p>409 chứ không 400: dữ liệu gửi lên đúng dạng và người gọi có quyền —
+     * chỉ là trạng thái hiện tại của sản phẩm chưa cho phép. Nhập nốt bảng giá
+     * rồi bấm lại là xong, không phải sửa lời gọi.
+     *
+     * <p>{@code warn} chứ không {@code debug} ở cả hai đường: một lần mở bán bị
+     * chặn nghĩa là có người đang đợi ở đầu bên kia màn hình, còn lần chặn ở
+     * đường khách thì tệ hơn — nó nghĩa là có sản phẩm đang bán với dữ liệu
+     * thiếu, và cửa trước đã không giữ được nó.
+     */
+    @ExceptionHandler(SinglePriceMissingException.class)
+    public ResponseEntity<ErrorResponse> thieuGiaPhongDon(SinglePriceMissingException ex) {
+        log.warn("409 SINGLE_PRICE_MISSING: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("SINGLE_PRICE_MISSING").params(ex.params()));
+    }
+
     @ExceptionHandler(AdminErrors.ProductHasActiveBookings.class)
     public ResponseEntity<ErrorResponse> conDonChuaXong(AdminErrors.ProductHasActiveBookings ex) {
         log.warn("409 PRODUCT_HAS_ACTIVE_BOOKINGS: {}", ex.getMessage());

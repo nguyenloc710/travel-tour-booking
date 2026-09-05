@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.travel.booking.market.service.MarketService;
 import vn.travel.booking.common.exception.NotFoundException;
+import vn.travel.booking.common.exception.SinglePriceMissingException;
 import vn.travel.booking.pricing.dto.PaxLine;
 import vn.travel.booking.pricing.dto.PriceBreakdown;
 import vn.travel.booking.pricing.service.PricingEngine;
@@ -180,6 +181,17 @@ public class BookingService {
     /**
      * Phụ thu phòng đơn = giá phòng đơn − giá phòng đôi, lấy theo loại khách
      * người lớn đầu tiên có đủ cả hai mức giá.
+     *
+     * <p><b>Không có giá phòng đơn thì NÉM, không trả 0.</b> Trước đây chỗ này
+     * kết thúc bằng {@code orElse(0)}, và cái 0 ấy là một lỗi tiền im lặng: khách
+     * đi một mình đặt được nguyên chuyến ở giá chia đôi phòng, bảng giá không có
+     * dòng phụ thu nào để ai đó thấy là thiếu, và chênh lệch chỉ lộ ra khi kế
+     * toán đối soát với khách sạn — sau khi khách đã đi.
+     *
+     * <p>Máy chủ không đoán giữa "chuyến này không bán phòng đơn" và "quên nhập
+     * giá": hai thứ để lại đúng cùng một dấu vết, và đoán theo hướng dễ chịu là
+     * đoán về phía mất tiền. Đường bật bán đã chặn từ đầu (quy tắc kiểm 23), nên
+     * nhánh này đáng lẽ không bao giờ chạy — nó là lưới thứ hai.
      */
     private static Money phuThuPhongDon(DeparturePricing d) {
         return d.singleOccupancy().entrySet().stream()
@@ -189,6 +201,7 @@ public class BookingService {
                                 .max(BigDecimal.ZERO),
                         e.getValue().currency()))
                 .findFirst()
-                .orElse(new Money(BigDecimal.ZERO, d.currency()));
+                .orElseThrow(() ->
+                        SinglePriceMissingException.cuaNgayKhoiHanh(d.departureId().toString()));
     }
 }

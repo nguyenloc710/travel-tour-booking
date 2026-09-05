@@ -10,6 +10,7 @@ import vn.travel.booking.admin.dto.DeparturePriceView;
 import vn.travel.booking.admin.dto.DepartureView;
 import vn.travel.booking.common.exception.AdminErrors;
 import vn.travel.booking.common.exception.NotFoundException;
+import vn.travel.booking.common.exception.SinglePriceMissingException;
 import vn.travel.booking.common.money.Money;
 import vn.travel.booking.departure.entity.DepartureEntity;
 import vn.travel.booking.departure.entity.DeparturePriceEntity;
@@ -20,8 +21,10 @@ import vn.travel.booking.market.repository.PaxTypeRepository;
 import vn.travel.booking.product.entity.ProductEntity;
 import vn.travel.booking.product.repository.ProductWriteRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -198,6 +201,10 @@ public class AdminDepartureService {
      *
      * <p>Ghi vào đây làm trigger {@code tg_departure_price_price_from} tính lại
      * {@code product_market.price_from} (migration {@code V5}).
+     *
+     * <p>Bảng giá của sản phẩm có lưu trú phải có dòng phòng đơn — xem
+     * {@link #kiemGiaPhongDon}. Đây là chỗ chặn <b>sớm nhất</b> mà luật đó chặn
+     * được, vì đây là màn hình mà người ta thực sự gõ giá vào.
      */
     @Transactional
     public List<DeparturePriceView> luuGia(UUID departureId, List<DeparturePriceInput> gia) {
@@ -214,6 +221,12 @@ public class AdminDepartureService {
             moi.add(new DeparturePriceEntity(departureId, paxTypeId, dong.occupancy(),
                     dong.amount(), cauHinh.currency()));
         }
+
+        // SAU vòng lặp trên, không phải trước: một bảng giá có thể vi phạm cả hai
+        // luật cùng lúc, và "mã loại khách này không tồn tại" là thứ phải nói
+        // trước — nói về giá phòng đơn của một loại khách không có thật thì biên
+        // tập viên đi sửa nhầm chỗ.
+        kiemGiaPhongDon(phaiCoSanPham(d.getProductId()).getProductType(), departureId, gia);
 
         // Xoá rồi ghi lại, và flush() ở giữa: không flush thì Hibernate có thể
         // xếp câu INSERT trước câu DELETE và đụng khoá chính của chính dòng đang
@@ -241,6 +254,55 @@ public class AdminDepartureService {
     private MarketRepository.CauHinh phaiCoThiTruong(String maThiTruong) {
         return market.cauHinh(maThiTruong)
                 .orElseThrow(() -> new NotFoundException("market=" + maThiTruong));
+    }
+
+    /**
+     * Sản phẩm có lưu trú qua đêm phải có giá phòng đơn, và giá ấy phải CAO HƠN
+     * giá phòng đôi — quy tắc kiểm 23 của docs/12 mục 9.
+     *
+     * <p>Chặn ở đây vì đây là chỗ sớm nhất luật này chặn được. Công tắc mở bán
+     * cũng kiểm, nhưng quy trình thật của docs/22 mục 5 bật bán ở bước 6 rồi mới
+     * nhập ngày khởi hành ở bước 7 — nên lúc bấm công tắc thì thường chưa có ngày
+     * nào để kiểm. Màn hình bảng giá thì ngược lại: nó là chỗ người ta gõ đúng
+     * những con số này vào.
+     *
+     * <p>Danh sách <b>rỗng</b> không bị chặn ở đây — hợp đồng đã chặn nó bằng
+     * {@code minItems: 1}, nên nhánh này chỉ tới được khi gọi thẳng service.
+     *
+     * <p>{@code DAY_TOUR} không kiểm — tour trong ngày không có đêm nào để ở phòng.
+     */
+    private static void kiemGiaPhongDon(String productType, UUID departureId,
+                                        List<DeparturePriceInput> gia) {
+        if ("DAY_TOUR".equals(productType) || gia.isEmpty()) {
+            return;
+        }
+
+        Map<String, BigDecimal> phongDoi = new LinkedHashMap<>();
+        Map<String, BigDecimal> phongDon = new LinkedHashMap<>();
+        for (DeparturePriceInput dong : gia) {
+            ("SINGLE".equals(dong.occupancy()) ? phongDon : phongDoi)
+                    .put(dong.paxTypeCode(), dong.amount());
+        }
+
+        if (phongDon.isEmpty()) {
+            throw SinglePriceMissingException.cuaNgayKhoiHanh(departureId.toString());
+        }
+
+        // Dòng phòng đơn có mặt nhưng không cao hơn phòng đôi để lại đúng hậu quả
+        // như khi vắng mặt: phụ thu bằng 0, và khách đi một mình trả giá chia đôi
+        // phòng. Quy tắc 23b của bộ kiểm bắt cùng thứ này trên toàn CSDL.
+        for (Map.Entry<String, BigDecimal> e : phongDon.entrySet()) {
+            BigDecimal doi = phongDoi.get(e.getKey());
+            if (doi != null && e.getValue().compareTo(doi) <= 0) {
+                throw new SinglePriceMissingException(
+                        "giá phòng đơn " + e.getValue() + " không cao hơn giá phòng đôi "
+                                + doi + " (loại khách " + e.getKey() + ")",
+                        Map.of("departureId", departureId.toString(),
+                                "paxTypeCode", e.getKey(),
+                                "singleAmount", e.getValue().toPlainString(),
+                                "doubleAmount", doi.toPlainString()));
+            }
+        }
     }
 
     /** Hạng cabin chỉ có ở {@code CRUISE} — ràng buộc nghiệp vụ, không phải cột rỗng cho vui. */

@@ -460,7 +460,8 @@ class AdminWriteIT {
         assertNotNull(dk);
         admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + dk.getId() + "/prices",
                 """
-                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"}]
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
                 """, String.class);
 
         AdminDepartureCopyResult ket_qua = admin.goi(HttpMethod.POST,
@@ -522,11 +523,12 @@ class AdminWriteIT {
         List<AdminDeparturePrice> gia = List.of(admin.goi(HttpMethod.PUT,
                 "/api/v1/admin/departures/" + vn.getId() + "/prices",
                 """
-                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"18500000"}]
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"18500000"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"22000000"}]
                 """, AdminDeparturePrice[].class).getBody());
 
-        assertEquals(1, gia.size());
-        assertEquals("VND", gia.get(0).getAmount().getCurrency(),
+        assertEquals(2, gia.size());
+        assertTrue(gia.stream().allMatch(g -> "VND".equals(g.getAmount().getCurrency())),
                 "thị trường quyết định tiền tệ — client không có tiếng nói ở đây");
     }
 
@@ -558,6 +560,151 @@ class AdminWriteIT {
         assertEquals("VN", loi.getBody().getParams().get("market"));
     }
 
+    // ------------------------------------------------------- giá phòng đơn
+
+    @Test
+    @DisplayName("Bảng giá của tour có lưu trú mà thiếu dòng phòng đơn thì bị từ chối")
+    void bangGiaThieuPhongDonBiTuChoi() {
+        Phien admin = dangNhap("admin@travel.test");
+        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("thieu-phong-don"),
+                AdminProductDetail.class).getBody();
+        assertNotNull(sp);
+
+        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+                """
+                {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
+                """, AdminDeparture.class).getBody();
+        assertNotNull(ngay);
+
+        // Một bảng giá đầy đủ trước đã, để câu kiểm cuối bài có thứ mà mất.
+        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+                """
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
+                """, String.class);
+
+        // Và đây là bảng giá mà dữ liệu mồi từng có ở 36/40 ngày khởi hành. Nó
+        // không làm gì hỏng cả: máy tính giá lấy `phòng đơn − phòng đôi`, không
+        // thấy dòng nào thì phụ thu bằng 0, và khách đi MỘT MÌNH đặt được nguyên
+        // chuyến ở giá chia đôi phòng.
+        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+                "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+                """
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"23990.00"}]
+                """, ErrorResponse.class);
+
+        assertEquals(HttpStatus.CONFLICT, loi.getStatusCode());
+        assertNotNull(loi.getBody());
+        assertEquals("SINGLE_PRICE_MISSING", loi.getBody().getCode());
+
+        // `luuGia` thay TOÀN BỘ bảng giá — xoá rồi ghi lại. Luật phải chặn TRƯỚC
+        // khi xoá, nếu không thì một lần bấm nhầm là mất sạch giá của ngày đó và
+        // ngày ấy tụt xuống trạng thái tệ hơn hẳn cái mà luật vừa từ chối.
+        assertEquals(2, demDong("SELECT count(*) FROM departure_price WHERE departure_id = ?",
+                ngay.getId()));
+        assertEquals("24990.00", jdbc.queryForObject(
+                "SELECT amount::text FROM departure_price WHERE departure_id = ? "
+                        + "AND occupancy = 'DOUBLE'", String.class, ngay.getId()),
+                "giá cũ phải còn nguyên, không bị ghi đè một nửa");
+    }
+
+    @Test
+    @DisplayName("Giá phòng đơn không cao hơn phòng đôi cũng bị từ chối — phụ thu vẫn ra 0")
+    void giaPhongDonKhongCaoHonThiBiTuChoi() {
+        Phien admin = dangNhap("admin@travel.test");
+        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("phong-don-bang-gia"),
+                AdminProductDetail.class).getBody();
+        assertNotNull(sp);
+
+        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+                """
+                {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
+                """, AdminDeparture.class).getBody();
+        assertNotNull(ngay);
+
+        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+                "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+                """
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"24990.00"}]
+                """, ErrorResponse.class);
+
+        assertEquals(HttpStatus.CONFLICT, loi.getStatusCode());
+        assertNotNull(loi.getBody());
+        assertEquals("SINGLE_PRICE_MISSING", loi.getBody().getCode());
+        assertEquals("ADULT", loi.getBody().getParams().get("paxTypeCode"));
+    }
+
+    @Test
+    @DisplayName("Tour trong ngày KHÔNG bị đòi giá phòng đơn — nó không có đêm nào")
+    void tourTrongNgayKhongBiDoiGiaPhongDon() {
+        Phien admin = dangNhap("admin@travel.test");
+        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourTrongNgay("mot-ngay-o-hoi-an"),
+                AdminProductDetail.class).getBody();
+        assertNotNull(sp);
+
+        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+                """
+                {"market":"DK","departDate":"2027-03-14","days":1,"capacity":16}
+                """, AdminDeparture.class).getBody();
+        assertNotNull(ngay);
+
+        ResponseEntity<AdminDeparturePrice[]> gia = admin.goi(HttpMethod.PUT,
+                "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+                """
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"645.00"}]
+                """, AdminDeparturePrice[].class);
+
+        assertEquals(HttpStatus.OK, gia.getStatusCode());
+        assertNotNull(gia.getBody());
+        assertEquals(1, gia.getBody().length);
+    }
+
+    @Test
+    @DisplayName("Bật bán khi còn ngày khởi hành thiếu giá phòng đơn thì bị chặn")
+    void batBanKhiConNgayThieuGiaPhongDon() {
+        Phien admin = dangNhap("admin@travel.test");
+        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("bat-ban-thieu-gia"),
+                AdminProductDetail.class).getBody();
+        assertNotNull(sp);
+
+        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+                """
+                {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
+                """, AdminDeparture.class).getBody();
+        assertNotNull(ngay);
+
+        // Ngày mới chưa có giá nào — kể cả giá phòng đôi. Bật bán ở trạng thái
+        // này là đưa lên web một ngày khởi hành mà khách đi một mình đặt được ở
+        // giá chia đôi phòng.
+        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+                "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
+                "{\"published\":true}", ErrorResponse.class);
+
+        assertEquals(HttpStatus.CONFLICT, loi.getStatusCode());
+        assertNotNull(loi.getBody());
+        assertEquals("SINGLE_PRICE_MISSING", loi.getBody().getCode());
+        assertEquals(1, loi.getBody().getParams().get("departureCount"));
+        assertEquals("2027-03-14", loi.getBody().getParams().get("firstDepartureDate"));
+
+        // TẮT bán thì không kiểm: chặn cả đường ra là giam sản phẩm dữ liệu sai
+        // ở trạng thái đang bán, tức là làm điều ngược hẳn với ý định.
+        assertEquals(HttpStatus.OK, admin.goi(HttpMethod.PUT,
+                "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
+                "{\"published\":false}", String.class).getStatusCode());
+
+        // Nhập đủ bảng giá rồi bật lại thì qua.
+        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+                """
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
+                """, String.class);
+
+        assertEquals(HttpStatus.OK, admin.goi(HttpMethod.PUT,
+                "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
+                "{\"published\":true}", String.class).getStatusCode());
+    }
+
     @Test
     @DisplayName("priceFrom theo giá phòng đôi rẻ nhất, và tụt theo khi giá giảm")
     void priceFromChayTheoGiaReNhat() {
@@ -579,13 +726,19 @@ class AdminWriteIT {
         assertNotNull(som);
         assertNotNull(muon);
 
+        // Dòng phòng đơn ở cả hai ngày: bảng giá của sản phẩm có lưu trú bắt
+        // buộc phải có (quy tắc kiểm 23). Nó cũng làm bài test này mạnh hơn —
+        // 26990 là mức giá thấp hơn 29990 nhưng KHÔNG được thành "giá từ", vì
+        // giá từ chỉ đọc dòng phòng đôi.
         admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + som.getId() + "/prices",
                 """
-                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"}]
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
                 """, String.class);
         admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + muon.getId() + "/prices",
                 """
-                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"21990.00"}]
+                [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"21990.00"},
+                 {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"26990.00"}]
                 """, String.class);
 
         assertEquals("21990.00", khachThay("da").getItems().get(0).getPriceFrom().getAmount());
@@ -705,6 +858,15 @@ class AdminWriteIT {
                  "groupTour":{"minPax":12,"maxPax":20,"guaranteedThreshold":12,
                               "tourLeaderLanguage":"da","fitnessLevel":2}}
                 """.formatted(DIEM_DEN, nguon(slug, "Halong rundrejse"));
+    }
+
+    /** Không có {@code durationDays} — {@code ck_product_duration} đòi đúng thế. */
+    private static String tourTrongNgay(String slug) {
+        return """
+                {"productType":"DAY_TOUR","primaryDestinationId":"%s",
+                 "heroImage":"/img/hero.jpg","source":%s,
+                 "dayTour":{"durationHours":8,"cutoffHours":24}}
+                """.formatted(DIEM_DEN, nguon(slug, "Hoi An paa en dag"));
     }
 
     private static String nguon(String slug, String tieuDe) {
