@@ -177,6 +177,8 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Trang `blog`, `kontakt`, `foredrag` của site khách | ✔ **xong 05/09** — R9 kèm lọc thẻ lặp lại được, R10, R11. Bảng `pathnames` không còn hứa nhiều hơn thứ đang có |
 | Giới hạn 10 lượt đăng nhập / 15 phút | ✗ `22` mục 9 mô tả như đã có, **chưa có gì cài** — `31` mục 6.2. Rà lại 04/09: `api/src/main` không có một dòng nào về rate limit |
 | Cờ `Secure` cho cookie phiên | ✗ chặn trước lần triển khai `prod` đầu — `34` mục 5.2 |
+| **Bộ kiểm nhất quán dữ liệu** — 23 quy tắc của `12` mục 9 | ✔ **xong 05/09** — `api/scripts/kiem-nhat-quan.sql` + `KiemNhatQuanIT`. Quy tắc 13 cảnh báo có chủ ý, chờ **Q-2** |
+| Giá phòng đơn bắt buộc ở sản phẩm có lưu trú (quy tắc 23) | ✔ chặn ở **ba** chỗ: lưu bảng giá, bật bán, và đường tính giá — `409 SINGLE_PRICE_MISSING`. Trước đó 36/40 ngày khởi hành thiếu, và khách đi một mình trả giá chia đôi phòng |
 
 ---
 
@@ -290,25 +292,46 @@ Cách sửa là đảo thứ tự hai bước trong `web.yml`, hoặc chạy `ne
 bước kiểm kiểu. Chưa làm — nó không chặn việc gì hôm nay, nhưng nó làm tín hiệu
 xanh của CI mất giá trị đúng ở chỗ dễ tin nhất.
 
-### 6.6. Bộ kiểm dữ liệu của `12` mục 9 CHƯA có mã, và nó đã bắt được lỗi thật
+### 6.6. Bộ kiểm dữ liệu của `12` mục 9 — nay đã có mã, và nó đã bắt được bốn lỗi thật
 
-Mười chín quy tắc ở `12` mục 9 tới nay vẫn chỉ là một bảng trong tài liệu —
-`scripts/` không có tệp nào chạy chúng. Đợt nạp dữ liệu mồi 05/09 phải kiểm bằng
-tay bằng SQL viết tại chỗ, và **ba quy tắc bắt được lỗi thật trong dữ liệu vừa
-nhập**:
+**Xong 05/09/2026**: `api/scripts/kiem-nhat-quan.sql` cài cả 23 quy tắc, và
+`KiemNhatQuanIT` chạy chúng trong CI trên chính `seed-dev.sql`.
+
+```bash
+psql "$DB_URL" -f api/scripts/kiem-nhat-quan.sql     # nhìn bằng mắt
+cd api && ./gradlew test --tests "*KiemNhatQuanIT*"  # cổng thật
+```
+
+Trước khi có mã, đợt nạp dữ liệu mồi 05/09 phải kiểm bằng SQL viết tại chỗ, và
+**ba quy tắc bắt được lỗi thật ngay lần đầu**; lần đóng thành mã bắt thêm cái
+thứ tư:
 
 | Quy tắc | Bắt được gì |
 |---|---|
 | 3 | Ba sản phẩm không có ngày lịch trình nào. Ý định ban đầu là "để trạng thái rỗng có thứ chứng minh" — quy tắc bác, và nó đúng |
 | 7 | `CRUISE` chênh giá cabin 15.4% ở bậc đầu (ngưỡng là 20–45%), và một ngày khởi hành chỉ có ba hạng thay vì bốn. Lỗi 15.4% có **từ trước** đợt này |
 | 11 | Mô tả ngày lịch trình trung bình 47 ký tự, ngưỡng là 80. Có ngày chỉ vỏn vẹn "Biển." |
+| 18 | Điểm đến xoá mềm của bộ dữ liệu mồi không ghi ai xoá — chính cái cột sinh ra để trả lời câu đó |
 
 Quy tắc 11 là cái đáng nhớ nhất: nó không bắt lỗi kỹ thuật mà bắt **nội dung
 lấp chỗ trống**, thứ mà đọc code không thấy và mở trang cũng dễ bỏ qua.
 
-Việc còn lại là đóng mười chín quy tắc thành mã chạy được trong CI. Cho tới lúc
-đó, ai nạp dữ liệu mồi thì tự đối chiếu bảng ở `12` mục 9 — đừng tin là dữ liệu
-đúng chỉ vì `psql` không báo lỗi.
+Ba điều phải biết khi sửa bộ kiểm:
+
+1. **Nó là MỘT câu lệnh SQL, cố ý.** Tệp chạy ở hai chỗ — `psql` khi làm tay và
+   JDBC trong bài test. JDBC không hiểu `\set` hay `\i`, còn tách nhiều câu lệnh
+   bằng máy là một chỗ để sai. Đừng thêm lệnh meta của `psql` vào.
+2. **Ba quy tắc quét MỌI bảng thay vì liệt kê tên** (16, 17, 18; hai cái đầu và
+   cái cuối chạy truy vấn động bằng `query_to_xml`). Lỗi mà chúng bắt chỉ xảy ra
+   khi ai đó thêm bảng mới và quên một bước, nên một danh sách tên bảng viết tay
+   sẽ bỏ sót đúng cái bảng gây lỗi.
+3. **Xanh không chứng minh gì nếu truy vấn gõ sai.** Cách kiểm: phá đúng một dòng
+   dữ liệu trong một transaction rồi `ROLLBACK` — cả 23 quy tắc đã được thử như
+   thế một lần, và `KiemNhatQuanIT` giữ lại phép thử ấy cho quy tắc 23.
+
+Quy tắc **13 vẫn CẢNH BÁO có chủ ý** (48 ngày khởi hành thiếu giá `CHILD` và
+`INFANT`) — nó chờ **Q-2**. Nâng lên `LOI` khi Q-2 xong; bài test sẽ đỏ nếu nó tự
+nhiên sạch, để không ai lặng lẽ mất một quy tắc.
 
 ### 6.5. `pnpm i18n:check` không bắt được khoá thiếu ở CẢ HAI ngôn ngữ
 

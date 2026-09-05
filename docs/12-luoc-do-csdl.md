@@ -1154,6 +1154,21 @@ và bịa một cột giá trẻ em là bịa một con số nghiệp vụ. Đi�
 Tương đương `npm run validate-data` của bản demo — thứ mà tài liệu gọi là "hàng
 rào chính". Chạy trong CI và chạy được tay trên bất kỳ môi trường nào.
 
+**Đã có mã** (05/09/2026): `api/scripts/kiem-nhat-quan.sql`, một câu lệnh SQL
+duy nhất trả về danh sách vi phạm — không kết quả nghĩa là sạch.
+
+```bash
+psql "$DB_URL" -f api/scripts/kiem-nhat-quan.sql     # chạy tay, nhìn bằng mắt
+cd api && ./gradlew test --tests "*KiemNhatQuanIT*"  # cổng thật trong CI
+```
+
+`KiemNhatQuanIT` nạp `seed-dev.sql` **hai lần** bằng `psql` thật rồi chạy bộ
+kiểm, nên nó bắt cả ba thứ trong một bài: tệp mồi chạy được, tệp mồi **chạy lại
+được**, và dữ liệu nó tạo ra thoả mọi quy tắc.
+
+Hai mức. `LOI` làm CI đỏ; `CANH_BAO` thì không — dành cho thứ đúng-nhưng-sắp-hỏng
+(quy tắc 14) và cho quy tắc đang chờ một quyết định nghiệp vụ (quy tắc 13).
+
 | # | Quy tắc | Bắt được gì |
 |---|---|---|
 | 1 | Mọi `product` có đúng một dòng bảng con khớp `product_type` | Lỗ hổng đã nêu ở 4.2 |
@@ -1178,6 +1193,7 @@ rào chính". Chạy trong CI và chạy được tay trên bất kỳ môi trư
 | 20 | Không `media_asset` nào đang được dùng mà `licence_until` đã qua | Giấy phép ảnh hết hạn mà ảnh vẫn nằm trên web — `24` mục 8 |
 | 21 | Không `slug_history.old_slug` nào trùng slug đang dùng của cùng `(entity_type, locale)` | Vòng lặp chuyển hướng 301 |
 | 22 | Mọi `booking` đã `CONFIRMED` có số dòng `booking_passenger` bằng số khách của đơn | Đơn xác nhận mà thiếu tên người đi |
+| 23 | Mọi `departure` của sản phẩm **không phải `DAY_TOUR`** có dòng `departure_price` với `occupancy = 'SINGLE'`, và giá ấy **cao hơn** giá `DOUBLE` cùng loại khách | Khách đi một mình trả giá chia đôi phòng |
 
 Quy tắc 5, 6, 7, 8 và 15 là loại mà `tsc` và ràng buộc CSDL **không** bắt được —
 đúng như bài học của bản demo.
@@ -1185,6 +1201,27 @@ Quy tắc 5, 6, 7, 8 và 15 là loại mà `tsc` và ràng buộc CSDL **không*
 Quy tắc 17 và 19 sinh ra vì xoá mềm: cả hai lỗi đều **không** làm gãy gì, chỉ làm
 dữ liệu sai âm thầm. Quy tắc 19 đắt nhất bảng vì phải quét chéo nhiều bảng — chạy
 hằng đêm trong CI, không chạy ở mỗi lần build.
+
+**Quy tắc 23** là quy tắc duy nhất được cưỡng chế ở **ba** chỗ, và lý do đáng
+đọc: nó là quy tắc mất tiền, không phải quy tắc dữ liệu xấu. Phụ thu phòng đơn
+tính bằng `giá phòng đơn − giá phòng đôi`; thiếu dòng `SINGLE` thì hiệu ấy không
+tính được, mã cũ trả 0, và khách đi **một mình** đặt được nguyên chuyến ở giá
+chia đôi phòng. Không có gì gãy, không có lỗi nào ghi ra, và chênh lệch chỉ lộ
+ra khi kế toán đối soát với khách sạn — sau khi khách đã đi.
+
+| Chặn ở đâu | Khi nào | Mã lỗi |
+|---|---|---|
+| `PUT /admin/departures/{id}/prices` | Lưu bảng giá thiếu dòng `SINGLE`, hoặc dòng ấy không cao hơn `DOUBLE` | `409 SINGLE_PRICE_MISSING` |
+| `PUT /admin/products/{id}/markets/{market}` | **Bật** bán khi còn ngày khởi hành thiếu | `409 SINGLE_PRICE_MISSING` |
+| Đường tính giá cho khách | `singleTravellers > 0` mà ngày ấy không có giá phòng đơn | `409 SINGLE_PRICE_MISSING` |
+
+Chỗ chặn **sớm nhất** là màn hình bảng giá, không phải công tắc mở bán: quy trình
+của `22` mục 5 bật bán ở bước 6 rồi mới nhập ngày khởi hành ở bước 7, nên lúc bấm
+công tắc thường chưa có ngày nào để kiểm.
+
+Máy chủ **không đoán** giữa "chuyến này không bán phòng đơn" và "quên nhập giá":
+hai thứ để lại đúng cùng một dấu vết trong CSDL. Muốn nói "không bán phòng đơn"
+thì phải nói bằng một trường riêng — thứ chưa có, và chưa ai cần tới.
 
 ---
 

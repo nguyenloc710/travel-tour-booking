@@ -12,7 +12,7 @@ Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, Postgr
 > không cần lập trình viên**: đăng nhập, ma trận quyền, bản dịch, CRUD sản phẩm,
 > gán thị trường, ngày khởi hành, bảng giá, vận hành đơn (`docs/22` M6, M7), báo
 > giá (M8), nội dung khác (M13 — điểm đến, bài viết, sự kiện) và người dùng
-> (M14). 276 test xanh.
+> (M14). 286 test xanh, gồm bộ kiểm nhất quán dữ liệu của `docs/12` mục 9.
 > Chưa có: huỷ **hàng loạt** theo ngày khởi hành (`docs/14` mục 6.6), sinh
 > `Booking` từ báo giá đã chấp nhận (**Q-3**), M9 yêu cầu tư vấn (thiếu bảng
 > `lead`), giới hạn số lần gọi, media (**Q-6**), thanh toán (**Q-3**).
@@ -68,6 +68,10 @@ không còn `archTest` canh, nên đây là việc của người rà soát mã.
 
 docker compose up -d       # Postgres 16, có ICU và contrib
 psql postgresql://travel:travel@localhost:5432/travel -f scripts/seed-dev.sql
+
+# 23 quy tắc nhất quán dữ liệu của docs/12 mục 9 — không kết quả nghĩa là sạch
+psql postgresql://travel:travel@localhost:5432/travel -f scripts/kiem-nhat-quan.sql
+./gradlew test --tests "*KiemNhatQuanIT*"   # cùng bộ kiểm đó, chạy trong CI
 ```
 
 **Gradle phải chạy trên JDK 17 trở lên** (Spring Boot 4). Mã nguồn biên dịch

@@ -15,6 +15,10 @@ Gồm website khách, API và trang quản trị.
 > tải bằng `python scripts/tai-anh-mau.py` (cần mạng một lần; giấy phép ghi ở
 > `web/apps/site/public/img/NGUON.md`).
 >
+> **Sửa dữ liệu mồi thì chạy bộ kiểm nhất quán** — `api/scripts/kiem-nhat-quan.sql`,
+> 23 quy tắc của `docs/12` mục 9. Nó bắt loại lỗi mà `psql` báo xanh: lịch trình
+> thủng ngày, giá phẳng, ngày khởi hành thiếu giá phòng đơn.
+>
 > **Cần JDK 21 và pnpm.** `JAVA_HOME` trỏ JDK cũ thì đặt `org.gradle.java.home`
 > trong `~/.gradle/gradle.properties`; pnpm bật bằng `corepack enable pnpm`.
 >
@@ -86,6 +90,9 @@ docs/                   Bộ tài liệu
 
 ```bash
 docker compose up -d              # Postgres, có sẵn unaccent và pg_trgm
+
+psql "$DB_URL" -f api/scripts/seed-dev.sql          # dữ liệu mồi, chạy lại được
+psql "$DB_URL" -f api/scripts/kiem-nhat-quan.sql    # 23 quy tắc của docs/12 mục 9
 
 # api/
 ./gradlew build                   # biên dịch + test

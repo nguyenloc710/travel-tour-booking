@@ -167,6 +167,7 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 | `CAPACITY_BELOW_BOOKED` | 409 | Hạ sức chứa xuống dưới số chỗ đã bán |
 | `BOOKING_TRANSITION_NOT_ALLOWED` | 409 | Bước chuyển không có trong máy trạng thái (`23` mục 4). Kèm `from` và `to` |
 | `PRODUCT_HAS_ACTIVE_BOOKINGS` | 409 | Xoá sản phẩm còn đơn chưa kết thúc |
+| `SINGLE_PRICE_MISSING` | 409 | Ngày khởi hành có lưu trú mà thiếu giá phòng đơn, hoặc giá ấy không cao hơn giá phòng đôi. Chặn ở bảng giá, ở công tắc mở bán, và ở đường tính giá cho khách đi một mình |
 | `DESTINATION_IN_USE` | 409 | Xoá điểm đến còn sản phẩm trỏ tới |
 | `LAST_ADMIN` | 409 | Tắt hoặc gỡ vai trò của `ADMIN` đang bật cuối cùng |
 | `PAYMENT_FAILED` | 402 | Cổng thanh toán từ chối |
