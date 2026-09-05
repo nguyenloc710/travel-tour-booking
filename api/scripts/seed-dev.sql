@@ -268,7 +268,8 @@ INSERT INTO departure (id, product_id, market, depart_date, return_date, days,
    'b0000000-0000-4000-8000-000000000001'),
   -- Cùng lộ trình, thị trường VN: đoàn KHÁC, khởi hành từ nơi khác. ADR-006.
   ('11110000-0000-4000-8000-000000000005', 'f0000000-0000-4000-8000-000000000001',
-   'VN', DATE '2027-03-14', DATE '2027-03-29', 16, 'OPEN',      30,  4, NULL);
+   'VN', DATE '2027-03-14', DATE '2027-03-29', 16, 'OPEN',      30,  4, NULL)
+ON CONFLICT DO NOTHING;
 
 -- CRUISE: bốn hạng cabin trong CÙNG một ngày — bốn dòng, phân biệt bằng cabin.
 INSERT INTO departure (id, product_id, market, depart_date, return_date, days,
@@ -280,7 +281,8 @@ INSERT INTO departure (id, product_id, market, depart_date, return_date, days,
   ('11110000-0000-4000-8000-000000000013', 'f0000000-0000-4000-8000-000000000002',
    'DK', DATE '2027-03-20', DATE '2027-03-22', 3, 'BALCONY', 'FEW_SEATS', 4, 3),
   ('11110000-0000-4000-8000-000000000014', 'f0000000-0000-4000-8000-000000000002',
-   'DK', DATE '2027-03-20', DATE '2027-03-22', 3, 'AQUA',    'SOLD_OUT', 2, 2);
+   'DK', DATE '2027-03-20', DATE '2027-03-22', 3, 'AQUA',    'SOLD_OUT', 2, 2)
+ON CONFLICT DO NOTHING;
 
 -- Trường hợp rìa thứ tư: một điểm đến ĐÃ XOÁ MỀM. Nó vẫn nằm trong bảng và vẫn
 -- giữ chỗ trong mọi khoá duy nhất không bộ phận — dùng để phát hiện truy vấn nào
@@ -288,11 +290,18 @@ INSERT INTO departure (id, product_id, market, depart_date, return_date, days,
 INSERT INTO destination (id, region_id, code, sort_order, soft_delete, last_modified_by) VALUES
   ('e0000000-0000-4000-8000-000000000099', 'd0000000-0000-4000-8000-000000000003',
    'DA_XOA', 99, TRUE, 'c0000000-0000-4000-8000-000000000001')
-ON CONFLICT (code) WHERE NOT soft_delete DO NOTHING;
+-- KHÔNG nhắc lại index bộ phận ở đây: dòng này `soft_delete = TRUE` nên index ấy
+-- không phủ nó, và xung đột rơi vào khoá chính. Nhắc điều kiện là chạy lần hai đứt.
+ON CONFLICT DO NOTHING;
 
-INSERT INTO destination_translation (destination_id, locale, slug, name, soft_delete) VALUES
-  ('e0000000-0000-4000-8000-000000000099', 'da', 'slug-da-xoa', 'Slettet destination', TRUE),
-  ('e0000000-0000-4000-8000-000000000099', 'vi', 'slug-da-xoa-vi', 'Điểm đến đã xoá', TRUE)
+-- `last_modified_by` bắt buộc ở dòng xoá mềm — quy tắc kiểm 18. Xoá mà không
+-- biết ai xoá thì cột xoá mềm chỉ trả lời được nửa câu hỏi nó sinh ra để trả lời.
+INSERT INTO destination_translation (destination_id, locale, slug, name, soft_delete,
+                                     last_modified_by) VALUES
+  ('e0000000-0000-4000-8000-000000000099', 'da', 'slug-da-xoa', 'Slettet destination', TRUE,
+   'c0000000-0000-4000-8000-000000000001'),
+  ('e0000000-0000-4000-8000-000000000099', 'vi', 'slug-da-xoa-vi', 'Điểm đến đã xoá', TRUE,
+   'c0000000-0000-4000-8000-000000000001')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, currency) VALUES
@@ -305,6 +314,14 @@ INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, curre
    'DOUBLE', 25990.00, 'DKK'),
   ('11110000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000001',
    'DOUBLE', 25990.00, 'DKK'),
+
+  -- Ngày 09/05 trước đây KHÔNG có dòng giá nào. Nó `SOLD_OUT` nên không ai đặt
+  -- được, nhưng bảng ngày khởi hành ở trang chi tiết vẫn hiện nó — với ô giá
+  -- trống. Một ngày không có giá là dữ liệu thiếu, không phải trạng thái bán.
+  ('11110000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
+   'DOUBLE', 26990.00, 'DKK'),
+  ('11110000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000001',
+   'SINGLE', 32390.00, 'DKK'),
 
   -- P1 thị trường VN: SỐ KHÁC HẲN, không phải 24990 nhân tỷ giá. Tour bán cho
   -- khách Đan gồm vé bay quốc tế, bán cho khách Việt thì không — CLAUDE.md điều 4.
@@ -321,7 +338,8 @@ INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, curre
   ('11110000-0000-4000-8000-000000000013', 'a0000000-0000-4000-8000-000000000001',
    'DOUBLE', 9990.00, 'DKK'),
   ('11110000-0000-4000-8000-000000000014', 'a0000000-0000-4000-8000-000000000001',
-   'DOUBLE', 12990.00, 'DKK');
+   'DOUBLE', 12990.00, 'DKK')
+ON CONFLICT DO NOTHING;
 
 -- --------------------------------------------------- bài viết, thẻ, sự kiện
 --
@@ -1420,9 +1438,8 @@ ON CONFLICT DO NOTHING;
 -- Giá. `price_from` KHÔNG đặt tay — trigger của V5 tính lại sau mỗi dòng dưới
 -- đây, lấy min() của khách ADULT ở phòng đôi.
 --
--- Cột phụ thu phòng đơn có mặt ở vài dòng chứ không phải mọi dòng: giá từ chỉ
--- đọc dòng DOUBLE, và một bộ dữ liệu mà dòng SINGLE luôn tồn tại sẽ không bao
--- giờ phát hiện được truy vấn nào quên lọc occupancy.
+-- Dòng SINGLE của khối này chỉ có ở vài ngày, và phần còn lại được bù ở khối
+-- "giá phòng đơn" cuối mục — đọc chú thích ở đó trước khi thêm ngày mới.
 INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, currency) VALUES
   ('11110000-0000-4000-8000-000000000401', 'a0000000-0000-4000-8000-000000000001', 'DOUBLE', 21990.00, 'DKK'),
   ('11110000-0000-4000-8000-000000000401', 'a0000000-0000-4000-8000-000000000001', 'SINGLE', 25990.00, 'DKK'),
@@ -1476,6 +1493,90 @@ INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, curre
   ('11110000-0000-4000-8000-000000001202', 'a0000000-0000-4000-8000-000000000001', 'DOUBLE',   690.00, 'DKK'),
   ('11110000-0000-4000-8000-000000001203', 'a0000000-0000-4000-8000-000000000001', 'DOUBLE',   745.00, 'DKK'),
   ('11110000-0000-4000-8000-000000001204', 'a0000000-0000-4000-8000-000000000004', 'DOUBLE',  1190000, 'VND')
+ON CONFLICT DO NOTHING;
+
+-- ------------------------------------------------- giá phòng đơn (occupancy SINGLE)
+--
+-- **Mọi ngày khởi hành của sản phẩm có lưu trú qua đêm phải có dòng này** — quy
+-- tắc kiểm 23 của `12` mục 9, và `api/scripts/kiem-nhat-quan.sql` bắt được nếu
+-- thiếu.
+--
+-- Vì sao nó thành một quy tắc: thiếu dòng SINGLE thì không có gì hỏng và không
+-- có lỗi nào ghi ra. Máy tính giá lấy `giá phòng đơn − giá phòng đôi`, không
+-- tìm thấy dòng nào thì phụ thu bằng 0, và khách đi MỘT MÌNH đặt được nguyên
+-- chuyến ở giá chia đôi phòng. Chênh lệch chỉ lộ ra khi kế toán đối soát với
+-- khách sạn, tức là sau khi khách đã đi.
+--
+-- Trước đợt này chỉ 4/40 ngày có dòng SINGLE. Chú thích cũ biện hộ rằng để
+-- thưa thì mới phát hiện được truy vấn nào quên lọc `occupancy` — lý do ấy
+-- **sai theo cả hai chiều**:
+--
+--   * Nó không bảo vệ được gì: `price_from` lấy `MIN()`, mà giá phòng đơn luôn
+--     cao hơn giá phòng đôi, nên bỏ bộ lọc `occupancy` ra thì `MIN()` vẫn rơi
+--     đúng vào dòng DOUBLE. Quên lọc ở đó là quên lặng lẽ, có hay không có dòng
+--     SINGLE cũng vậy.
+--   * Nó lại che mất chỗ mà bộ lọc thực sự quan trọng:
+--     `BookingPricingRepository.giaTheoLoaiKhach` dựng bảng giá theo loại
+--     khách. Bỏ bộ lọc ở đó là hai dòng cùng đè lên một khoá và giá cơ bản nhảy
+--     lên mức phòng đơn. Nay mỗi ngày có đủ hai dòng nên lỗi ấy làm sai tổng
+--     tiền của gần như mọi bài test — tức là lộ ra ngay.
+--
+-- `DAY_TOUR` **không** có dòng SINGLE, và đó không phải thiếu sót: tour trong
+-- ngày không có đêm nào để ở phòng, nên phụ thu phòng đơn không có nghĩa. Quy
+-- tắc 23 loại chúng ra bằng `product_type`, và đó cũng là chỗ giữ lại trường
+-- hợp rìa "sản phẩm không có giá phòng đơn" cho đường đọc.
+--
+-- Phụ thu +20% cho tour và gói lẻ, +55% cho du thuyền: một mình một cabin là
+-- mất nguyên chỗ thứ hai chứ không chỉ mất phần chia đôi tiền phòng.
+INSERT INTO departure_price (departure_id, pax_type_id, occupancy, amount, currency) VALUES
+  -- COMBO DK
+  ('11110000-0000-4000-8000-000000000801', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    19190.00, 'DKK'),  -- 16/01/2027 15990.00 -> 19190 (+20%)
+  ('11110000-0000-4000-8000-000000000802', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    20390.00, 'DKK'),  -- 13/03/2027 16990.00 -> 20390 (+20%)
+  ('11110000-0000-4000-8000-000000000803', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    17990.00, 'DKK'),  -- 09/10/2027 14990.00 -> 17990 (+20%)
+
+  -- COMBO VN
+  ('11110000-0000-4000-8000-000000000804', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    13400000, 'VND'),  -- 13/03/2027 11200000.00 -> 13400000 (+20%)
+
+  -- CRUISE DK
+  ('11110000-0000-4000-8000-000000000701', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    14690.00, 'DKK'),  -- 20/02/2027 INSIDE 9490.00 -> 14690 (+55%)
+  ('11110000-0000-4000-8000-000000000702', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    17790.00, 'DKK'),  -- 20/02/2027 OUTSIDE 11490.00 -> 17790 (+55%)
+  ('11110000-0000-4000-8000-000000000703', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    22090.00, 'DKK'),  -- 20/02/2027 BALCONY 14290.00 -> 22090 (+55%)
+  ('11110000-0000-4000-8000-00000000070a', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    29390.00, 'DKK'),  -- 20/02/2027 AQUA 18990.00 -> 29390 (+55%)
+  ('11110000-0000-4000-8000-000000000011', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    10090.00, 'DKK'),  -- 20/03/2027 INSIDE 6490.00 -> 10090 (+55%)
+  ('11110000-0000-4000-8000-000000000012', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    12390.00, 'DKK'),  -- 20/03/2027 OUTSIDE 7990.00 -> 12390 (+55%)
+  ('11110000-0000-4000-8000-000000000013', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    15490.00, 'DKK'),  -- 20/03/2027 BALCONY 9990.00 -> 15490 (+55%)
+  ('11110000-0000-4000-8000-000000000014', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    20090.00, 'DKK'),  -- 20/03/2027 AQUA 12990.00 -> 20090 (+55%)
+  ('11110000-0000-4000-8000-000000000704', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    13890.00, 'DKK'),  -- 13/11/2027 INSIDE 8990.00 -> 13890 (+55%)
+  ('11110000-0000-4000-8000-000000000705', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    16990.00, 'DKK'),  -- 13/11/2027 OUTSIDE 10990.00 -> 16990 (+55%)
+  ('11110000-0000-4000-8000-00000000070b', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    20890.00, 'DKK'),  -- 13/11/2027 BALCONY 13490.00 -> 20890 (+55%)
+  ('11110000-0000-4000-8000-00000000070c', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    27090.00, 'DKK'),  -- 13/11/2027 AQUA 17490.00 -> 27090 (+55%)
+
+  -- CRUISE VN
+  ('11110000-0000-4000-8000-000000000706', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    15200000, 'VND'),  -- 20/02/2027 INSIDE 9800000.00 -> 15200000 (+55%)
+  ('11110000-0000-4000-8000-00000000070d', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    18400000, 'VND'),  -- 20/02/2027 OUTSIDE 11900000.00 -> 18400000 (+55%)
+  ('11110000-0000-4000-8000-00000000070e', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    22900000, 'VND'),  -- 20/02/2027 BALCONY 14800000.00 -> 22900000 (+55%)
+  ('11110000-0000-4000-8000-00000000070f', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    30200000, 'VND'),  -- 20/02/2027 AQUA 19500000.00 -> 30200000 (+55%)
+
+  -- GROUP_TOUR DK
+  ('11110000-0000-4000-8000-000000001102', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    33590.00, 'DKK'),  -- 20/03/2027 27990.00 -> 33590 (+20%)
+  ('11110000-0000-4000-8000-000000000402', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    28190.00, 'DKK'),  -- 03/04/2027 23490.00 -> 28190 (+20%)
+  ('11110000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    31190.00, 'DKK'),  -- 11/04/2027 25990.00 -> 31190 (+20%)
+  ('11110000-0000-4000-8000-000000000502', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    22790.00, 'DKK'),  -- 15/05/2027 18990.00 -> 22790 (+20%)
+  ('11110000-0000-4000-8000-000000000004', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    31190.00, 'DKK'),  -- 06/06/2027 25990.00 -> 31190 (+20%)
+  ('11110000-0000-4000-8000-000000000403', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    26990.00, 'DKK'),  -- 11/09/2027 22490.00 -> 26990 (+20%)
+  ('11110000-0000-4000-8000-000000001103', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    31190.00, 'DKK'),  -- 02/10/2027 25990.00 -> 31190 (+20%)
+  ('11110000-0000-4000-8000-000000000404', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    25190.00, 'DKK'),  -- 16/10/2027 20990.00 -> 25190 (+20%)
+  ('11110000-0000-4000-8000-000000000503', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    20390.00, 'DKK'),  -- 06/11/2027 16990.00 -> 20390 (+20%)
+
+  -- GROUP_TOUR VN
+  ('11110000-0000-4000-8000-000000000005', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    22700000, 'VND'),  -- 14/03/2027 18900000.00 -> 22700000 (+20%)
+  ('11110000-0000-4000-8000-000000001104', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    20300000, 'VND'),  -- 20/03/2027 16900000.00 -> 20300000 (+20%)
+  ('11110000-0000-4000-8000-000000000405', 'a0000000-0000-4000-8000-000000000004', 'SINGLE',    17400000, 'VND'),  -- 03/04/2027 14500000.00 -> 17400000 (+20%)
+
+  -- INDIVIDUAL_PACKAGE DK
+  ('11110000-0000-4000-8000-000000001001', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    16790.00, 'DKK'),  -- 13/02/2027 13990.00 -> 16790 (+20%)
+  ('11110000-0000-4000-8000-000000001002', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    17990.00, 'DKK'),  -- 17/04/2027 14990.00 -> 17990 (+20%)
+  ('11110000-0000-4000-8000-000000001003', 'a0000000-0000-4000-8000-000000000001', 'SINGLE',    15590.00, 'DKK')   -- 20/11/2027 12990.00 -> 15590 (+20%)
 ON CONFLICT DO NOTHING;
 
 -- ==========================================================================
