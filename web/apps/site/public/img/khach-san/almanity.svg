@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img">
+<defs>
+<linearGradient id="troi-hoian-pho" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#2a1f3d"/><stop offset="1" stop-color="#b5563f"/>
+</linearGradient>
+<linearGradient id="nuoc-hoian-pho" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#7a4038"/><stop offset="1" stop-color="#2a1f3d"/>
+</linearGradient>
+</defs>
+<rect width="1200" height="800" fill="url(#troi-hoian-pho)"/>
+<circle cx="336" cy="240" r="66" fill="#ffc861" opacity="0.9"/>
+<rect x="0" y="384" width="82.7143" height="416" fill="#402a45" opacity="0.88"/>
+<rect x="25.7143" y="404" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="85.7143" y="272" width="82.7143" height="528" fill="#241a2e" opacity="0.88"/>
+<rect x="111.429" y="344" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="171.429" y="448" width="82.7143" height="352" fill="#402a45" opacity="0.88"/>
+<rect x="197.143" y="494" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="257.143" y="320" width="82.7143" height="480" fill="#241a2e" opacity="0.88"/>
+<rect x="282.857" y="340" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="342.857" y="416" width="82.7143" height="384" fill="#402a45" opacity="0.88"/>
+<rect x="428.571" y="240" width="82.7143" height="560" fill="#241a2e" opacity="0.88"/>
+<rect x="454.286" y="286" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="514.286" y="464" width="82.7143" height="336" fill="#402a45" opacity="0.88"/>
+<rect x="540" y="484" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="600" y="352" width="82.7143" height="448" fill="#241a2e" opacity="0.88"/>
+<rect x="625.714" y="424" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="685.714" y="288" width="82.7143" height="512" fill="#402a45" opacity="0.88"/>
+<rect x="711.429" y="334" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="771.429" y="432" width="82.7143" height="368" fill="#241a2e" opacity="0.88"/>
+<rect x="797.143" y="452" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="857.143" y="336" width="82.7143" height="464" fill="#402a45" opacity="0.88"/>
+<rect x="882.857" y="408" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="942.857" y="400" width="82.7143" height="400" fill="#241a2e" opacity="0.88"/>
+<rect x="968.571" y="446" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="1028.57" y="256" width="82.7143" height="544" fill="#402a45" opacity="0.88"/>
+<rect x="1054.29" y="276" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="1054.29" y="354" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<rect x="1114.29" y="368" width="82.7143" height="432" fill="#241a2e" opacity="0.88"/>
+<rect x="1140" y="440" width="10" height="14" fill="#ffc861" opacity="0.65"/>
+<circle cx="96" cy="128" r="9" fill="#ffc861" opacity="0.8"/>
+<circle cx="300" cy="168" r="9" fill="#ffc861" opacity="0.8"/>
+<circle cx="504" cy="208" r="9" fill="#ffc861" opacity="0.8"/>
+<circle cx="708" cy="128" r="9" fill="#ffc861" opacity="0.8"/>
+<circle cx="912" cy="168" r="9" fill="#ffc861" opacity="0.8"/>
+<circle cx="1116" cy="208" r="9" fill="#ffc861" opacity="0.8"/>
+<linearGradient id="phu-hoian-pho" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.45"/></linearGradient>
+<rect y="440" width="1200" height="360" fill="url(#phu-hoian-pho)"/>
+</svg>

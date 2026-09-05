@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img">
+<defs>
+<linearGradient id="troi-phuquoc-vinh" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#0f3a4a"/><stop offset="1" stop-color="#4fb3c4"/>
+</linearGradient>
+<linearGradient id="nuoc-phuquoc-vinh" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#2f8f9e"/><stop offset="1" stop-color="#0f3a4a"/>
+</linearGradient>
+</defs>
+<rect width="1200" height="800" fill="url(#troi-phuquoc-vinh)"/>
+<circle cx="336" cy="240" r="66" fill="#ffd97a" opacity="0.9"/>
+<polygon points="96,544 128.4,304 173.76,337.6 204,544" fill="#0d3038" opacity="0.92"/>
+<polygon points="264,544 289.2,208 324.48,255.04 348,544" fill="#1c5a63" opacity="0.92"/>
+<polygon points="480,544 519.6,336 575.04,365.12 612,544" fill="#0d3038" opacity="0.92"/>
+<polygon points="696,544 724.8,240 765.12,282.56 792,544" fill="#1c5a63" opacity="0.92"/>
+<polygon points="912,544 948,352 998.4,378.88 1032,544" fill="#0d3038" opacity="0.92"/>
+<polygon points="1080,544 1105.2,272 1140.48,310.08 1164,544" fill="#1c5a63" opacity="0.92"/>
+<rect y="544" width="1200" height="256" fill="url(#nuoc-phuquoc-vinh)"/>
+<g opacity="0.22" transform="translate(0,1088) scale(1,-0.45)">
+<polygon points="96,544 150,304 204,544" fill="#0d3038"/>
+<polygon points="480,544 546,336 612,544" fill="#0d3038"/>
+<polygon points="912,544 972,352 1032,544" fill="#0d3038"/>
+</g>
+<linearGradient id="phu-phuquoc-vinh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.45"/></linearGradient>
+<rect y="440" width="1200" height="360" fill="url(#phu-phuquoc-vinh)"/>
+</svg>

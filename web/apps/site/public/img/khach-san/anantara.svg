@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img">
+<defs>
+<linearGradient id="troi-hue-nui" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#33283a"/><stop offset="1" stop-color="#9c7a5c"/>
+</linearGradient>
+<linearGradient id="nuoc-hue-nui" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#6b5548"/><stop offset="1" stop-color="#33283a"/>
+</linearGradient>
+</defs>
+<rect width="1200" height="800" fill="url(#troi-hue-nui)"/>
+<circle cx="864" cy="240" r="66" fill="#dfb072" opacity="0.9"/>
+<polygon points="0,416 120,352 312,240 528,376 744,272 984,400 1200,320 1200,416 1200,800 0,800" fill="#4a3a42" opacity="0.75"/>
+<polygon points="0,544 168,480 408,384 660,496 936,416 1200,512 1200,544 1200,800 0,800" fill="#282029"/>
+<rect y="592" width="1200" height="208" fill="url(#nuoc-hue-nui)"/>
+<linearGradient id="phu-hue-nui" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.45"/></linearGradient>
+<rect y="440" width="1200" height="360" fill="url(#phu-hue-nui)"/>
+</svg>

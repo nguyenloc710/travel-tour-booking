@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 01/09/2026
+Cập nhật: 05/09/2026
 Nguồn sự thật về: giọng văn hai ngôn ngữ, cách viết từng trường nội dung, quy tắc
                   dịch, tiêu chuẩn ảnh, cách viết alt text, bản quyền và giấy phép.
 Không nói về: quy trình dịch và trạng thái bản dịch (02 mục 8), màn hình dịch của
@@ -186,6 +186,27 @@ sách chặng trong nội dung.
 | Tên file | Không dấu, có nội dung: `sapa-ruong-bac-thang-01.jpg`, không `IMG_4821.jpg` |
 
 Ảnh dọc **không** dùng làm hero: nó vỡ bố cục ở mọi bề rộng màn hình.
+
+### 7.1b. Ảnh mẫu cho môi trường dev
+
+`scripts/sinh-anh-mau.py` sinh 35 tệp SVG vào `web/apps/site/public/img/`. Chúng
+**không phải ảnh của sản phẩm** — chỉ là hình khối phẳng đủ để mắt đọc ra "đây
+là một tấm ảnh phong cảnh".
+
+Vì sao cần: dữ liệu mồi trỏ tới `/img/…` từ ngày đầu nhưng chưa bao giờ có tệp
+thật nào ở đó, nên mọi thẻ đều hiện khung vỡ. Ảnh vỡ còn **che mất lỗi bố cục**:
+một thẻ có ảnh cao 320px xếp khác hẳn một thẻ có ảnh cao 0px.
+
+Hai điều chúng phải giữ, và ảnh thật cũng phải giữ:
+
+- **tỷ lệ 3:2** — thẻ và khối mở đầu đều dựng theo tỷ lệ đó, ảnh khác tỷ lệ bị
+  `object-fit: cover` cắt hai đầu
+- **vùng tối ở đáy** — chỗ chữ trắng đè lên. `21` mục 5.0.b lặp lại lớp phủ này
+  ở CSS đúng vì ảnh thật sẽ không có nó
+
+Có ảnh thật thì xoá cả thư mục đi. Chúng là SVG, không phải JPEG, nên chúng
+**không** thoả mục 7.1 — đó là chủ ý, và cũng là lý do không được đẩy lên đâu
+ngoài máy dev.
 
 ### 7.2. Ảnh chụp cái gì
 
