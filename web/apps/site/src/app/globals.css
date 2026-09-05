@@ -1,25 +1,72 @@
 /*
- * Nền tạm cho scaffolding. Design system thật nằm ở docs/21 — chưa viết.
+ * Hệ thống thiết kế của site khách — token lấy nguyên từ docs/21.
  *
- * Ràng buộc đã áp dụng ngay từ đây (web/CLAUDE.md mục 6, khách là người lớn
- * tuổi Bắc Âu — không phải mô tả cho vui mà là ràng buộc thiết kế):
+ * Trước đây file này mở đầu bằng "nền tạm cho scaffolding, design system thật
+ * nằm ở docs/21 — chưa viết". docs/21 nay đã viết xong, nên đây là bản áp
+ * dụng nó: mọi con số dưới đây có một dòng tương ứng trong tài liệu, và chỗ nào
+ * lệch thì tài liệu đúng.
+ *
+ * Ràng buộc gốc — docs/21 mục 1, và nó là lý do tồn tại của mọi con số ở đây:
+ * khách chính là **người Đan Mạch lớn tuổi**, đọc trên màn hình cũ đặt ở phòng
+ * sáng, và quyết định mua sau khi gọi điện.
  *   · cỡ chữ thân bài tối thiểu 16px, dòng giãn 1.6
  *   · vùng chạm tối thiểu 44×44px
+ *   · tương phản WCAG AA, và bảng màu này chọn đậm hơn mức tối thiểu
  *   · không dùng hover làm điều kiện duy nhất để lộ thông tin
+ *   · màu không bao giờ là phương tiện DUY NHẤT truyền đạt thông tin
  *
- * FONT: bộ font dưới đây phải hiển thị đúng CẢ HAI dòng này. Thử lại mỗi lần
- * đổi font, và thử cả trong file SVG lẫn ảnh có chữ:
+ * FONT: bộ font phải hiển thị đúng CẢ HAI dòng này. Thử lại mỗi lần đổi font,
+ * và thử cả trong file SVG lẫn ảnh có chữ (docs/21 mục 3.1):
  *   Strand og øer på tværs
  *   Điểm cuối · Hội An · Vịnh Hạ Long
  */
 
 :root {
+  /* --- Màu, docs/21 mục 2. Sáu token, không thêm màu ngoài bảng này vào
+     component: cần sắc thái mới thì thêm token, để đổi thương hiệu là đổi vài
+     dòng chứ không phải đi tìm khắp nơi. */
   --mau-chu: #1a1a1a;
   --mau-nen: #ffffff;
   --mau-vien: #d4d4d4;
   --mau-nhan-manh: #1f3a66;
   --mau-canh-bao-nen: #fbf3e4;
   --mau-canh-bao-vien: #b8860b;
+
+  /* Ba sắc thái suy ra từ bảng trên, không phải màu mới: nền dịu cho khối phụ,
+     chữ phụ đạt 7.4:1 trên nền trắng, và bản đậm hơn của màu nhấn cho trạng
+     thái hover. Khai ở đây để chúng cũng đổi theo khi đổi thương hiệu. */
+  --mau-nen-diu: #f6f7f9;
+  --mau-chu-phu: #55565a;
+  --mau-nhan-manh-dam: #16294a;
+
+  /* --- Thang khoảng cách, docs/21 mục 4. Không dùng giá trị ngoài thang. */
+  --k1: 0.25rem;
+  --k2: 0.5rem;
+  --k3: 0.75rem;
+  --k4: 1rem;
+  --k6: 1.5rem;
+  --k8: 2rem;
+  --k12: 3rem;
+
+  /* --- Thang chữ, docs/21 mục 3.2. `--chu-than` là SÀN TUYỆT ĐỐI. */
+  --chu-than: 1rem;
+  --chu-phu: 0.875rem;
+  --chu-the: 1.25rem;
+  --chu-muc: 1.5rem;
+  --chu-trang: 2rem;
+
+  /* --- Bề rộng. `--cot-chu` là giới hạn của cột chữ chạy dài: dài hơn thì mắt
+     lạc dòng khi xuống dòng, và đó là vấn đề nặng hơn với người lớn tuổi.
+     `--khung` là điểm ngắt "rộng" — nội dung không tràn hết màn hình. */
+  --cot-chu: 46rem;
+  --khung: 72rem;
+
+  /* Vùng chạm tối thiểu. Con số này xuất hiện ở mọi nút, ô nhập và liên kết
+     dạng nút — đặt tên để không ai gõ 44px rồi người sau tưởng là số tuỳ ý. */
+  --cham: 44px;
+
+  --bo-goc: 8px;
+  --bo-goc-nho: 6px;
 }
 
 * {
@@ -29,61 +76,174 @@
 body {
   margin: 0;
   font-family: 'Segoe UI', 'Noto Sans', system-ui, -apple-system, sans-serif;
-  font-size: 1rem; /* 16px tối thiểu */
+  font-size: var(--chu-than);
   line-height: 1.6;
   color: var(--mau-chu);
   background: var(--mau-nen);
+}
+
+/* Cấp tiêu đề đi LIÊN TỤC, không nhảy cấp để lấy cỡ chữ — cỡ chữ là việc của
+   CSS, cấp tiêu đề là cấu trúc mà trình đọc màn hình dùng để điều hướng. */
+h1 {
+  font-size: var(--chu-trang);
+  line-height: 1.25;
+  margin: 0 0 var(--k4);
+}
+
+h2 {
+  font-size: var(--chu-muc);
+  line-height: 1.3;
+  margin: var(--k8) 0 var(--k3);
+}
+
+h3 {
+  font-size: var(--chu-the);
+  line-height: 1.35;
+  margin: var(--k6) 0 var(--k2);
+}
+
+p {
+  margin: 0 0 var(--k4);
 }
 
 a {
   color: var(--mau-nhan-manh);
 }
 
+a:hover {
+  color: var(--mau-nhan-manh-dam);
+}
+
+/* Viền focus thấy rõ ở MỌI thành phần tương tác. Đây là thứ đầu tiên bị gỡ đi
+   trong các bản "làm cho đẹp", và là thứ người dùng bàn phím mất lối nếu thiếu. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--mau-nhan-manh);
+  outline-offset: 2px;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ===================================================== Khung trang */
+
 .skip-link {
   position: absolute;
   left: -9999px;
 }
+
 .skip-link:focus {
-  left: 1rem;
-  top: 1rem;
-  padding: 0.75rem 1rem;
+  left: var(--k4);
+  top: var(--k4);
+  z-index: 20;
+  padding: var(--k3) var(--k4);
   background: var(--mau-nen);
   border: 2px solid var(--mau-nhan-manh);
+  border-radius: var(--bo-goc-nho);
 }
 
 .site-header {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--mau-vien);
+  gap: var(--k4);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k4) var(--k6);
 }
+
 .site-header__name {
   margin: 0;
+  font-size: var(--chu-the);
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
+
+/* Số điện thoại và giờ mở cửa hiện THƯỜNG TRỰC — khách lớn tuổi Bắc Âu gọi
+   điện nhiều hơn điền form (web/CLAUDE.md mục 6). Số to hơn thân bài vì nó là
+   lời kêu gọi hành động thật của trang này. */
 .site-header__contact {
-  margin: 0;
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k2) var(--k4);
+  margin: 0;
 }
+
 .site-header__contact a {
-  min-height: 44px;
   display: inline-flex;
   align-items: center;
+  min-height: var(--cham);
+  font-size: var(--chu-the);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-header__contact a:hover {
+  text-decoration: underline;
+}
+
+.site-header__contact span {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+.site-nav {
+  border-top: 1px solid var(--mau-vien);
+  border-bottom: 1px solid var(--mau-vien);
+  background: var(--mau-nen);
+}
+
+.site-nav__trong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--k6);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: 0 var(--k6);
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  padding: var(--k2) 0;
+  border-bottom: 3px solid transparent;
+  color: var(--mau-chu);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  border-bottom-color: var(--mau-vien);
+}
+
+/* Trang đang xem đánh dấu bằng CẢ gạch chân lẫn `aria-current` — màu và đường
+   kẻ không bao giờ là phương tiện duy nhất (docs/21 mục 2 quy tắc 2). */
+.site-nav a[aria-current='page'] {
+  border-bottom-color: var(--mau-nhan-manh);
+  color: var(--mau-nhan-manh);
 }
 
 .market-banner {
   margin: 0;
-  padding: 0.75rem 1.5rem;
+  padding: var(--k3) var(--k6);
   background: var(--mau-canh-bao-nen);
   border-bottom: 2px solid var(--mau-canh-bao-vien);
 }
 
 main {
-  padding: 1.5rem;
-  max-width: 48rem;
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k8) var(--k6) var(--k12);
+}
+
+/* Cột chữ chạy dài giới hạn ở 46rem, docs/21 mục 3.2. Chỉ áp cho khối văn bản,
+   không áp cho lưới thẻ — lưới thì càng rộng càng dùng được màn hình. */
+.cot-chu {
+  max-width: var(--cot-chu);
 }
 
 .region-list {
@@ -698,4 +858,545 @@ main {
   .lien-he dd {
     margin-bottom: 0.8rem;
   }
+}
+
+/* ============================================ Lớp thiết kế — docs/21, docs/05
+ *
+ * Phần dưới đây ghi đè lớp scaffolding ở trên. Nó đứng sau có chủ ý: giữ được
+ * lịch sử của từng khối, và người đọc thấy ngay cái gì là bản dựng tạm còn cái
+ * gì là bản đã qua design system.
+ */
+
+/* ------------------------------------------------------------------- Nút */
+
+/* Một định nghĩa nút cho cả site. `min-height` là vùng chạm tối thiểu, không
+   phải một con số thẩm mỹ (docs/21 mục 1). */
+.nut,
+.dat-nut button,
+.filters__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--k2);
+  min-height: var(--cham);
+  padding: var(--k2) var(--k6);
+  border: 1px solid var(--mau-nhan-manh);
+  border-radius: var(--bo-goc-nho);
+  background: var(--mau-nhan-manh);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nut:hover,
+.dat-nut button:hover,
+.filters__actions button:hover {
+  background: var(--mau-nhan-manh-dam);
+  border-color: var(--mau-nhan-manh-dam);
+  color: #fff;
+}
+
+.nut:disabled,
+.dat-nut button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.nut--phu {
+  background: var(--mau-nen);
+  color: var(--mau-nhan-manh);
+}
+
+.nut--phu:hover {
+  background: var(--mau-nen-diu);
+  color: var(--mau-nhan-manh-dam);
+}
+
+/* ------------------------------------------------------------ Trạng thái */
+
+.state {
+  padding: var(--k6);
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+  background: var(--mau-nen-diu);
+  max-width: var(--cot-chu);
+}
+
+.state__title {
+  margin-top: 0;
+  font-size: var(--chu-the);
+  font-weight: 700;
+}
+
+.state--error {
+  border-color: var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+}
+
+.skeleton-bar {
+  display: block;
+  height: 1rem;
+  width: 100%;
+  margin-bottom: var(--k2);
+  border-radius: var(--bo-goc-nho);
+  background: linear-gradient(90deg, #eceef1 0%, #f5f6f8 50%, #eceef1 100%);
+}
+
+.skeleton-bar--image {
+  height: 10rem;
+  margin-bottom: var(--k3);
+}
+
+.skeleton-bar--short {
+  width: 60%;
+}
+
+/* ------------------------------------------------------------ Lưới và thẻ */
+
+/* Lưới tự xuống dòng theo bề rộng tối thiểu, KHÔNG đếm cột theo điểm ngắt —
+   đếm cột là cách chắc chắn để một cấu hình màn hình nào đó hiện ra một thẻ
+   đơn độc ở dòng cuối (docs/21 mục 4). */
+.product-grid,
+.bai-luoi,
+.dd-luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--k6);
+  list-style: none;
+  margin: var(--k6) 0 0;
+  padding: 0;
+}
+
+.product-card,
+.bai-the,
+.dd-the {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+  overflow: hidden;
+  background: var(--mau-nen);
+}
+
+.product-card:hover,
+.bai-the:hover {
+  border-color: var(--mau-nhan-manh);
+}
+
+.product-card__image,
+.bai-the__anh {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  background: var(--mau-nen-diu);
+}
+
+.product-card__body,
+.bai-the__than {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k1);
+  padding: var(--k4);
+  flex: 1;
+}
+
+.product-card__title,
+.bai-the__ten {
+  font-size: var(--chu-the);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.product-card__title a,
+.bai-the__ten a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.product-card__title a:hover,
+.bai-the__ten a:hover {
+  text-decoration: underline;
+}
+
+.product-card__where,
+.product-card__rating,
+.bai-the__ngay,
+.region-list__count,
+.listing__total,
+.price-from__disclaimer {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* Giá đẩy xuống đáy thẻ để mọi thẻ trong lưới có giá ngang nhau — mắt quét một
+   hàng ngang thay vì nhảy lên xuống. */
+.product-card .price-from {
+  margin-top: auto;
+  padding-top: var(--k3);
+}
+
+.price-from__amount {
+  font-size: var(--chu-the);
+  font-weight: 700;
+}
+
+.price-from__disclaimer {
+  display: block;
+}
+
+.badge {
+  display: inline-block;
+  padding: var(--k1) var(--k2);
+  border: 1px solid var(--mau-vien);
+  border-radius: 999px;
+  background: var(--mau-nen-diu);
+  font-size: var(--chu-phu);
+  font-weight: 600;
+}
+
+.badge--new {
+  border-color: var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+}
+
+/* ------------------------------------------------------------------ Lọc */
+
+.filters fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--k4);
+  margin: 0;
+  padding: var(--k4);
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+  background: var(--mau-nen-diu);
+}
+
+.filters__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k1);
+}
+
+.filters__field label {
+  font-weight: 600;
+  font-size: var(--chu-phu);
+}
+
+.filters__field input,
+.filters__field select {
+  min-height: var(--cham);
+  padding: var(--k2) var(--k3);
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc-nho);
+  background: var(--mau-nen);
+  font: inherit;
+}
+
+/* ---------------------------------------------------------- Trang chi tiết */
+
+.detail {
+  max-width: var(--khung);
+}
+
+.detail__breadcrumb {
+  margin-bottom: var(--k4);
+}
+
+.detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k2) var(--k4);
+  margin-bottom: var(--k3);
+  color: var(--mau-chu-phu);
+}
+
+.detail__summary {
+  font-size: var(--chu-the);
+  line-height: 1.5;
+  max-width: var(--cot-chu);
+}
+
+.detail__image,
+.detail__map {
+  width: 100%;
+  height: auto;
+  border-radius: var(--bo-goc);
+  background: var(--mau-nen-diu);
+}
+
+.detail__body,
+.why {
+  max-width: var(--cot-chu);
+}
+
+.why ul {
+  padding-left: var(--k6);
+}
+
+.why li {
+  margin-bottom: var(--k2);
+}
+
+/* ------------------------------------------------ Tab của trang chi tiết
+ *
+ * docs/05 mục 3: trang chi tiết chia theo TAB, không phải một trang cuộn phẳng.
+ *
+ * Tab là **liên kết neo**, không phải nút chạy JavaScript: tab đang mở nằm trong
+ * URL (`?tab=lich-trinh`), nên F5 giữ nguyên, dán link ra đúng tab đó, và trang
+ * dùng được cả khi script chưa tải xong. Đó cũng là lý do mỗi tab tự nạp dữ liệu
+ * của mình ở máy chủ thay vì tải hết rồi ẩn đi.
+ */
+
+.tab-thanh {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 0 var(--k4);
+  overflow-x: auto;
+  margin: var(--k6) 0 var(--k6);
+  padding: 0 var(--k1);
+  border-bottom: 1px solid var(--mau-vien);
+  background: var(--mau-nen);
+}
+
+.tab-thanh a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  padding: var(--k2) var(--k1);
+  border-bottom: 3px solid transparent;
+  color: var(--mau-chu);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.tab-thanh a:hover {
+  border-bottom-color: var(--mau-vien);
+}
+
+.tab-thanh a[aria-current='page'] {
+  border-bottom-color: var(--mau-nhan-manh);
+  color: var(--mau-nhan-manh);
+}
+
+/* ------------------------------------------------------- Thanh dính đáy
+ *
+ * docs/05 mục 4. Cao tối đa 88px ở màn hình hẹp: bài học đo được từ bản demo là
+ * header 80 + thanh tab 72 + thanh đặt tour 204 = 356px khung cố định, chiếm
+ * 53% một màn hình cao 667px. Ba thanh cộng lại không được vượt 30% khung nhìn.
+ */
+
+.thanh-day {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k3) var(--k6);
+  margin-top: var(--k8);
+  padding: var(--k3) var(--k6);
+  border-top: 1px solid var(--mau-vien);
+  background: var(--mau-nen);
+  box-shadow: 0 -2px 8px rgb(0 0 0 / 8%);
+}
+
+.thanh-day__ten {
+  margin: 0;
+  font-weight: 700;
+}
+
+.thanh-day__gia {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--k2);
+}
+
+/* Disclaimer của giá vẫn phải có ở thanh dính đáy — yêu cầu pháp lý, và thanh
+   này là chỗ dễ bị cắt gọn cho vừa chỗ nhất. Thu nhỏ chứ không bỏ. */
+.thanh-day .price-from__disclaimer {
+  display: inline;
+  margin-left: var(--k2);
+  font-size: var(--chu-phu);
+}
+
+/* Giá ở thanh dính đáy nằm cùng một dòng với disclaimer, nên bỏ lề dưới mặc
+   định của đoạn văn — nếu không thanh cao thêm một dòng trống và ăn vào ngân
+   sách 88px của docs/05 mục 4. */
+.thanh-day .price-from {
+  margin: 0;
+}
+
+@media (max-width: 48rem) {
+  .thanh-day {
+    max-height: 88px;
+    overflow: hidden;
+  }
+}
+
+/* ---------------------------------------------------------- Bảng dữ liệu */
+
+.bang {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--k4) 0;
+}
+
+.bang th,
+.bang td {
+  padding: var(--k3);
+  border-bottom: 1px solid var(--mau-vien);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bang th {
+  background: var(--mau-nen-diu);
+  font-size: var(--chu-phu);
+}
+
+/* Bảng rộng cuộn NGANG trong khung của nó, không đẩy cả trang trượt ngang. */
+.bang-khung {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* --------------------------------------------------------------- Lịch trình */
+
+.lich-trinh {
+  list-style: none;
+  margin: var(--k6) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--k4);
+  max-width: var(--cot-chu);
+}
+
+.lich-trinh__ngay {
+  padding: var(--k4);
+  border: 1px solid var(--mau-vien);
+  border-left: 4px solid var(--mau-nhan-manh);
+  border-radius: var(--bo-goc);
+}
+
+.lich-trinh__so {
+  margin: 0 0 var(--k1);
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lich-trinh__ngay h3 {
+  margin: 0 0 var(--k2);
+}
+
+.lich-trinh__chi-tiet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2) var(--k4);
+  margin: var(--k3) 0 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* ------------------------------------------------------------- Trang chủ */
+
+.hero {
+  padding: var(--k12) 0 var(--k8);
+  border-bottom: 1px solid var(--mau-vien);
+  margin-bottom: var(--k8);
+}
+
+.hero h1 {
+  max-width: 20ch;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+}
+
+.hero p {
+  max-width: var(--cot-chu);
+  font-size: var(--chu-the);
+  color: var(--mau-chu-phu);
+}
+
+.hero__nut {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k3);
+  margin-top: var(--k6);
+}
+
+.mien-luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--k4);
+  list-style: none;
+  margin: var(--k6) 0 0;
+  padding: 0;
+}
+
+.mien-luoi a {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k1);
+  min-height: var(--cham);
+  padding: var(--k4);
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.mien-luoi a:hover {
+  border-color: var(--mau-nhan-manh);
+}
+
+.mien-luoi strong {
+  font-size: var(--chu-the);
+}
+
+/* --------------------------------------------------------------- Chân trang */
+
+.chan-trang {
+  margin-top: var(--k12);
+  padding: var(--k8) var(--k6);
+  border-top: 1px solid var(--mau-vien);
+  background: var(--mau-nen-diu);
+}
+
+.chan-trang__trong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k8);
+  max-width: var(--khung);
+  margin: 0 auto;
+}
+
+.chan-trang h2 {
+  margin: 0 0 var(--k2);
+  font-size: var(--chu-than);
+}
+
+.chan-trang ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chan-trang a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
 }

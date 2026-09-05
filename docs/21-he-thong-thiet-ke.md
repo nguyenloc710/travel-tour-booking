@@ -151,9 +151,19 @@ Số chữ số thập phân **không hardcode**: nó suy ra từ mã tiền t�
 là **chuỗi** và phải đi thẳng vào hàm định dạng — không `parseFloat`, không phép
 tính nào ở frontend.
 
-Ngày luôn đọc ở múi giờ UTC. Ngày khởi hành là một ngày trên tờ lịch, không phải
-một thời điểm: để trình duyệt áp múi giờ địa phương vào thì khách ở Copenhagen
-và khách ở Hà Nội thấy hai ngày khác nhau cho cùng một chuyến.
+Ngày khởi hành là một ngày **trên tờ lịch**, không phải một thời điểm: khách ở
+Copenhagen và khách ở Hà Nội phải thấy cùng một ngày cho cùng một chuyến.
+
+Cách đạt được điều đó **không phải** là ép định dạng về UTC. Client sinh từ
+`openapi.yaml` dựng trường `format: date` thành **nửa đêm giờ địa phương** — xem
+`parseDate` trong runtime của nó — và mốc đó đã biểu diễn đúng ngày trên tờ lịch
+ở mọi múi giờ rồi. Định dạng lại bằng `timeZone: 'UTC'` là đổi hệ quy chiếu giữa
+chừng: ở phía đông UTC, nửa đêm địa phương rơi vào **hôm trước** theo UTC.
+
+Đây là lỗi đã xảy ra thật, không phải giả định: buổi thuyết trình ngày 20/03
+hiện thành 19/03 trên máy ở Việt Nam. Nó nằm cùng lúc ở `formatDate` của
+`packages/ui` và ở hai hàm `ngay()` của trang quản trị, nên danh sách đơn cũng
+lệch một ngày so với vé. Hai test ở `packages/ui` nay canh cho nó không quay lại.
 
 ---
 

@@ -88,6 +88,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | **Luồng báo giá `PRIVATE_TOUR`** | `14` mục 7 · `23` mục 7 · spec v0.13 · `V6` | Khách gửi yêu cầu, tư vấn viên dựng bảng giá rồi gửi. Máy trạng thái thuần, job quét hạn, form trên site khách, hai màn hình M8 — **26 test** |
 | **Nội dung khác và người dùng** | `22` M13, M14 · spec v0.14 | Điểm đến, bài viết, buổi thuyết trình sửa được từ giao diện; ADMIN gán được vai trò. Bốn màn hình quản trị — **22 test** |
 | **Ba trang còn thiếu của site khách** | `20` R9, R10, R11 | Blog kèm lọc thẻ, sự kiện, liên hệ. Menu chính ở header; sitemap nhận thêm bài viết |
+| **Hệ thống thiết kế áp vào site khách** | `21` mục 2–5 · `05` mục 3–5 | Token màu, chữ, khoảng cách, điểm ngắt; trang chủ R1 thật; **trang chi tiết chia tab** kèm thanh dính đáy |
 
 ---
 
@@ -122,7 +123,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | `contracts/openapi.yaml` **v0.14.0** (54 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
-| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 05/09. `i18n:check` **178 khoá**, `vi` 100.0%. **`typecheck` phải chạy SAU `build`** ở máy local — xem mục 6.3 |
+| `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 05/09. `i18n:check` **219 khoá**, `vi` 100.0% — nhưng xem lỗ hổng của nó ở mục 6.5. **`typecheck` phải chạy SAU `build`** ở máy local — xem mục 6.3 |
 | Chạy thật đầu-cuối: API + site, hai locale, hai market | ✔ |
 | `.github/workflows/`: `api.yml`, `web.yml`, `tai-lieu.yml` | ✔ đã dựng |
 | CI chạy trên một PR thật | ✗ **chưa mở PR nào** — điều kiện treo số 1 của G2 |
@@ -284,6 +285,21 @@ lần chạy đầu trên máy sạch thì `.next/` chưa tồn tại — không
 Cách sửa là đảo thứ tự hai bước trong `web.yml`, hoặc chạy `next typegen` trước
 bước kiểm kiểu. Chưa làm — nó không chặn việc gì hôm nay, nhưng nó làm tín hiệu
 xanh của CI mất giá trị đúng ở chỗ dễ tin nhất.
+
+### 6.5. `pnpm i18n:check` không bắt được khoá thiếu ở CẢ HAI ngôn ngữ
+
+Bộ kiểm đo **độ phủ của `vi` so với `da`**, tức là nó trả lời "bản dịch có theo
+kịp bản nguồn không". Câu hỏi đó không phải câu "mọi khoá code đang gọi đều có
+thật không" — một khoá mới gõ trong component mà quên thêm vào **cả hai** catalog
+thì độ phủ vẫn 100%, và trang hiện ra nguyên khoá thô.
+
+Đã xảy ra thật ở đợt thiết kế 05/09: bảng ngày khởi hành hiện
+`departureStatus.OPEN` giữa cột Status. Chỉ lộ ra khi mở trang bằng mắt.
+
+Cách chặn: bộ kiểm quét mọi lời gọi `t(locale, '…')` với khoá tĩnh và đối chiếu
+với catalog `da`. Chưa làm — khoá dựng động (`` t(locale, `detail.tab.${k}`) ``)
+làm phép quét đó phức tạp hơn nó đáng, nên tạm thời **mở trang bằng mắt vẫn là
+lưới cuối cùng**.
 
 ### 6.4. Ngày trên tờ lịch: client dựng nửa đêm ĐỊA PHƯƠNG
 

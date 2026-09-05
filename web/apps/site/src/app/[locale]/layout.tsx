@@ -72,11 +72,13 @@ export default async function LocaleLayout({
             điều kiện duy nhất để lộ thông tin thì khách dùng cảm ứng mất lối
             (web/CLAUDE.md mục 6). */}
         <nav className="site-nav" aria-label={t(locale, 'nav.label')}>
-          <Link href={duongDanListing(locale)}>{t(locale, 'nav.products')}</Link>
-          <Link href={duongDanDiemDen(locale)}>{t(locale, 'nav.destinations')}</Link>
-          <Link href={duongDanBlog(locale)}>{t(locale, 'nav.blog')}</Link>
-          <Link href={duongDanSuKien(locale)}>{t(locale, 'nav.events')}</Link>
-          <Link href={duongDanLienHe(locale)}>{t(locale, 'nav.contact')}</Link>
+          <div className="site-nav__trong">
+            <Link href={duongDanListing(locale)}>{t(locale, 'nav.products')}</Link>
+            <Link href={duongDanDiemDen(locale)}>{t(locale, 'nav.destinations')}</Link>
+            <Link href={duongDanBlog(locale)}>{t(locale, 'nav.blog')}</Link>
+            <Link href={duongDanSuKien(locale)}>{t(locale, 'nav.events')}</Link>
+            <Link href={duongDanLienHe(locale)}>{t(locale, 'nav.contact')}</Link>
+          </div>
         </nav>
 
         {!laMacDinh && <MarketBanner locale={locale as Locale} market={market} />}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { isLocale, t, type Locale } from '@travel/i18n';
-import { formatDate, formatMoney, formatNumber, PriceFrom } from '@travel/ui';
+import { formatDate, formatMoney, formatNumber } from '@travel/ui';
 import type { Departure, Destination, PostDetail, ProductDetail } from '@travel/api-client';
 import {
   bookingApi,
@@ -28,8 +28,8 @@ import {
 } from '@/lib/routes';
 import { DatTour, type TrangThai } from '@/components/DatTour';
 import { ProductCard } from '@/components/ProductCard';
-import { ProductFacts } from '@/components/ProductFacts';
-import { YeuCauBaoGia } from '@/components/YeuCauBaoGia';
+import { ChiTietTour } from '@/components/ChiTietTour';
+import { tabTuSlug } from '@/lib/tabs';
 
 type Params = Promise<{ locale: string; section: string; slug: string }>;
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -191,105 +191,21 @@ export default async function ProductDetailPage({
   if (!laProductsSegment(locale, section)) notFound();
 
   const sanPham = await laySanPham(locale, slug);
+  const { market } = await resolveMarket(locale);
+
+  // Tab đang mở nằm trong URL, không trong `useState`: F5 giữ nguyên tab, và
+  // dán link ra đúng tab đó (`web/CLAUDE.md` mục 5.2, `docs/05` mục 3).
+  const thamSo = await searchParams;
+  const tab = tabTuSlug(typeof thamSo.tab === 'string' ? thamSo.tab : undefined, locale);
 
   return (
-    <article className="detail">
-      <p className="detail__breadcrumb">
-        <Link href={duongDanListing(locale)}>{t(locale, 'detail.backToList')}</Link>
-      </p>
-
-      <header className="detail__header">
-        <p className="detail__meta">
-          <span className="badge">{t(locale, `productType.${sanPham.productType}`)}</span>
-          <span>
-            {sanPham.destination.name} · {sanPham.region.name}
-          </span>
-          {sanPham.durationDays !== undefined && (
-            <span>
-              {t(locale, 'products.duration', {
-                days: formatNumber(sanPham.durationDays, locale),
-              })}
-            </span>
-          )}
-        </p>
-
-        <h1>{sanPham.title}</h1>
-        <p className="detail__summary">{sanPham.shortDescription}</p>
-
-        {sanPham.priceFrom ? (
-          <PriceFrom price={sanPham.priceFrom} locale={locale} />
-        ) : (
-          <p className="price-from price-from--contact">{t(locale, 'products.contactForPrice')}</p>
-        )}
-
-        {/* CTA của tour riêng dẫn TỚI FORM BÁO GIÁ trên cùng trang, không sang
-            tab nào (docs/05 mục 6). Là một liên kết neo chứ không một nút chạy
-            JavaScript: nó hoạt động cả khi script chưa tải xong, và khách dán
-            link ra ngoài vẫn tới đúng chỗ. */}
-        {sanPham.productType === 'PRIVATE_TOUR' && (
-          <p className="detail__cta">
-            <a className="detail__cta-nut" href="#bao-gia">
-              {t(locale, 'detail.private.cta')}
-            </a>
-          </p>
-        )}
-      </header>
-
-      <Image
-        className="detail__image"
-        src={sanPham.heroImage}
-        alt={sanPham.heroImageAlt}
-        width={1200}
-        height={640}
-        priority
-        unoptimized
-      />
-
-      <div className="detail__body">
-        {/* Từng đoạn văn một, không phải một khối HTML: nội dung do biên tập
-            viên nhập, và HTML tự do từ CSDL là lỗ chèn mã chờ sẵn. */}
-        {sanPham.longDescription.map((doan, i) => (
-          <p key={i}>{doan}</p>
-        ))}
-      </div>
-
-      <section className="why">
-        <h2>{t(locale, 'detail.whyChooseThis')}</h2>
-        <ul>
-          {sanPham.whyChooseThis.map((ly_do) => (
-            <li key={ly_do}>{ly_do}</li>
-          ))}
-        </ul>
-      </section>
-
-      <ProductFacts product={sanPham} locale={locale} />
-
-      {/* Tour riêng KHÔNG đặt trực tiếp được, nên chỗ này là điểm cuối của
-          trang chi tiết thay cho nút "Đặt tour" (docs/04). `leadTimeDays` lấy
-          từ chính sản phẩm — lịch chặn trước đúng con số của tour này, không
-          phải một con số chung gõ cứng. */}
-      {sanPham.productType === 'PRIVATE_TOUR' && (
-        <YeuCauBaoGia
-          locale={locale}
-          market={(await resolveMarket(locale)).market}
-          slug={slug}
-          leadTimeDays={sanPham.leadTimeDays}
-        />
-      )}
-
-      {sanPham.mapImage !== undefined && (
-        <Image
-          className="detail__map"
-          src={sanPham.mapImage}
-          // Bản đồ cũng là ảnh có chữ: font của nó phải dựng được cả `æ ø å`
-          // lẫn dấu tiếng Việt — bản demo đã dính bẫy này một lần.
-          alt={sanPham.heroImageAlt}
-          width={1200}
-          height={800}
-          unoptimized
-        />
-      )}
-    </article>
+    <ChiTietTour
+      sanPham={sanPham}
+      locale={locale}
+      market={market}
+      slug={slug}
+      tab={tab}
+    />
   );
 }
 
