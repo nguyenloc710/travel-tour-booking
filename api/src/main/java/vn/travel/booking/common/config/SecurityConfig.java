@@ -1,5 +1,8 @@
 package vn.travel.booking.common.config;
 
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -14,6 +17,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
  * Bề mặt công khai mở, bề mặt quản trị đóng.
@@ -26,6 +32,13 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private final List<String> gocChoPhep;
+
+    public SecurityConfig(
+            @Value("${travel.cors.allowed-origins}") List<String> gocChoPhep) {
+        this.gocChoPhep = gocChoPhep;
+    }
+
     @Bean
     public SecurityFilterChain chain(HttpSecurity http) throws Exception {
         CsrfTokenRequestAttributeHandler csrf = new CsrfTokenRequestAttributeHandler();
@@ -35,6 +48,11 @@ public class SecurityConfig {
         csrf.setCsrfRequestAttributeName(null);
 
         return http
+                // CORS phải bật TRƯỚC mọi thứ khác: thiếu nó thì trình duyệt
+                // chặn ngay ở bước preflight và không lời gọi ghi nào tới được
+                // controller — xem chú thích ở bean corsConfigurationSource.
+                .cors(c -> c.configurationSource(corsConfigurationSource()))
+
                 // Bề mặt công khai chỉ đọc và không dùng cookie phiên, nên CSRF
                 // không áp dụng cho nó. Bề mặt quản trị thì có: nó ghi, và nó
                 // xác thực bằng cookie — đúng điều kiện để một trang khác lừa
@@ -102,6 +120,52 @@ public class SecurityConfig {
                 .formLogin(f -> f.disable())
                 .logout(l -> l.disable())
                 .build();
+    }
+
+    /**
+     * CORS — danh sách gốc được phép gọi API từ trình duyệt.
+     *
+     * <p><b>Vì sao cần:</b> site khách chạy ở cổng 3000 và trang quản trị ở
+     * 3001, còn API ở 8080. Với trình duyệt đó là ba <i>gốc</i> khác nhau, nên
+     * mọi lời gọi từ mã chạy trong trình duyệt là lời gọi chéo gốc. Không khai
+     * CORS thì trình duyệt chặn ngay ở bước preflight: `fetch` ném lỗi mạng
+     * trần, không có thân phản hồi, nên frontend <b>không có mã lỗi nào để
+     * dịch</b> và khách chỉ thấy một câu lỗi chung.
+     *
+     * <p><b>Vì sao lọt tới tận bây giờ:</b> đường ĐỌC của site khách gọi từ máy
+     * chủ Next chứ không từ trình duyệt, nên nó không đụng CORS; test tích hợp
+     * cũng chạy phía máy chủ. Đường GHI — giữ chỗ, tạo đơn, gửi yêu cầu báo giá,
+     * và toàn bộ trang quản trị — là thứ duy nhất chạy trong trình duyệt, và nó
+     * chưa bao giờ được mở bằng trình duyệt thật cho tới hôm nay.
+     *
+     * <p><b>Gốc khai tường minh, không dùng `*`.</b> Trang quản trị xác thực
+     * bằng cookie phiên, nên nó cần {@code allowCredentials}; mà đặc tả CORS
+     * cấm dùng {@code *} cùng với credentials — và điều đó là đúng: một API cho
+     * gửi kèm cookie từ bất kỳ trang nào là một API bất kỳ trang nào cũng thao
+     * tác được thay người dùng đang đăng nhập.
+     *
+     * <p>Danh sách lấy từ cấu hình để production khai tên miền thật mà không
+     * phải sửa mã. Mặc định là hai cổng dev.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration c = new CorsConfiguration();
+        c.setAllowedOrigins(gocChoPhep);
+        c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // Ba header của riêng dự án này, ngoài các header đơn giản: Idempotency-Key
+        // cho đường ghi công khai, X-XSRF-TOKEN cho bề mặt quản trị, và
+        // Accept-Language vốn là header đơn giản nhưng khai lại cho rõ ý.
+        c.setAllowedHeaders(List.of(
+                "Content-Type", "Accept", "Accept-Language",
+                "Idempotency-Key", "X-XSRF-TOKEN"));
+        c.setAllowCredentials(true);
+        // Kết quả preflight cache một giờ: không có nó thì MỖI lời gọi ghi tốn
+        // hai vòng mạng.
+        c.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource nguon = new UrlBasedCorsConfigurationSource();
+        nguon.registerCorsConfiguration("/api/**", c);
+        return nguon;
     }
 
     /**

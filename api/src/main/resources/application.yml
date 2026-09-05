@@ -27,6 +27,15 @@ spring:
     # Trường rỗng bỏ hẳn khỏi JSON, không trả null — docs/13 mục 4.
     default-property-inclusion: non_null
 
+travel:
+  cors:
+    # Gốc được phép gọi API từ trình duyệt. Mặc định là hai cổng dev; production
+    # đặt CORS_ALLOWED_ORIGINS thành tên miền thật.
+    #
+    # KHÔNG dùng `*`: bề mặt quản trị xác thực bằng cookie nên CORS phải cho gửi
+    # kèm credentials, và đặc tả cấm `*` đi cùng credentials — xem SecurityConfig.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
+
 server:
   port: ${PORT:8080}
   error:
