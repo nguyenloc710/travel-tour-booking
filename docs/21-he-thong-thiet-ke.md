@@ -43,24 +43,39 @@ thật, và mất im lặng — họ không báo lỗi, họ gọi cho đối th
 Bảng màu hiện tại là **bảng tạm**, đủ để dựng giao diện và đạt chuẩn tương phản.
 Bảng thương hiệu thật chưa có — xem mục 9.
 
-| Token | Giá trị | Dùng cho |
-|---|---|---|
-| `--mau-chu` | `#1a1a1a` | Chữ thân bài |
-| `--mau-nen` | `#ffffff` | Nền trang |
-| `--mau-vien` | `#d4d4d4` | Đường kẻ, viền ô nhập |
-| `--mau-nhan-manh` | `#1f3a66` | Liên kết, nút chính |
-| `--mau-canh-bao-nen` | `#fbf3e4` | Nền băng thông báo |
-| `--mau-canh-bao-vien` | `#b8860b` | Viền băng thông báo |
+| Token | Giá trị | Dùng cho | Tương phản trên nền |
+|---|---|---|---|
+| `--mau-chu` | `#1c1a17` | Chữ thân bài | 15.9:1 |
+| `--mau-nen` | `#fbf9f6` | Nền trang | — |
+| `--mau-nen-diu` | `#f2ece3` | Dải nền của mục phụ | — |
+| `--mau-vien` | `#e0d8cc` | Đường kẻ, viền ô nhập | — |
+| `--mau-chu-phu` | `#5c564d` | Chữ phụ, chú thích | 6.9:1 |
+| `--mau-nhan-manh` | `#0f4c46` | Liên kết, dải lời hứa, chân trang | 9.4:1 |
+| `--mau-keu-goi` | `#a8451f` | **Chỉ** nút chính và gạch chân mục đang xem | 5.7:1 |
+| `--mau-tren-toi` | `#f4efe7` | Chữ đặt trên hai màu đậm ở trên | — |
+| `--mau-canh-bao-nen` | `#fbf3e4` | Nền băng thông báo | — |
+| `--mau-canh-bao-vien` | `#b8860b` | Viền băng thông báo, sao đánh giá | — |
+
+Nền **không phải màu trắng tinh**, và chữ không phải đen tuyền: cả hai ngả sang
+ấm. Trắng `#ffffff` với đen `#000000` là cặp mặc định của trình duyệt, nên một
+trang dùng đúng cặp ấy trông như chưa ai chọn màu cho nó.
+
+**Hai màu đậm làm hai việc khác nhau, và đó là chủ ý.** Trước đây chỉ có một màu
+nhấn dùng cho cả liên kết lẫn nút, nên nút "Đặt tour" trông hệt một liên kết
+bình thường — thứ quan trọng nhất trên trang không nổi hơn thứ ít quan trọng
+nhất. Nay `--mau-keu-goi` chỉ xuất hiện ở nút chính và ở gạch chân của mục đang
+xem; thấy nó ở chỗ khác là dùng sai.
 
 Ba quy tắc:
 
 1. **Tương phản đạt WCAG AA**: 4.5:1 cho chữ thường, 3:1 cho chữ lớn và cho viền
-   của thành phần tương tác. `#1f3a66` trên nền trắng đạt 10.4:1 — chọn đậm hơn
-   mức tối thiểu là cố ý, vì màn hình của khách thường cũ và đặt ở phòng sáng.
+   của thành phần tương tác. Cột cuối bảng trên đo trên `--mau-nen`; chữ
+   `--mau-tren-toi` trên `--mau-keu-goi` đạt 5.9:1. Chọn đậm hơn mức tối thiểu
+   là cố ý, vì màn hình của khách thường cũ và đặt ở phòng sáng.
 2. **Màu không bao giờ là phương tiện duy nhất truyền đạt thông tin.** Ngày hết
    chỗ phải có chữ "hết chỗ", không chỉ đổi sang màu xám.
 3. **Không thêm màu ngoài bảng này vào component.** Cần một sắc thái mới thì
-   thêm token, để đổi thương hiệu là đổi sáu dòng chứ không phải đi tìm khắp nơi.
+   thêm token, để đổi thương hiệu là đổi mười dòng chứ không phải đi tìm khắp nơi.
 
 ---
 
@@ -84,22 +99,72 @@ từ font thay thế.
 **Ràng buộc áp dụng cho cả file SVG và ảnh có chữ**, không chỉ cho CSS. Đó là
 chỗ bẫy này ẩn được lâu nhất: trang thì đúng, ảnh thì sai, và không ai kiểm ảnh.
 
-Bộ font hiện tại là ngăn xếp font hệ thống có `Noto Sans` làm lớp đỡ — đủ dấu cả
-hai ngôn ngữ trên mọi nền tảng phổ biến, và không tốn một lượt tải mạng nào.
-Chọn font thương hiệu là việc còn để ngỏ ở mục 9; ai chọn cũng phải qua hai dòng
-thử ở trên.
+**Và nó không chỉ là chuyện chữ cái.** Đợt 05/09 vấp lại đúng bẫy này ở một ký
+tự tiền tệ: Playfair Display có đủ `ố`, `ø`, `æ`, nhưng **không có `₫`**, nên giá
+ở thị trường VN hiện `690.000 ₫` với ký tự cuối nhảy sang một kiểu chữ khác. Vì
+thế `.price-from__amount` dùng chữ không chân, dù mọi con số lớn khác trên trang
+đều có chân.
+
+Cách thử không cần mở mắt nhìn — đo bề rộng ký tự bằng canvas ở hai font, font
+cần thử và font thay thế; **trùng nhau nghĩa là font không có ký tự đó**:
+
+```js
+const c = document.createElement('canvas').getContext('2d');
+const rong = (f, k) => { c.font = '40px ' + f; return c.measureText(k).width; };
+rong('"Playfair Display"', '₫') === rong('serif', '₫')   // true → thiếu
+```
+
+Danh sách ký tự phải thử, tối thiểu: `æ ø å Æ Ø Å` · `ố ạ ề ữ ơ ư đ Đ` · `₫ kr.`
+
+**Hai họ chữ**, gán ở `apps/site/src/app/[locale]/layout.tsx` bằng `next/font`:
+
+| Vai trò | Font | Vì sao |
+|---|---|---|
+| Tiêu đề | Playfair Display | Chữ có chân, chỉ dùng từ cỡ tiêu đề thẻ trở lên |
+| Thân bài | Be Vietnam Pro | Dựng riêng cho tiếng Việt nên dấu không cụt ở cỡ nhỏ; cũng đủ `æ ø å` |
+
+Tương phản giữa **một họ có chân và một họ không chân** là thứ mắt đọc ra trước
+cả khi đọc chữ, và là khác biệt lớn nhất giữa trang này với một trang chỉ dùng
+font hệ thống. Chữ có chân **không** được dùng cho thân bài: nó khó đọc hơn trên
+màn hình cũ, và đó đúng là màn hình của khách (mục 1).
+
+Cả hai khai `subsets: ['latin', 'latin-ext', 'vietnamese']`. Thiếu một trong ba
+thì trình duyệt lấy font thay thế cho đúng những ký tự ấy, và trang hiện hai
+kiểu chữ lẫn lộn ở đúng những từ quan trọng nhất — chính là bẫy ở trên, chỉ
+khác chỗ xảy ra.
+
+Hai hệ quả phải biết:
+
+- **CI cần mạng khi build.** `next/font` tải chữ về lúc dựng.
+- **Không có lượt gọi nào sang Google lúc khách xem trang.** `next/font` tự phục
+  vụ tệp chữ từ máy chủ của mình. Nhúng thẳng `fonts.googleapis.com` là gửi địa
+  chỉ IP của khách sang bên thứ ba — việc đã bị phạt ở châu Âu, và khách của
+  trang này ở Đan Mạch (`31`).
+
+Đây vẫn chưa phải font thương hiệu; chọn font thương hiệu còn để ngỏ ở mục 9, và
+ai chọn cũng phải qua hai dòng thử ở trên.
 
 ### 3.2. Thang chữ
 
 | Vai trò | Cỡ | Ghi chú |
 |---|---|---|
-| Thân bài | `1rem` = 16px | **Sàn tuyệt đối**, không có ngoại lệ |
-| Chú thích, disclaimer | `0.875rem` | Chỉ cho chữ phụ, không cho nội dung khách cần đọc |
-| Tiêu đề thẻ | `1.25rem` | |
-| Tiêu đề mục | `1.5rem` | |
-| Tiêu đề trang | `2rem` | Một `h1` mỗi trang |
+| Thân bài | `1.0625rem` = 17px | **16px là sàn tuyệt đối**; đặt trên sàn một nấc vì 17px đọc dễ hơn đúng ở nhóm khách này |
+| Chú thích, disclaimer | `0.9375rem` | Chỉ cho chữ phụ, không cho nội dung khách cần đọc |
+| Nhãn nhỏ in hoa | `0.8125rem` | Giãn chữ `0.12em`. **Tối đa ba từ** — chữ in hoa đọc chậm hơn chữ thường |
+| Tiêu đề thẻ | `1.375rem` | |
+| Tiêu đề mục | `clamp(1.75rem, 3.4vw, 2.5rem)` | |
+| Tiêu đề trang | `clamp(2.25rem, 5.5vw, 3.75rem)` | Một `h1` mỗi trang |
 
-Dòng giãn 1.6 cho thân bài. Bề rộng cột chữ tối đa khoảng **46rem** — dài hơn
+Hai cỡ lớn nhất **co giãn theo bề rộng**: một con số cố định thì hoặc quá nhỏ
+trên màn hình rộng, hoặc tràn dòng trên điện thoại.
+
+**Thang phải có khoảng cách lớn giữa hai đầu.** Tiêu đề trang gấp hơn ba lần
+thân bài, và giữa chúng gần như không có cỡ trung gian nào. Một thang chữ phẳng
+— mọi thứ trong khoảng 16px tới 24px — là dấu hiệu rõ nhất của một trang không
+ai thiết kế, kể cả khi từng con số đều hợp lệ.
+
+Dòng giãn 1.65 cho thân bài, 1.08–1.3 cho tiêu đề: chữ càng lớn thì dòng giãn
+càng phải nhỏ, nếu không các dòng của một tiêu đề trông như rời nhau. Bề rộng cột chữ tối đa khoảng **46rem** — dài hơn
 thì mắt lạc dòng khi xuống dòng, và đó là vấn đề nặng hơn với người lớn tuổi.
 
 Cấp tiêu đề đi **liên tục**, không nhảy cấp để lấy cỡ chữ. Cỡ chữ là việc của

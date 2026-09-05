@@ -11,8 +11,9 @@ Gồm website khách, API và trang quản trị.
 >
 > Dữ liệu mồi nạp đủ để **nhìn** chứ không chỉ để test: 12 sản phẩm phủ cả sáu
 > loại, 82 ngày lịch trình song ngữ, khách sạn, tham quan, bài viết, sự kiện —
-> `psql "$DB_URL" -f api/scripts/seed-dev.sql`, chạy lại được nhiều lần. Ảnh
-> mẫu sinh bằng `python scripts/sinh-anh-mau.py`.
+> `psql "$DB_URL" -f api/scripts/seed-dev.sql`, chạy lại được nhiều lần. Ảnh mẫu
+> tải bằng `python scripts/tai-anh-mau.py` (cần mạng một lần; giấy phép ghi ở
+> `web/apps/site/public/img/NGUON.md`).
 >
 > **Cần JDK 21 và pnpm.** `JAVA_HOME` trỏ JDK cũ thì đặt `org.gradle.java.home`
 > trong `~/.gradle/gradle.properties`; pnpm bật bằng `corepack enable pnpm`.

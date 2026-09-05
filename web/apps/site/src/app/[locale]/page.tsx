@@ -38,16 +38,18 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <KhoiMoDau locale={locale} />
       <BangLoiHua locale={locale} />
 
-      <section className="doan doan--diu">
-        <div className="doan__trong">
+      <section className="doan doan--diu tran">
+        <div className="doan__trong khung">
+          <p className="doan__nhan">{t(locale, 'products.filter.type')}</p>
           <h2>{t(locale, 'home.types')}</h2>
           <p className="doan__dan">{t(locale, 'home.types.intro')}</p>
           <HinhThuc locale={locale} />
         </div>
       </section>
 
-      <section className="doan">
-        <div className="doan__trong">
+      <section className="doan tran">
+        <div className="doan__trong khung">
+          <p className="doan__nhan">{t(locale, 'nav.products')}</p>
           <h2>{t(locale, 'home.popular')}</h2>
           {/* Trạng thái ĐANG TẢI là skeleton, không phải vòng xoay — web/CLAUDE.md 5.3 */}
           <Suspense fallback={<LuoiCho khung />}>
@@ -56,8 +58,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
       </section>
 
-      <section className="doan doan--diu">
-        <div className="doan__trong">
+      <section className="doan doan--diu tran">
+        <div className="doan__trong khung">
+          <p className="doan__nhan">{t(locale, 'nav.destinations')}</p>
           <h2>{t(locale, 'home.regions')}</h2>
           <p className="doan__dan">{t(locale, 'home.regions.intro')}</p>
           <Suspense fallback={<LuoiCho />}>
@@ -90,10 +93,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
  */
 function KhoiMoDau({ locale }: { locale: Locale }) {
   return (
-    <section className="mo-dau">
+    <section className="mo-dau tran">
       <Image
         className="mo-dau__anh"
-        src="/img/hero.svg"
+        src="/img/hero.jpg"
         alt={t(locale, 'home.hero.imageAlt')}
         width={1600}
         height={900}
@@ -124,7 +127,7 @@ function BangLoiHua({ locale }: { locale: Locale }) {
   const muc = ['leader', 'small', 'phone', 'contact'] as const;
 
   return (
-    <section className="loi-hua" aria-label={t(locale, 'site.tagline')}>
+    <section className="loi-hua tran" aria-label={t(locale, 'site.tagline')}>
       <ul className="loi-hua__trong">
         {muc.map((m) => (
           <li key={m}>
@@ -291,8 +294,9 @@ async function BaiVietMoi({ locale }: { locale: Locale }) {
   }
 
   return (
-    <section className="doan">
-      <div className="doan__trong">
+    <section className="doan tran">
+      <div className="doan__trong khung">
+        <p className="doan__nhan">{t(locale, 'nav.blog')}</p>
         <h2>{t(locale, 'home.latestPosts')}</h2>
         <p className="doan__dan">{t(locale, 'home.blog.intro')}</p>
 
@@ -353,8 +357,9 @@ async function SuKienSapToi({ locale }: { locale: Locale }) {
   }
 
   return (
-    <section className="doan doan--diu">
-      <div className="doan__trong">
+    <section className="doan doan--diu tran">
+      <div className="doan__trong khung">
+        <p className="doan__nhan">{t(locale, 'nav.events')}</p>
         <h2>{t(locale, 'home.nextEvents')}</h2>
 
         <ul className="su-kien-dai">

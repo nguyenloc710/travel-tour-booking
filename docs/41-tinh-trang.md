@@ -91,7 +91,8 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | **Hệ thống thiết kế áp vào site khách** | `21` mục 2–5 · `05` mục 3–5 | Token màu, chữ, khoảng cách, điểm ngắt; trang chủ R1 thật; **trang chi tiết chia tab** kèm thanh dính đáy |
 | **Giao diện khách dựng đủ khối** | `21` mục 5.0 · `20` R1 | Đầu trang có bộ đổi ngôn ngữ, khối mở đầu có ảnh, băng lời hứa, lưới hình thức đi, thẻ tour có ảnh và sao, dải dữ kiện, thẻ khách sạn, chân trang bốn cột |
 | **Dữ liệu mồi đủ để nhìn** | `12` mục 8.2 | 12 sản phẩm phủ cả sáu loại, 82 ngày lịch trình song ngữ, 10 khách sạn, 10 tham quan, 6 chủ đề, 6 bài viết, 6 buổi thuyết trình. **Đạt 13/19 quy tắc kiểm** ở `12` mục 9 |
-| **Ảnh mẫu cho dev** | `24` mục 7.1b · `scripts/sinh-anh-mau.py` | 35 tệp SVG. Trước đó mọi `<Image>` trên site đều là khung vỡ |
+| **Ảnh mẫu cho dev** | `24` mục 7.1b · `scripts/tai-anh-mau.py` | 29 ảnh thật từ Unsplash, tải về phục vụ từ máy chủ của mình, kèm sổ giấy phép `NGUON.md` |
+| **Đợt thiết kế thứ hai** | `21` mục 2, 3.1, 3.2 | Hai họ chữ (có chân cho tiêu đề), bảng màu ấm, màu kêu gọi tách khỏi màu nhấn, thang chữ co giãn, bỏ viền hộp, khối tràn hết bề ngang |
 
 ---
 

@@ -25,19 +25,26 @@
   /* --- Màu, docs/21 mục 2. Sáu token, không thêm màu ngoài bảng này vào
      component: cần sắc thái mới thì thêm token, để đổi thương hiệu là đổi vài
      dòng chứ không phải đi tìm khắp nơi. */
-  --mau-chu: #1a1a1a;
-  --mau-nen: #ffffff;
-  --mau-vien: #d4d4d4;
-  --mau-nhan-manh: #1f3a66;
+  --mau-chu: #1c1a17;
+  --mau-nen: #fbf9f6;
+  --mau-vien: #e0d8cc;
+  --mau-nhan-manh: #0f4c46;
   --mau-canh-bao-nen: #fbf3e4;
   --mau-canh-bao-vien: #b8860b;
 
-  /* Ba sắc thái suy ra từ bảng trên, không phải màu mới: nền dịu cho khối phụ,
-     chữ phụ đạt 7.4:1 trên nền trắng, và bản đậm hơn của màu nhấn cho trạng
-     thái hover. Khai ở đây để chúng cũng đổi theo khi đổi thương hiệu. */
-  --mau-nen-diu: #f6f7f9;
-  --mau-chu-phu: #55565a;
-  --mau-nhan-manh-dam: #16294a;
+  /* Màu KÊU GỌI HÀNH ĐỘNG, tách khỏi màu nhấn. Trước đây chỉ có một màu nhấn
+     làm cả hai việc, và hệ quả là nút "Đặt tour" trông hệt như một liên kết
+     bình thường: thứ quan trọng nhất trên trang không nổi hơn thứ ít quan
+     trọng nhất. Đo trên nền --mau-nen: 5.7:1; chữ trắng trên nó: 5.9:1 — cả
+     hai chiều đều qua AA, và đó là lý do sắc này đậm hơn màu sơn mài thật. */
+  --mau-keu-goi: #a8451f;
+  --mau-keu-goi-dam: #8a3818;
+
+  /* Bốn sắc thái suy ra, không phải màu mới. Chữ phụ đạt 6.9:1 trên nền chính. */
+  --mau-nen-diu: #f2ece3;
+  --mau-chu-phu: #5c564d;
+  --mau-nhan-manh-dam: #0a3833;
+  --mau-tren-toi: #f4efe7;
 
   /* --- Thang khoảng cách, docs/21 mục 4. Không dùng giá trị ngoài thang. */
   --k1: 0.25rem;
@@ -48,12 +55,21 @@
   --k8: 2rem;
   --k12: 3rem;
 
-  /* --- Thang chữ, docs/21 mục 3.2. `--chu-than` là SÀN TUYỆT ĐỐI. */
-  --chu-than: 1rem;
-  --chu-phu: 0.875rem;
-  --chu-the: 1.25rem;
-  --chu-muc: 1.5rem;
-  --chu-trang: 2rem;
+  /* --- Thang chữ, docs/21 mục 3.2. 16px là SÀN TUYỆT ĐỐI; thân bài đặt trên
+     sàn một nấc vì khách là người lớn tuổi đọc trên màn hình cũ, và 17px đọc
+     dễ hơn 16px đúng ở nhóm ấy. Tiêu đề co giãn theo bề rộng: một con số cố
+     định thì hoặc quá nhỏ trên màn hình rộng, hoặc tràn trên điện thoại. */
+  --chu-than: 1.0625rem;
+  --chu-phu: 0.9375rem;
+  --chu-nho: 0.8125rem;
+  --chu-the: 1.375rem;
+  --chu-muc: clamp(1.75rem, 3.4vw, 2.5rem);
+  --chu-trang: clamp(2.25rem, 5.5vw, 3.75rem);
+
+  /* Hai họ chữ, gán ở layout bằng next/font. Fallback phải là chữ CÓ SẴN dựng
+     được dấu tiếng Việt — Segoe UI và Times New Roman đều được. */
+  --chu-tieu-de: var(--font-tieu-de), 'Iowan Old Style', 'Times New Roman', serif;
+  --chu-than-ho: var(--font-than), 'Segoe UI', 'Noto Sans', system-ui, sans-serif;
 
   /* --- Bề rộng. `--cot-chu` là giới hạn của cột chữ chạy dài: dài hơn thì mắt
      lạc dòng khi xuống dòng, và đó là vấn đề nặng hơn với người lớn tuổi.
@@ -65,8 +81,11 @@
      dạng nút — đặt tên để không ai gõ 44px rồi người sau tưởng là số tuỳ ý. */
   --cham: 44px;
 
-  --bo-goc: 8px;
-  --bo-goc-nho: 6px;
+  /* Bo góc NHỎ hẳn lại. Góc tròn 8px ở mọi khối làm trang trông như một bộ
+     component dựng sẵn — thứ mà mắt người đọc web nhận ra ngay. Ảnh và thẻ
+     gần như vuông, chỉ nút và ô nhập mới bo. */
+  --bo-goc: 3px;
+  --bo-goc-nho: 3px;
 }
 
 * {
@@ -75,30 +94,44 @@
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', 'Noto Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--chu-than-ho);
   font-size: var(--chu-than);
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--mau-chu);
   background: var(--mau-nen);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Cấp tiêu đề đi LIÊN TỤC, không nhảy cấp để lấy cỡ chữ — cỡ chữ là việc của
    CSS, cấp tiêu đề là cấu trúc mà trình đọc màn hình dùng để điều hướng. */
+/* Tiêu đề dùng chữ CÓ CHÂN, thân bài dùng chữ không chân. Tương phản giữa hai
+   họ chữ là thứ tạo ra cảm giác "có người thiết kế" mà một trang chỉ dùng một
+   họ chữ không bao giờ có — và nó không tốn thêm gì về khả năng đọc, vì chữ có
+   chân chỉ xuất hiện ở cỡ lớn. */
+h1,
+h2,
+h3 {
+  font-family: var(--chu-tieu-de);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
 h1 {
   font-size: var(--chu-trang);
-  line-height: 1.25;
+  line-height: 1.08;
   margin: 0 0 var(--k4);
 }
 
 h2 {
   font-size: var(--chu-muc);
-  line-height: 1.3;
-  margin: var(--k8) 0 var(--k3);
+  line-height: 1.15;
+  margin: var(--k8) 0 var(--k4);
 }
 
 h3 {
   font-size: var(--chu-the);
-  line-height: 1.35;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
   margin: var(--k6) 0 var(--k2);
 }
 
@@ -187,10 +220,38 @@ img {
   border-bottom: 2px solid var(--mau-canh-bao-vien);
 }
 
+/* KHUNG TRANG — `main` không còn tự giới hạn bề rộng; từng khối tự lo.
+ *
+ * Vì sao đổi: khối mở đầu phải trải hết bề ngang màn hình, và cách cũ (`main`
+ * giới hạn 72rem) không cho phép điều đó. Cách hay gặp để phá khung là
+ * `margin-inline: calc(50% - 50vw)`, nhưng `100vw` TÍNH CẢ thanh cuộn — trên
+ * Windows là 15px tràn ngang ở mọi trang, và thân trang không bao giờ được
+ * cuộn ngang. Mẹo `body { overflow-x: hidden }` chữa được cái đó nhưng làm
+ * hỏng `position: sticky` của thanh tab, nên cũng không dùng.
+ *
+ * Cách ở đây không cần `vw` chút nào: mọi con trực tiếp của `main` được đóng
+ * khung sẵn, và khối nào muốn tràn thì mang thêm lớp `tran` rồi tự đặt một
+ * `khung` bên trong. */
 main {
+  padding: 0 0 var(--k12);
+}
+
+main > * {
+  max-width: var(--khung);
+  margin: var(--k12) auto;
+  padding: 0 var(--k6);
+}
+
+main > .tran {
+  max-width: none;
+  margin-block: 0;
+  padding-inline: 0;
+}
+
+.khung {
   max-width: var(--khung);
   margin: 0 auto;
-  padding: var(--k8) var(--k6) var(--k12);
+  padding: 0 var(--k6);
 }
 
 /* Cột chữ chạy dài giới hạn ở 46rem, docs/21 mục 3.2. Chỉ áp cho khối văn bản,
@@ -347,52 +408,6 @@ main {
 .listing__intro {
   max-width: 44rem;
   margin: 0 0 2rem;
-}
-
-.dd-mien {
-  margin-bottom: 2.5rem;
-}
-
-.dd-mien h2 {
-  border-bottom: 1px solid var(--mau-vien);
-  padding-bottom: 0.4rem;
-}
-
-.dd-luoi {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-}
-
-.dd-the {
-  border: 1px solid var(--mau-vien);
-  border-radius: 6px;
-  padding: 1rem 1.1rem;
-}
-
-.dd-the h3 {
-  margin: 0 0 0.35rem;
-  font-size: 1.15rem;
-}
-
-.dd-the a {
-  /* Vùng chạm phủ hết tiêu đề, không chỉ mấy chữ ở giữa. */
-  display: block;
-  min-height: 44px;
-  color: var(--mau-nhan-manh);
-}
-
-.dd-tom-tat {
-  margin: 0 0 0.5rem;
-}
-
-.dd-so {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #555;
 }
 
 /* ------------------------------------------------------------ tìm tour (R2)
@@ -767,210 +782,1343 @@ main {
   }
 }
 
-/* ============================================ Lớp thiết kế — docs/21, docs/05
- *
- * Phần dưới đây ghi đè lớp scaffolding ở trên. Nó đứng sau có chủ ý: giữ được
- * lịch sử của từng khối, và người đọc thấy ngay cái gì là bản dựng tạm còn cái
- * gì là bản đã qua design system.
- */
+/* ==========================================================================
+   Lớp giao diện khách
+   ==========================================================================
+
+   Bản trước dựng đủ khối nhưng trông như một bộ component dựng sẵn: mọi thứ là
+   một hộp bo 8px viền xám 1px, một họ chữ duy nhất, một màu nhấn duy nhất, và
+   khoảng cách đều tăm tắp. Đủ dùng, không đáng nhớ.
+
+   Bốn thứ đổi ở lớp này, và cả bốn là lý do trang nhìn khác hẳn:
+
+     1. HAI HỌ CHỮ. Tiêu đề có chân, thân bài không chân. Tương phản giữa hai
+        họ chữ là thứ mắt đọc ra trước cả khi đọc chữ.
+     2. TƯƠNG PHẢN CỠ CHỮ LỚN. Tiêu đề trang tới 60px trên màn hình rộng, còn
+        nhãn nhỏ 13px in hoa giãn chữ. Ở giữa gần như không có gì — thang chữ
+        phẳng là dấu hiệu rõ nhất của một trang không ai thiết kế.
+     3. BỎ HỘP. Ảnh và chữ tự phân định bằng khoảng trắng và đường kẻ mảnh, chứ
+        không bằng viền quanh mọi thứ.
+     4. ẢNH TRẢI HẾT BỀ NGANG. Khối mở đầu và các dải màu chạy sát mép màn hình.
+
+   Ràng buộc không đổi (docs/21 mục 1): thân bài ≥ 16px, vùng chạm ≥ 44px,
+   tương phản đạt AA, không dùng hover làm điều kiện duy nhất, màu không bao giờ
+   là phương tiện duy nhất.
+   ========================================================================== */
+
+/* --------------------------------------------------------- nhãn nhỏ dùng chung
+   Chữ in hoa giãn rộng, cỡ nhỏ. Xuất hiện ở mọi chỗ cần một nhãn phụ mà không
+   được tranh chỗ với tiêu đề. Không bao giờ dùng cho câu dài hơn ba từ: chữ in
+   hoa đọc chậm hơn chữ thường, và đó là cái giá phải trả có ý thức. */
+.nhan-nho,
+.mo-dau__nhan,
+.chi-tiet-mo-dau__duong,
+.the-tour__noi,
+.khach-san__noi,
+.so-lieu dt,
+.dd-so,
+.doan__nhan {
+  font-size: var(--chu-nho);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 /* ------------------------------------------------------------------- Nút */
 
-/* Một định nghĩa nút cho cả site. `min-height` là vùng chạm tối thiểu, không
-   phải một con số thẩm mỹ (docs/21 mục 1). */
-.nut,
-.dat-nut button,
-.filters__actions button {
+.nut {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--k2);
   min-height: var(--cham);
-  padding: var(--k2) var(--k6);
-  border: 1px solid var(--mau-nhan-manh);
-  border-radius: var(--bo-goc-nho);
-  background: var(--mau-nhan-manh);
-  color: #fff;
-  font: inherit;
+  padding: var(--k3) var(--k6);
+  border: 1.5px solid var(--mau-keu-goi);
+  border-radius: var(--bo-goc);
+  background: var(--mau-keu-goi);
+  color: var(--mau-tren-toi);
+  font-family: var(--chu-than-ho);
+  font-size: var(--chu-than);
   font-weight: 600;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
 }
 
 .nut:hover,
-.dat-nut button:hover,
-.filters__actions button:hover {
-  background: var(--mau-nhan-manh-dam);
-  border-color: var(--mau-nhan-manh-dam);
-  color: #fff;
+.nut:focus-visible {
+  background: var(--mau-keu-goi-dam);
+  border-color: var(--mau-keu-goi-dam);
+  color: var(--mau-tren-toi);
 }
 
-.nut:disabled,
-.dat-nut button:disabled {
-  opacity: 0.55;
+.nut:disabled {
+  background: var(--mau-vien);
+  border-color: var(--mau-vien);
+  color: var(--mau-chu-phu);
   cursor: not-allowed;
 }
 
+/* Nút phụ: viền, không nền. Nó phải KHÁC HẲN nút chính chứ không chỉ nhạt hơn
+   — hai nút cạnh nhau mà cùng kiểu thì khách không biết cái nào là việc chính. */
 .nut--phu {
-  background: var(--mau-nen);
+  background: transparent;
+  border-color: currentColor;
   color: var(--mau-nhan-manh);
 }
 
-.nut--phu:hover {
+.nut--phu:hover,
+.nut--phu:focus-visible {
+  background: var(--mau-nhan-manh);
+  border-color: var(--mau-nhan-manh);
+  color: var(--mau-tren-toi);
+}
+
+/* Trên nền ảnh tối thì nút phụ đổi sang chữ trắng. */
+.mo-dau .nut--phu {
+  color: var(--mau-tren-toi);
+}
+
+.mo-dau .nut--phu:hover,
+.mo-dau .nut--phu:focus-visible {
+  background: var(--mau-tren-toi);
+  border-color: var(--mau-tren-toi);
+  color: var(--mau-chu);
+}
+
+/* ------------------------------------------------------------- Đầu trang */
+
+.dau-trang {
+  background: var(--mau-nen);
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.dau-trang__hang {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k4);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k4) var(--k6);
+}
+
+.dau-trang__ten {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.dau-trang__ten a {
+  font-family: var(--chu-tieu-de);
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.dau-trang__khau-hieu {
+  margin-top: var(--k1);
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+  letter-spacing: 0.02em;
+}
+
+.dau-trang__phai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k4) var(--k6);
+}
+
+/* Số điện thoại hiện THƯỜNG TRỰC — khách lớn tuổi Bắc Âu gọi điện nhiều hơn
+   điền form (web/CLAUDE.md mục 6). Nó to hơn thân bài vì nó là lời kêu gọi hành
+   động thật của trang này, không phải một dòng thông tin. */
+.dau-trang__lien-he {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0;
+}
+
+.dau-trang__so {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  color: var(--mau-nhan-manh);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.dau-trang__so:hover {
+  text-decoration: underline;
+}
+
+.dau-trang__gio {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+}
+
+/* Đổi ngôn ngữ. Ngôn ngữ ĐANG xem cũng bấm được, không phải chữ chết: bấm vào
+   nó rồi ở nguyên chỗ cũ là kết quả đúng, còn một mục không bấm được thì người
+   ta thử ba lần mới hiểu. */
+.doi-ngu {
+  display: flex;
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+  overflow: hidden;
+}
+
+.doi-ngu a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  padding: 0 var(--k4);
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.doi-ngu a[aria-current] {
+  background: var(--mau-nhan-manh);
+  color: var(--mau-tren-toi);
+}
+
+/* Menu chính cuộn ngang trên màn hình hẹp thay vì gập vào nút ba gạch: sáu mục
+   không đáng để giấu, và một menu phải bấm mới thấy là một menu ít người thấy. */
+.site-nav {
+  background: var(--mau-nen);
+  border-top: none;
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.site-nav__trong {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0 var(--k8);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: 0 var(--k6);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  padding: var(--k2) 0;
+  border-bottom: 2px solid transparent;
+  color: var(--mau-chu);
+  font-size: var(--chu-phu);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  border-bottom-color: var(--mau-vien);
+}
+
+/* Trang đang xem đánh dấu bằng CẢ gạch chân lẫn `aria-current` — màu và đường
+   kẻ không bao giờ là phương tiện duy nhất (docs/21 mục 2 quy tắc 2). */
+.site-nav a[aria-current='page'] {
+  border-bottom-color: var(--mau-keu-goi);
+  color: var(--mau-nhan-manh);
+}
+
+/* ---------------------------------------------------------- Khối mở đầu */
+
+.mo-dau,
+.chi-tiet-mo-dau {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  color: var(--mau-tren-toi);
+}
+
+/* Cao theo KHUNG NHÌN, không theo một con số pixel: cùng một tấm ảnh phải choán
+   được màn hình laptop lẫn màn hình 27 inch. Chặn trên để nó không đẩy hết nội
+   dung xuống dưới nếp gấp trên màn hình rất cao. */
+.mo-dau {
+  min-height: min(78vh, 46rem);
+}
+
+.chi-tiet-mo-dau {
+  min-height: min(62vh, 34rem);
+}
+
+/* Ba tầng, và cả ba dương: ảnh 0, lớp phủ 1, chữ 2.
+ *
+ * Bản đầu dùng `z-index: -1` và `-2` cùng với `isolation: isolate` trên khối
+ * cha. Về lý thuyết đúng — con có z âm vẽ trên nền của chính khối cha — nhưng
+ * TRÊN MÁY THẬT thì ảnh không hiện ở lần vẽ đầu: trang mở ra chỉ có lớp phủ xám,
+ * và ảnh chỉ xuất hiện sau lần vẽ lại đầu tiên (cuộn một cái là thấy). Ảnh đã
+ * tải xong và đã có kích thước đúng — kiểm bằng `naturalWidth` — nên đây là lỗi
+ * hợp thành tầng, không phải lỗi tải.
+ *
+ * Tầng dương không có cái bẫy ấy, và cũng chẳng cần `isolation` nữa. Đổi lại
+ * `.mo-dau__chu` phải khai `position: relative` thì mới nhận z-index. */
+.mo-dau__anh,
+.chi-tiet-mo-dau__anh {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Lớp phủ tối. Ảnh thật do biên tập viên tải lên sẽ KHÔNG có sẵn vùng tối, nên
+   lớp này là thứ duy nhất còn lại giữ cho chữ trắng đọc được — và tương phản
+   chữ trên ảnh là chỗ không công cụ đo tự động nào bắt được. */
+.mo-dau::before,
+.chi-tiet-mo-dau::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to top,
+    rgba(20, 16, 12, 0.86),
+    rgba(20, 16, 12, 0.5) 45%,
+    rgba(20, 16, 12, 0.18)
+  );
+}
+
+.mo-dau__chu,
+.chi-tiet-mo-dau__chu {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k12) var(--k6);
+}
+
+.mo-dau h1,
+.chi-tiet-mo-dau h1 {
+  max-width: 18ch;
+  margin: 0 0 var(--k4);
+  color: var(--mau-tren-toi);
+}
+
+.chi-tiet-mo-dau h1 {
+  max-width: 22ch;
+}
+
+.mo-dau__nhan,
+.chi-tiet-mo-dau__duong {
+  margin: 0 0 var(--k4);
+  color: var(--mau-tren-toi);
+  opacity: 0.85;
+}
+
+.chi-tiet-mo-dau__duong a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  color: inherit;
+}
+
+.mo-dau__dan {
+  max-width: 46ch;
+  margin: 0;
+  font-size: 1.1875rem;
+  opacity: 0.95;
+}
+
+.chi-tiet-mo-dau__tom-tat {
+  max-width: 52ch;
+  margin: 0;
+  font-size: 1.1875rem;
+  opacity: 0.95;
+}
+
+.chi-tiet-mo-dau__nhan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2);
+  margin: 0 0 var(--k4);
+}
+
+.mo-dau__nut {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k3);
+  margin: var(--k8) 0 0;
+}
+
+/* ---------------------------------------------------------- Băng lời hứa */
+
+/* Dải màu đậm chạy hết bề ngang, ngay dưới khối mở đầu. Nó làm hai việc: cắt
+   trang thành hai phần rõ rệt, và đặt bốn câu quan trọng nhất vào chỗ mắt đi
+   qua chắc chắn. */
+.loi-hua {
+  background: var(--mau-nhan-manh);
+  color: var(--mau-tren-toi);
+}
+
+.loi-hua__trong {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0;
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k8) var(--k6);
+  list-style: none;
+}
+
+.loi-hua li {
+  padding: var(--k4) var(--k6);
+  border-left: 1px solid rgba(244, 239, 231, 0.22);
+}
+
+.loi-hua li:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.loi-hua__ten {
+  margin: 0 0 var(--k2);
+  font-family: var(--chu-tieu-de);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.loi-hua__mo-ta {
+  margin: 0;
+  font-size: var(--chu-phu);
+  opacity: 0.85;
+}
+
+/* ------------------------------------------------ Đoạn trang và nền dịu */
+
+.doan {
+  margin: 0;
+  padding: var(--k12) 0;
+}
+
+.doan--diu {
   background: var(--mau-nen-diu);
-  color: var(--mau-nhan-manh-dam);
+}
+
+.doan__trong > h2:first-child,
+.doan__trong > .doan__nhan:first-child + h2 {
+  margin-top: 0;
+}
+
+.doan__nhan {
+  margin: 0 0 var(--k3);
+  color: var(--mau-keu-goi);
+}
+
+.doan__dan {
+  max-width: 56ch;
+  margin: 0 0 var(--k8);
+  color: var(--mau-chu-phu);
+  font-size: 1.125rem;
+}
+
+.doan__them {
+  margin: var(--k8) 0 0;
+}
+
+/* --------------------------------------------------- Lưới hình thức đi */
+
+/* Không phải sáu cái hộp. Sáu khối chữ ngăn nhau bằng một đường kẻ mảnh ở trên,
+   đánh số 01–06. Số thứ tự làm hai việc: cho mắt một mỏ neo, và nói rằng đây là
+   một danh sách có thứ tự chứ không phải một đống thẻ. */
+.hinh-thuc {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--k8) var(--k6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: hinh-thuc;
+}
+
+.hinh-thuc__o {
+  position: relative;
+  counter-increment: hinh-thuc;
+  padding-top: var(--k4);
+  border-top: 2px solid var(--mau-chu);
+}
+
+.hinh-thuc__o::before {
+  content: '0' counter(hinh-thuc);
+  display: block;
+  margin-bottom: var(--k2);
+  color: var(--mau-keu-goi);
+  font-size: var(--chu-nho);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.hinh-thuc__o h3 {
+  margin: 0 0 var(--k2);
+}
+
+.hinh-thuc__o h3 a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.hinh-thuc__o:hover h3 a {
+  color: var(--mau-nhan-manh);
+  text-decoration: underline;
+}
+
+/* Cả ô bấm được, nhưng chỉ MỘT liên kết trong cây accessibility — xem chú thích
+   ở ProductCard.tsx. Lớp phủ này là toàn bộ cơ chế đó. */
+.hinh-thuc__o h3 a::after,
+.the-tour__ten a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.hinh-thuc__o p {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* ------------------------------------------------------------- Thẻ tour */
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: var(--k12) var(--k6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Thẻ KHÔNG có viền và không có nền. Ảnh, một đường kẻ và khoảng trắng đủ để
+   phân định — viền quanh mọi thứ là thứ làm một trang trông như bảng tính. */
+.the-tour {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.the-tour__anh {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--mau-nen-diu);
+}
+
+.the-tour__anh img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.the-tour:hover .the-tour__anh img {
+  transform: scale(1.05);
+}
+
+.the-tour__nhan {
+  position: absolute;
+  top: var(--k3);
+  left: var(--k3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2);
+  margin: 0;
+}
+
+.the-tour__than {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--k2);
+  padding: var(--k4) 0 0;
+}
+
+.the-tour__noi {
+  margin: 0;
+  color: var(--mau-chu-phu);
+}
+
+.the-tour__ten {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.the-tour__ten a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.the-tour:hover .the-tour__ten a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.the-tour__tom-tat {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* `margin-top: auto` đẩy giá xuống đáy thẻ, nên giá của mọi thẻ trong một hàng
+   nằm cùng một đường ngang dù tóm tắt dài ngắn khác nhau. Đó là điều kiện để so
+   giá bằng mắt mà không phải đọc từng thẻ. */
+.the-tour__chan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--k2);
+  margin-top: auto;
+  padding-top: var(--k3);
+  border-top: 1px solid var(--mau-vien);
+}
+
+.the-tour__chan .price-from {
+  margin: 0;
+  text-align: right;
+}
+
+/* Giá là con số khách so sánh, nên nó được cỡ chữ tương xứng — không phải một
+   dòng chữ thường lẫn trong đám chữ thường khác.
+
+   Dùng chữ KHÔNG CHÂN dù mọi con số lớn khác trên trang đều có chân, và đây là
+   lý do: **Playfair Display không có ký tự `₫`.** Đo bằng canvas thì bề rộng của
+   `₫` trong Playfair khớp đúng font thay thế, còn `ố` và `ø` thì không — nghĩa
+   là font có dấu tiếng Việt nhưng thiếu riêng dấu tiền đồng. Hệ quả trên màn
+   hình: giá ở thị trường VN hiện `690.000 ₫` với ký tự cuối nhảy sang một kiểu
+   chữ khác. Đúng cái bẫy `docs/21` mục 3.1 mô tả, chỉ khác là lần này nó rơi vào
+   một ký tự tiền tệ chứ không phải một chữ cái.
+
+   `font-variant-numeric: tabular-nums` là phần thưởng kèm theo: các chữ số rộng
+   bằng nhau nên giá của các thẻ xếp thẳng cột, so bằng mắt được. */
+.price-from__amount {
+  display: block;
+  font-family: var(--chu-than-ho);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.price-from__label {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+  text-transform: lowercase;
+}
+
+.price-from__disclaimer {
+  display: block;
+  max-width: 34ch;
+  margin-top: var(--k1);
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+  line-height: 1.4;
+}
+
+.price-from--contact {
+  margin: 0;
+  color: var(--mau-nhan-manh);
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------- Nhãn nhỏ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem var(--k3);
+  border: 1px solid var(--mau-vien);
+  border-radius: 2px;
+  background: var(--mau-nen);
+  color: var(--mau-chu);
+  font-size: var(--chu-nho);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge--new {
+  border-color: var(--mau-keu-goi);
+  background: var(--mau-keu-goi);
+  color: var(--mau-tren-toi);
+}
+
+/* Nhãn đè lên ảnh phải có nền ĐỤC. Nền trong suốt đọc được trên tấm ảnh này và
+   biến mất trên tấm sau — và không ai thử lại khi thay ảnh. */
+.chi-tiet-mo-dau__nhan .badge,
+.the-tour__nhan .badge {
+  border-color: var(--mau-nen);
+  background: var(--mau-nen);
+}
+
+.chi-tiet-mo-dau__nhan .badge--new,
+.the-tour__nhan .badge--new {
+  border-color: var(--mau-keu-goi);
+  background: var(--mau-keu-goi);
+  color: var(--mau-tren-toi);
+}
+
+/* ------------------------------------------------------- Sao đánh giá */
+
+.danh-gia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k1) var(--k2);
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+}
+
+.danh-gia__sao {
+  position: relative;
+  display: inline-block;
+  color: var(--mau-vien);
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.danh-gia__sao-day {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: var(--mau-canh-bao-vien);
+  white-space: nowrap;
+}
+
+.danh-gia--chua {
+  font-style: italic;
+}
+
+/* --------------------------------------------- Dải dữ kiện trang chi tiết */
+
+/* Không phải một cái hộp: một hàng ngăn bằng hai đường kẻ ngang và những đường
+   dọc mảnh giữa các cột. */
+.so-lieu {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--k4) 0;
+  margin: 0 0 var(--k12);
+  padding: var(--k6) 0;
+  border-top: 1px solid var(--mau-vien);
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.so-lieu > div {
+  padding: 0 var(--k6);
+  border-left: 1px solid var(--mau-vien);
+}
+
+.so-lieu > div:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.so-lieu dt {
+  color: var(--mau-chu-phu);
+}
+
+.so-lieu dd {
+  margin: var(--k2) 0 0;
+  font-family: var(--chu-tieu-de);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.so-lieu dd .danh-gia {
+  font-family: var(--chu-than-ho);
+}
+
+/* Thanh tab DÍNH ở đỉnh khung nhìn. Ở tab lịch trình của tour mười sáu ngày,
+   khách đọc tới ngày thứ mười rồi muốn xem giá — không dính thì phải cuộn ngược
+   hết lên. Đầu trang cố tình KHÔNG dính: hai thanh dính chồng nhau ăn mất một
+   phần ba màn hình điện thoại. */
+.tab-thanh {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 0 var(--k12);
+  background: var(--mau-nen);
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.tab-thanh__trong {
+  display: flex;
+  gap: var(--k8);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.tab-thanh a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  padding: var(--k3) 0;
+  border-bottom: 2px solid transparent;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tab-thanh a:hover {
+  color: var(--mau-chu);
+}
+
+.tab-thanh a[aria-current='page'] {
+  border-bottom-color: var(--mau-keu-goi);
+  color: var(--mau-chu);
+}
+
+/* --------------------------------------------------------- Trang chi tiết */
+
+.detail {
+  max-width: none;
+}
+
+.detail__body,
+.why,
+.cot-chu {
+  max-width: var(--cot-chu);
+}
+
+.detail__body p {
+  font-size: 1.125rem;
+}
+
+/* "Vì sao chọn chuyến này": danh sách có dấu tích, không phải chấm tròn. Đây là
+   khối bán hàng, và một danh sách chấm tròn trông như phần ghi chú. */
+.why ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--k3) var(--k6);
+}
+
+.why li {
+  position: relative;
+  padding-left: var(--k8);
+  font-size: 1.0625rem;
+}
+
+.why li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--mau-nhan-manh);
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------- Lịch trình */
+
+/* Đường dọc chạy suốt, số ngày nằm trên đường ấy. Bố cục này nói "đây là một
+   chuỗi có thứ tự" mà không cần chữ nào giải thích. */
+.lich-trinh {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: var(--cot-chu);
+}
+
+.lich-trinh__ngay {
+  position: relative;
+  padding: 0 0 var(--k8) var(--k12);
+  border-left: 1px solid var(--mau-vien);
+}
+
+.lich-trinh__ngay:last-child {
+  border-left-color: transparent;
+  padding-bottom: 0;
+}
+
+.lich-trinh__so {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.25rem;
+  padding: var(--k1) var(--k2);
+  background: var(--mau-nen);
+  color: var(--mau-keu-goi);
+  font-size: var(--chu-nho);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.lich-trinh__ngay h3 {
+  margin: 0 0 var(--k2);
+}
+
+.lich-trinh__ngay p {
+  margin: 0 0 var(--k2);
+}
+
+.lich-trinh__chi-tiet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2) var(--k6);
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* --------------------------------------------------------- Thẻ khách sạn */
+
+.khach-san {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: var(--k12) var(--k6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.khach-san__the {
+  display: flex;
+  flex-direction: column;
+}
+
+.khach-san__anh {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.khach-san__than {
+  padding: var(--k4) 0 0;
+}
+
+.khach-san__noi {
+  margin: 0;
+  color: var(--mau-chu-phu);
+}
+
+.khach-san__than h3 {
+  margin: var(--k2) 0 var(--k3);
+}
+
+.khach-san__dong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2);
+  margin: 0 0 var(--k3);
+}
+
+.khach-san__than p:last-child {
+  margin: 0;
+  color: var(--mau-chu-phu);
+}
+
+/* ---------------------------------------------------------- Bảng dữ liệu */
+
+.bang-khung {
+  overflow-x: auto;
+}
+
+.bang {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bang th,
+.bang td {
+  padding: var(--k4) var(--k4) var(--k4) 0;
+  border-bottom: 1px solid var(--mau-vien);
+  text-align: left;
+  vertical-align: top;
+}
+
+.bang th {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--mau-chu);
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bang .price-from__amount {
+  font-size: 1.25rem;
+}
+
+.bang .price-from__disclaimer {
+  display: none;
+}
+
+/* --------------------------------------- Trạng thái ngày khởi hành */
+
+/* Lớp này CHỈ đổi màu. Chữ trong viên đã nói đủ nghĩa — "hết chỗ" đọc lên là
+   hết chỗ — nên người không phân biệt được màu vẫn đọc đúng bảng (docs/21 mục 2
+   quy tắc 2). Gỡ hết màu ở đây thì bảng vẫn dùng được. */
+.badge--tt-OPEN,
+.badge--tt-GUARANTEED {
+  border-color: var(--mau-nhan-manh);
+  color: var(--mau-nhan-manh);
+}
+
+.badge--tt-FEW_SEATS,
+.badge--tt-PENDING {
+  border-color: var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+}
+
+.badge--tt-SOLD_OUT {
+  background: var(--mau-nen-diu);
+  color: var(--mau-chu-phu);
+}
+
+/* ------------------------------------------------- Thẻ bài viết, sự kiện */
+
+.bai-luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: var(--k12) var(--k6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bai-the {
+  border: none;
+  padding: 0;
+}
+
+.bai-the__anh {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.bai-the__than {
+  padding: var(--k4) 0 0;
+}
+
+.bai-the__than h3 {
+  margin: 0 0 var(--k2);
+  font-size: 1.375rem;
+}
+
+.bai-the__than h3 a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.bai-the__than h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bai-the__than p {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+.bai-the__ngay {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-nho);
+}
+
+.su-kien-dai {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--mau-vien);
+}
+
+.su-kien-dai li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--k2) var(--k6);
+  padding: var(--k6) 0;
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.su-kien-dai__ngay {
+  min-width: 12rem;
+  margin: 0;
+  font-family: var(--chu-tieu-de);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.su-kien-dai__ten {
+  flex: 1 1 18rem;
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.su-kien-dai__noi {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* ----------------------------------------------------------- Lưới miền */
+
+.mien-luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--k4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mien-luoi a {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k1);
+  min-height: var(--cham);
+  padding: var(--k6) 0;
+  border-top: 2px solid var(--mau-chu);
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.mien-luoi a:hover strong {
+  color: var(--mau-nhan-manh);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mien-luoi strong {
+  font-family: var(--chu-tieu-de);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.region-list__count {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* ------------------------------------------------------ Thanh dính đáy */
+
+.thanh-day {
+  position: sticky;
+  bottom: 0;
+  z-index: 9;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k3) var(--k6);
+  margin: var(--k12) 0 0;
+  padding: var(--k4) var(--k6);
+  background: var(--mau-chu);
+  color: var(--mau-tren-toi);
+}
+
+.thanh-day__ten {
+  flex: 1 1 14rem;
+  margin: 0;
+  font-family: var(--chu-tieu-de);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.thanh-day__gia {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.thanh-day .price-from {
+  margin: 0;
+  text-align: right;
+}
+
+.thanh-day .price-from__label,
+.thanh-day .price-from__disclaimer {
+  color: rgba(244, 239, 231, 0.75);
+}
+
+.thanh-day .price-from__disclaimer {
+  display: none;
 }
 
 /* ------------------------------------------------------------ Trạng thái */
 
 .state {
-  padding: var(--k6);
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc);
+  padding: var(--k8);
+  border: none;
+  border-left: 3px solid var(--mau-vien);
   background: var(--mau-nen-diu);
-  max-width: var(--cot-chu);
 }
 
 .state__title {
   margin-top: 0;
-  font-size: var(--chu-the);
-  font-weight: 700;
+  font-family: var(--chu-tieu-de);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .state--error {
-  border-color: var(--mau-canh-bao-vien);
+  border-left-color: var(--mau-canh-bao-vien);
   background: var(--mau-canh-bao-nen);
+}
+
+.state p:last-child {
+  margin-bottom: 0;
 }
 
 .skeleton-bar {
   display: block;
-  height: 1rem;
   width: 100%;
-  margin-bottom: var(--k2);
-  border-radius: var(--bo-goc-nho);
-  background: linear-gradient(90deg, #eceef1 0%, #f5f6f8 50%, #eceef1 100%);
+  max-width: 22rem;
+  height: 1.1rem;
+  margin-bottom: var(--k3);
+  background: var(--mau-nen-diu);
 }
 
 .skeleton-bar--image {
-  height: 10rem;
-  margin-bottom: var(--k3);
+  aspect-ratio: 4 / 3;
+  height: auto;
+  max-width: none;
 }
 
 .skeleton-bar--short {
-  width: 60%;
+  max-width: 12rem;
 }
 
-/* ------------------------------------------------------------ Lưới và thẻ */
+/* --------------------------------------------------------- Chân trang */
 
-/* Lưới tự xuống dòng theo bề rộng tối thiểu, KHÔNG đếm cột theo điểm ngắt —
-   đếm cột là cách chắc chắn để một cấu hình màn hình nào đó hiện ra một thẻ
-   đơn độc ở dòng cuối (docs/21 mục 4). */
-.product-grid,
-.bai-luoi,
-.dd-luoi {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  gap: var(--k6);
-  list-style: none;
-  margin: var(--k6) 0 0;
-  padding: 0;
-}
-
-.product-card,
-.bai-the,
-.dd-the {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc);
-  overflow: hidden;
-  background: var(--mau-nen);
-}
-
-.product-card:hover,
-.bai-the:hover {
-  border-color: var(--mau-nhan-manh);
-}
-
-.product-card__image,
-.bai-the__anh {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  display: block;
-  background: var(--mau-nen-diu);
-}
-
-.product-card__body,
-.bai-the__than {
-  display: flex;
-  flex-direction: column;
-  gap: var(--k1);
-  padding: var(--k4);
-  flex: 1;
-}
-
-.product-card__title,
-.bai-the__ten {
-  font-size: var(--chu-the);
-  line-height: 1.3;
+.chan-trang {
   margin: 0;
+  padding: 0;
+  border-top: none;
+  background: var(--mau-nhan-manh-dam);
+  color: var(--mau-tren-toi);
 }
 
-.product-card__title a,
-.bai-the__ten a {
-  color: var(--mau-chu);
-  text-decoration: none;
+.chan-trang__cot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--k8);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k12) var(--k6) var(--k8);
 }
 
-.product-card__title a:hover,
-.bai-the__ten a:hover {
-  text-decoration: underline;
-}
-
-.product-card__where,
-.product-card__rating,
-.bai-the__ngay,
-.region-list__count,
-.listing__total,
-.price-from__disclaimer {
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-/* Giá đẩy xuống đáy thẻ để mọi thẻ trong lưới có giá ngang nhau — mắt quét một
-   hàng ngang thay vì nhảy lên xuống. */
-.product-card .price-from {
-  margin-top: auto;
-  padding-top: var(--k3);
-}
-
-.price-from__amount {
-  font-size: var(--chu-the);
-  font-weight: 700;
-}
-
-.price-from__disclaimer {
-  display: block;
-}
-
-.badge {
-  display: inline-block;
-  padding: var(--k1) var(--k2);
-  border: 1px solid var(--mau-vien);
-  border-radius: 999px;
-  background: var(--mau-nen-diu);
-  font-size: var(--chu-phu);
+.chan-trang__ten {
+  margin: 0 0 var(--k3);
+  font-family: var(--chu-tieu-de);
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
-.badge--new {
-  border-color: var(--mau-canh-bao-vien);
-  background: var(--mau-canh-bao-nen);
+.chan-trang p {
+  color: rgba(244, 239, 231, 0.8);
+  font-size: var(--chu-phu);
 }
 
-/* ------------------------------------------------------------------ Lọc */
+.chan-trang a {
+  color: var(--mau-tren-toi);
+}
+
+.chan-trang__muc {
+  margin: 0 0 var(--k2);
+  color: var(--mau-tren-toi) !important;
+  font-size: var(--chu-nho);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chan-trang nav a {
+  display: flex;
+  align-items: center;
+  min-height: var(--cham);
+  color: rgba(244, 239, 231, 0.8);
+  font-size: var(--chu-phu);
+  text-decoration: none;
+}
+
+.chan-trang nav a:hover {
+  color: var(--mau-tren-toi);
+  text-decoration: underline;
+}
+
+.chan-trang__luat {
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k6) var(--k6) var(--k12);
+  border-top: 1px solid rgba(244, 239, 231, 0.18);
+  color: rgba(244, 239, 231, 0.6) !important;
+  font-size: var(--chu-nho);
+}
+
+/* ------------------------------------------------------------ Băng thị trường */
+
+.market-banner {
+  margin: 0;
+  padding: var(--k3) var(--k6);
+  background: var(--mau-canh-bao-nen);
+  border-bottom: 2px solid var(--mau-canh-bao-vien);
+  font-size: var(--chu-phu);
+}
+
+/* ------------------------------------------------------------------ Hẹp */
+
+@media (max-width: 40rem) {
+  .loi-hua li {
+    padding: var(--k4) 0;
+    border-left: none;
+    border-top: 1px solid rgba(244, 239, 231, 0.22);
+  }
+
+  .loi-hua li:first-child {
+    border-top: none;
+  }
+
+  .so-lieu > div {
+    padding: 0;
+    border-left: none;
+  }
+
+  .lich-trinh__ngay {
+    padding-left: var(--k8);
+  }
+}
+
+/* ------------------------------------------------------------------ Lọc
+
+   Khối này là phần DUY NHẤT còn lại của lớp thiết kế đợt trước: lớp mới dựng
+   lại mọi thứ khác nhưng chưa động tới bộ lọc, và xoá nó đi thì form lọc mất
+   hết hình thức. Dựng lại nó là việc riêng, không gộp vào đợt này. */
 
 .filters fieldset {
   display: flex;
@@ -1005,977 +2153,77 @@ main {
   font: inherit;
 }
 
-/* ---------------------------------------------------------- Trang chi tiết */
+/* ------------------------------------------------------- Lưới điểm đến */
 
-.detail {
-  max-width: var(--khung);
+/* Cùng hình thức với thẻ tour: ảnh trên, chữ dưới, không viền. Trước đây `.dd-the`
+   dùng chung luật với `.product-card`, và khi thẻ tour bỏ viền thì thẻ điểm đến
+   ở lại một mình với cái viền cũ. */
+.dd-luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--k8) var(--k6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.detail__breadcrumb {
-  margin-bottom: var(--k4);
-}
-
-.detail__meta {
+.dd-the {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--k2) var(--k4);
-  margin-bottom: var(--k3);
-  color: var(--mau-chu-phu);
+  flex-direction: column;
+  height: 100%;
+  padding-top: var(--k4);
+  border-top: 2px solid var(--mau-chu);
 }
 
-.detail__summary {
-  font-size: var(--chu-the);
-  line-height: 1.5;
-  max-width: var(--cot-chu);
-}
-
-.detail__image,
-.detail__map {
-  width: 100%;
-  height: auto;
-  border-radius: var(--bo-goc);
-  background: var(--mau-nen-diu);
-}
-
-.detail__body,
-.why {
-  max-width: var(--cot-chu);
-}
-
-.why ul {
-  padding-left: var(--k6);
-}
-
-.why li {
-  margin-bottom: var(--k2);
-}
-
-/* ------------------------------------------------ Tab của trang chi tiết
- *
- * docs/05 mục 3: trang chi tiết chia theo TAB, không phải một trang cuộn phẳng.
- *
- * Tab là **liên kết neo**, không phải nút chạy JavaScript: tab đang mở nằm trong
- * URL (`?tab=lich-trinh`), nên F5 giữ nguyên, dán link ra đúng tab đó, và trang
- * dùng được cả khi script chưa tải xong. Đó cũng là lý do mỗi tab tự nạp dữ liệu
- * của mình ở máy chủ thay vì tải hết rồi ẩn đi.
- */
-
-.tab-thanh {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  gap: 0 var(--k4);
-  overflow-x: auto;
-  margin: var(--k6) 0 var(--k6);
-  padding: 0 var(--k1);
-  border-bottom: 1px solid var(--mau-vien);
-  background: var(--mau-nen);
-}
-
-.tab-thanh a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--cham);
-  padding: var(--k2) var(--k1);
-  border-bottom: 3px solid transparent;
+.dd-the a {
   color: var(--mau-chu);
-  font-weight: 600;
-  white-space: nowrap;
   text-decoration: none;
 }
 
-.tab-thanh a:hover {
-  border-bottom-color: var(--mau-vien);
-}
-
-.tab-thanh a[aria-current='page'] {
-  border-bottom-color: var(--mau-nhan-manh);
+.dd-the a:hover {
   color: var(--mau-nhan-manh);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-/* ------------------------------------------------------- Thanh dính đáy
- *
- * docs/05 mục 4. Cao tối đa 88px ở màn hình hẹp: bài học đo được từ bản demo là
- * header 80 + thanh tab 72 + thanh đặt tour 204 = 356px khung cố định, chiếm
- * 53% một màn hình cao 667px. Ba thanh cộng lại không được vượt 30% khung nhìn.
- */
-
-.thanh-day {
-  position: sticky;
-  bottom: 0;
-  z-index: 15;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--k3) var(--k6);
-  margin-top: var(--k8);
-  padding: var(--k3) var(--k6);
-  border-top: 1px solid var(--mau-vien);
-  background: var(--mau-nen);
-  box-shadow: 0 -2px 8px rgb(0 0 0 / 8%);
+/* `.dd-mien` bọc CẢ MỘT MIỀN (nhiều thẻ), không phải một cái nhãn. Gán chữ in
+   hoa cho nó thì tiêu đề miền bên trong cũng thành in hoa — đã dính một lần. */
+.dd-mien {
+  margin-bottom: var(--k12);
 }
 
-.thanh-day__ten {
-  margin: 0;
-  font-weight: 700;
-}
-
-.thanh-day__gia {
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  gap: var(--k2);
-}
-
-/* Disclaimer của giá vẫn phải có ở thanh dính đáy — yêu cầu pháp lý, và thanh
-   này là chỗ dễ bị cắt gọn cho vừa chỗ nhất. Thu nhỏ chứ không bỏ. */
-.thanh-day .price-from__disclaimer {
-  display: inline;
-  margin-left: var(--k2);
-  font-size: var(--chu-phu);
-}
-
-/* Giá ở thanh dính đáy nằm cùng một dòng với disclaimer, nên bỏ lề dưới mặc
-   định của đoạn văn — nếu không thanh cao thêm một dòng trống và ăn vào ngân
-   sách 88px của docs/05 mục 4. */
-.thanh-day .price-from {
-  margin: 0;
-}
-
-@media (max-width: 48rem) {
-  .thanh-day {
-    max-height: 88px;
-    overflow: hidden;
-  }
-}
-
-/* ---------------------------------------------------------- Bảng dữ liệu */
-
-.bang {
-  width: 100%;
-  border-collapse: collapse;
-  margin: var(--k4) 0;
-}
-
-.bang th,
-.bang td {
-  padding: var(--k3);
+.dd-mien h2 {
+  padding-bottom: var(--k3);
   border-bottom: 1px solid var(--mau-vien);
-  text-align: left;
-  vertical-align: top;
 }
 
-.bang th {
-  background: var(--mau-nen-diu);
+.dd-the h3 {
+  margin: 0 0 var(--k2);
+  font-size: 1.375rem;
+}
+
+.dd-the a {
+  /* Vùng chạm phủ hết tiêu đề, không chỉ mấy chữ ở giữa. */
+  display: block;
+  min-height: var(--cham);
+}
+
+.dd-so {
+  margin: 0;
+  color: var(--mau-chu-phu);
+}
+
+.dd-tom-tat {
+  margin: 0 0 var(--k2);
+  color: var(--mau-chu-phu);
   font-size: var(--chu-phu);
 }
 
-/* Bảng rộng cuộn NGANG trong khung của nó, không đẩy cả trang trượt ngang. */
-.bang-khung {
-  overflow-x: auto;
-  max-width: 100%;
-}
+/* -------------------------------------------------------- vá lịch trình */
 
-/* --------------------------------------------------------------- Lịch trình */
-
+/* Nhãn "Ngày 1" nằm ĐÈ lên đường dọc, tức là nửa nhãn thò ra ngoài mép trái của
+   danh sách. Không có lề này thì nó bị cắt mất ở mép màn hình — `main` chỉ chừa
+   24px, còn nửa nhãn rộng 26px. */
 .lich-trinh {
-  list-style: none;
-  margin: var(--k6) 0 0;
-  padding: 0;
-  display: grid;
-  gap: var(--k4);
-  max-width: var(--cot-chu);
-}
-
-.lich-trinh__ngay {
-  padding: var(--k4);
-  border: 1px solid var(--mau-vien);
-  border-left: 4px solid var(--mau-nhan-manh);
-  border-radius: var(--bo-goc);
-}
-
-.lich-trinh__so {
-  margin: 0 0 var(--k1);
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.lich-trinh__ngay h3 {
-  margin: 0 0 var(--k2);
-}
-
-.lich-trinh__chi-tiet {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k2) var(--k4);
-  margin: var(--k3) 0 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-/* ------------------------------------------------------------- Trang chủ */
-
-.mien-luoi {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: var(--k4);
-  list-style: none;
-  margin: var(--k6) 0 0;
-  padding: 0;
-}
-
-.mien-luoi a {
-  display: flex;
-  flex-direction: column;
-  gap: var(--k1);
-  min-height: var(--cham);
-  padding: var(--k4);
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc);
-  color: var(--mau-chu);
-  text-decoration: none;
-}
-
-.mien-luoi a:hover {
-  border-color: var(--mau-nhan-manh);
-}
-
-.mien-luoi strong {
-  font-size: var(--chu-the);
-}
-
-/* --------------------------------------------------------------- Chân trang */
-
-.chan-trang {
-  margin-top: var(--k12);
-  padding: var(--k8) var(--k6);
-  border-top: 1px solid var(--mau-vien);
-  background: var(--mau-nen-diu);
-}
-
-.chan-trang h2 {
-  margin: 0 0 var(--k2);
-  font-size: var(--chu-than);
-}
-
-.chan-trang ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.chan-trang a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--cham);
-}
-
-
-/* ==========================================================================
-   Lớp giao diện khách — đợt dựng trang cho người mua
-   ==========================================================================
-
-   Đợt trước áp token của docs/21 lên khung đã có. Đợt này dựng những khối mà
-   một website bán tour phải có mà trang này chưa có: đầu trang có chỗ đổi ngôn
-   ngữ, khối mở đầu có ảnh, băng lời hứa, lưới hình thức đi, thẻ tour có ảnh và
-   sao, dải dữ kiện ở trang chi tiết, thẻ khách sạn, và chân trang thật.
-
-   Ba ràng buộc chi phối mọi con số dưới đây, và cả ba đều từ docs/21 mục 1 —
-   khách là NGƯỜI LỚN TUỔI đọc trên màn hình cũ:
-
-     · không có chữ nào nhỏ hơn --chu-phu, và thân bài không nhỏ hơn 16px
-     · mọi thứ bấm được cao ít nhất --cham
-     · chữ đè lên ảnh phải có lớp phủ tối; ảnh sáng là chỗ tương phản hỏng mà
-       không công cụ đo tự động nào bắt được
-
-   KHÔNG có màu mới. Sáu token màu của docs/21 cộng ba sắc thái suy ra là tất
-   cả những gì dưới đây dùng — cần sắc thái mới thì thêm token và sửa tài liệu,
-   đừng gõ mã màu vào giữa component.
-   ========================================================================== */
-
-/* ------------------------------------------------------------- Đầu trang */
-
-.dau-trang {
-  background: var(--mau-nen);
-  border-bottom: 1px solid var(--mau-vien);
-}
-
-.dau-trang__hang {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--k4);
-  max-width: var(--khung);
-  margin: 0 auto;
-  padding: var(--k4) var(--k6);
-}
-
-.dau-trang__ten {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-}
-
-.dau-trang__ten a {
-  font-size: var(--chu-muc);
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--mau-chu);
-  text-decoration: none;
-}
-
-.dau-trang__khau-hieu {
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-.dau-trang__phai {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--k4) var(--k6);
-}
-
-/* Số điện thoại và giờ mở cửa hiện THƯỜNG TRỰC — khách lớn tuổi Bắc Âu gọi
-   điện nhiều hơn điền form (web/CLAUDE.md mục 6). Số to hơn thân bài vì nó là
-   lời kêu gọi hành động thật của trang này, không phải một dòng thông tin. */
-.dau-trang__lien-he {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin: 0;
-}
-
-.dau-trang__so {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--cham);
-  font-size: var(--chu-the);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.dau-trang__so:hover {
-  text-decoration: underline;
-}
-
-.dau-trang__gio {
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-/* Đổi ngôn ngữ. Ngôn ngữ ĐANG xem cũng là một liên kết bấm được, không phải
-   chữ chết: khách bấm vào nó và ở nguyên chỗ cũ là kết quả đúng, còn một mục
-   không bấm được thì người ta thử ba lần rồi mới hiểu. */
-.doi-ngu {
-  display: flex;
-  gap: var(--k2);
-  margin: 0;
-}
-
-.doi-ngu a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--cham);
-  padding: 0 var(--k3);
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc-nho);
-  color: var(--mau-chu);
-  font-size: var(--chu-phu);
-  text-decoration: none;
-}
-
-.doi-ngu a[aria-current] {
-  background: var(--mau-nhan-manh);
-  border-color: var(--mau-nhan-manh);
-  color: var(--mau-nen);
-}
-
-/* Menu chính cuộn ngang trên màn hình hẹp thay vì gập vào nút ba gạch: sáu mục
-   không đáng để giấu, và một menu phải bấm mới thấy là một menu ít người thấy. */
-.site-nav__trong {
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-
-/* ---------------------------------------------------------- Khối mở đầu */
-
-/* Dùng chung cho trang chủ và đầu trang chi tiết: ảnh phủ kín, chữ trắng đè lên.
-   `isolation: isolate` để `z-index: -1` của ảnh không chui xuống dưới nền body. */
-.mo-dau,
-.chi-tiet-mo-dau {
-  position: relative;
-  isolation: isolate;
-  display: flex;
-  align-items: flex-end;
-  overflow: hidden;
-  border-radius: var(--bo-goc);
-  color: var(--mau-nen);
-}
-
-.mo-dau {
-  min-height: 26rem;
-}
-
-.chi-tiet-mo-dau {
-  min-height: 20rem;
-}
-
-.mo-dau__anh,
-.chi-tiet-mo-dau__anh {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Lớp phủ tối. Tệp ảnh đã có sẵn một lớp tương tự, và lặp lại ở đây là CHỦ Ý:
-   ảnh thật do biên tập viên tải lên sẽ không có lớp ấy, và khi đó chữ vẫn phải
-   đọc được. Không lặp thì lỗi tương phản chỉ xuất hiện sau ngày bàn giao. */
-.mo-dau::before,
-.chi-tiet-mo-dau::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.76),
-    rgba(0, 0, 0, 0.42) 55%,
-    rgba(0, 0, 0, 0.2)
-  );
-}
-
-.mo-dau__chu,
-.chi-tiet-mo-dau__chu {
-  max-width: var(--cot-chu);
-  padding: var(--k8) var(--k6);
-}
-
-.mo-dau h1,
-.chi-tiet-mo-dau h1 {
-  margin: 0 0 var(--k3);
-  color: var(--mau-nen);
-  font-size: clamp(2rem, 5vw, 2.75rem);
-}
-
-.mo-dau__nhan,
-.chi-tiet-mo-dau__duong {
-  margin: 0 0 var(--k3);
-  font-size: var(--chu-phu);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.chi-tiet-mo-dau__duong a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--cham);
-  color: var(--mau-nen);
-}
-
-.mo-dau__dan,
-.chi-tiet-mo-dau__tom-tat {
-  margin: 0;
-  font-size: var(--chu-the);
-}
-
-.chi-tiet-mo-dau__nhan {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k2);
-  margin: 0 0 var(--k3);
-}
-
-.mo-dau__nut {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k3);
-  margin: var(--k6) 0 0;
-}
-
-/* Nhãn đè lên ảnh phải có nền ĐỤC. Nền trong suốt đọc được trên tấm ảnh này và
-   biến mất trên tấm ảnh sau — và không ai thử lại khi thay ảnh. */
-.chi-tiet-mo-dau__nhan .badge,
-.the-tour__nhan .badge {
-  background: var(--mau-nen);
-  color: var(--mau-chu);
-  border-color: var(--mau-nen);
-}
-
-/* ---------------------------------------------------------- Băng lời hứa */
-
-.loi-hua {
-  margin: var(--k8) 0;
-}
-
-.loi-hua__trong {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--k4);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.loi-hua li {
-  padding: var(--k4);
-  border-left: 4px solid var(--mau-nhan-manh);
-  border-radius: 0 var(--bo-goc) var(--bo-goc) 0;
-  background: var(--mau-nen-diu);
-}
-
-.loi-hua__ten {
-  margin: 0 0 var(--k1);
-  font-weight: 700;
-}
-
-.loi-hua__mo-ta {
-  margin: 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-/* ------------------------------------------------ Đoạn trang và nền dịu */
-
-.doan {
-  margin: var(--k12) 0;
-}
-
-/* Nền dịu nằm TRONG khung 72rem chứ không tràn ra mép màn hình. Tràn mép cần
-   `100vw`, mà `100vw` tính cả thanh cuộn — trên Windows đó là 15px tràn ngang
-   ở mọi trang, và thân trang không bao giờ được cuộn ngang. */
-.doan--diu {
-  padding: var(--k8) var(--k6);
-  border-radius: var(--bo-goc);
-  background: var(--mau-nen-diu);
-}
-
-.doan__trong > h2:first-child {
-  margin-top: 0;
-}
-
-.doan__dan {
-  max-width: var(--cot-chu);
-  color: var(--mau-chu-phu);
-}
-
-.doan__them {
-  margin: var(--k6) 0 0;
-}
-
-/* --------------------------------------------------- Lưới hình thức đi */
-
-.hinh-thuc {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: var(--k4);
-  list-style: none;
-  margin: var(--k6) 0 0;
-  padding: 0;
-}
-
-.hinh-thuc__o {
-  position: relative;
-  padding: var(--k4);
-  border: 1px solid var(--mau-vien);
-  border-top: 4px solid var(--mau-nhan-manh);
-  border-radius: var(--bo-goc);
-  background: var(--mau-nen);
-}
-
-.hinh-thuc__o:hover {
-  border-color: var(--mau-nhan-manh);
-}
-
-.hinh-thuc__o h3 {
-  margin: 0 0 var(--k2);
-  font-size: var(--chu-the);
-}
-
-.hinh-thuc__o h3 a {
-  text-decoration: none;
-}
-
-/* Cả ô bấm được, nhưng chỉ MỘT liên kết trong cây accessibility — xem chú thích
-   ở ProductCard.tsx. Lớp phủ này là toàn bộ cơ chế đó. */
-.hinh-thuc__o h3 a::after,
-.the-tour__ten a::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-}
-
-.hinh-thuc__o p {
-  margin: 0;
-  color: var(--mau-chu-phu);
-}
-
-/* ------------------------------------------------------------- Thẻ tour */
-
-.the-tour {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc);
-  background: var(--mau-nen);
-}
-
-.the-tour:hover {
-  border-color: var(--mau-nhan-manh);
-}
-
-/* `aspect-ratio` trên khung chứ không trên ảnh: ảnh thật sẽ có tỷ lệ khác nhau,
-   và một lưới mà mỗi thẻ cao một kiểu là lưới trông như hỏng. */
-.the-tour__anh {
-  position: relative;
-  aspect-ratio: 3 / 2;
-  background: var(--mau-nen-diu);
-}
-
-.the-tour__anh img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.the-tour__nhan {
-  position: absolute;
-  top: var(--k3);
-  left: var(--k3);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k2);
-  margin: 0;
-}
-
-.the-tour__than {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--k2);
-  padding: var(--k4);
-}
-
-.the-tour__ten {
-  margin: 0;
-  font-size: var(--chu-the);
-}
-
-.the-tour__ten a {
-  color: var(--mau-chu);
-  text-decoration: none;
-}
-
-.the-tour__ten a:hover {
-  color: var(--mau-nhan-manh);
-  text-decoration: underline;
-}
-
-.the-tour__noi {
-  margin: 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-.the-tour__tom-tat {
-  margin: 0;
-}
-
-/* `margin-top: auto` đẩy giá xuống đáy thẻ, nên giá của mọi thẻ trong một hàng
-   nằm cùng một đường ngang dù tóm tắt dài ngắn khác nhau. Đó là điều kiện để
-   so giá bằng mắt mà không phải đọc từng thẻ. */
-.the-tour__chan {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--k2);
-  margin-top: auto;
-  padding-top: var(--k3);
-  border-top: 1px solid var(--mau-vien);
-}
-
-.the-tour__chan .price-from {
-  margin: 0;
-  text-align: right;
-}
-
-/* ------------------------------------------------------- Sao đánh giá */
-
-.danh-gia {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--k1) var(--k2);
-  margin: 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-.danh-gia__sao {
-  position: relative;
-  display: inline-block;
-  color: var(--mau-vien);
-  letter-spacing: 0.05em;
-  /* `1ch` bằng bề rộng chữ số, không bằng bề rộng dấu sao — nhưng dãy dưới và
-     dãy trên dùng cùng một chuỗi ký tự trong cùng một font, nên chúng luôn
-     chồng khít nhau bất kể font là gì. */
-  white-space: nowrap;
-}
-
-.danh-gia__sao-day {
-  position: absolute;
-  top: 0;
-  left: 0;
-  overflow: hidden;
-  color: var(--mau-canh-bao-vien);
-  white-space: nowrap;
-}
-
-.danh-gia--chua {
-  font-style: italic;
-}
-
-/* --------------------------------------------- Dải dữ kiện trang chi tiết */
-
-.so-lieu {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: var(--k4);
-  margin: var(--k6) 0;
-  padding: var(--k4);
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc);
-}
-
-.so-lieu dt {
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.so-lieu dd {
-  margin: var(--k1) 0 0;
-  font-weight: 600;
-}
-
-/* Thanh tab DÍNH ở đỉnh khung nhìn. Ở tab lịch trình của tour mười sáu ngày,
-   khách đọc tới ngày thứ mười rồi muốn xem giá — không dính thì phải cuộn
-   ngược hết lên. Đầu trang cố tình KHÔNG dính, nếu không hai thanh chồng nhau
-   và ăn mất một phần ba màn hình điện thoại. */
-.tab-thanh {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  margin: var(--k6) 0 var(--k8);
-  background: var(--mau-nen);
-  border-bottom: 1px solid var(--mau-vien);
-}
-
-.tab-thanh__trong {
-  display: flex;
-  gap: var(--k6);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-/* --------------------------------------------------------- Thẻ khách sạn */
-
-.khach-san {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  gap: var(--k6);
-  list-style: none;
-  margin: var(--k6) 0 0;
-  padding: 0;
-}
-
-.khach-san__the {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--mau-vien);
-  border-radius: var(--bo-goc);
-}
-
-.khach-san__anh {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-}
-
-.khach-san__than {
-  padding: var(--k4);
-}
-
-.khach-san__noi {
-  margin: 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.khach-san__than h3 {
-  margin: var(--k1) 0 var(--k3);
-}
-
-.khach-san__dong {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k2);
-  margin: 0 0 var(--k3);
-}
-
-/* --------------------------------------- Trạng thái ngày khởi hành */
-
-/* Lớp này CHỈ đổi màu. Chữ trong viên đã nói đủ nghĩa — "hết chỗ" đọc lên là
-   hết chỗ — nên người không phân biệt được màu vẫn đọc đúng bảng
-   (docs/21 mục 2 quy tắc 2). Gỡ hết màu ở đây thì bảng vẫn dùng được. */
-.badge--tt-OPEN,
-.badge--tt-GUARANTEED {
-  border-color: var(--mau-nhan-manh);
-  color: var(--mau-nhan-manh);
-}
-
-.badge--tt-FEW_SEATS,
-.badge--tt-PENDING {
-  border-color: var(--mau-canh-bao-vien);
-  background: var(--mau-canh-bao-nen);
-}
-
-.badge--tt-SOLD_OUT {
-  background: var(--mau-nen-diu);
-  color: var(--mau-chu-phu);
-}
-
-/* ------------------------------------------------- Thẻ bài viết, sự kiện */
-
-.bai-the__anh {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-}
-
-.bai-the__than {
-  padding: var(--k4);
-}
-
-.bai-the__than h3 {
-  margin: 0 0 var(--k2);
-}
-
-.bai-the__than h3 a {
-  color: var(--mau-chu);
-  text-decoration: none;
-}
-
-.bai-the__than h3 a:hover {
-  color: var(--mau-nhan-manh);
-  text-decoration: underline;
-}
-
-.bai-the__ngay {
-  margin: 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-.su-kien-dai {
-  list-style: none;
-  margin: var(--k6) 0 0;
-  padding: 0;
-}
-
-.su-kien-dai li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--k2) var(--k4);
-  padding: var(--k4) 0;
-  border-top: 1px solid var(--mau-vien);
-}
-
-.su-kien-dai__ngay {
-  min-width: 11rem;
-  margin: 0;
-  font-weight: 700;
-}
-
-.su-kien-dai__ten {
-  flex: 1 1 16rem;
-  margin: 0;
-}
-
-.su-kien-dai__noi {
-  margin: 0;
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
-/* --------------------------------------------------------- Chân trang */
-
-.chan-trang {
-  margin-top: var(--k12);
-  padding: 0;
-  border-top: 1px solid var(--mau-vien);
-  background: var(--mau-nen-diu);
-}
-
-.chan-trang__cot {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: var(--k8);
-  max-width: var(--khung);
-  margin: 0 auto;
-  padding: var(--k8) var(--k6);
-}
-
-.chan-trang__ten {
-  margin: 0 0 var(--k2);
-  font-size: var(--chu-the);
-  font-weight: 800;
-}
-
-.chan-trang__muc {
-  margin: 0 0 var(--k2);
-  font-weight: 700;
-}
-
-.chan-trang nav a {
-  display: flex;
-  align-items: center;
-  min-height: var(--cham);
-  text-decoration: none;
-}
-
-.chan-trang nav a:hover {
-  text-decoration: underline;
-}
-
-.chan-trang__luat {
-  max-width: var(--khung);
-  margin: 0 auto;
-  padding: 0 var(--k6) var(--k8);
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
+  margin-left: 2rem;
 }

@@ -51,11 +51,15 @@ export async function ChiTietTour({
   const doan = productsSegment(locale);
 
   return (
-    <article className="detail">
-      {/* Ảnh nằm SAU chữ chứ không nằm trên nó: tiêu đề là thứ khách cần đọc
+    <>
+      {/* Khối mở đầu nằm NGOÀI `<article>` và mang lớp `tran`, nên nó trải hết
+          bề ngang màn hình trong khi phần còn lại vẫn nằm trong khung 72rem.
+          Cả hai là con trực tiếp của `<main>` — xem quy tắc khung ở globals.css.
+
+          Ảnh nằm SAU chữ chứ không nằm trên nó: tiêu đề là thứ khách cần đọc
           đầu tiên, và một tấm ảnh cao 640px đẩy nó xuống dưới nếp gấp. Chữ đọc
           được nhờ vùng tối ở đáy ảnh, vốn nằm sẵn trong chính tệp ảnh. */}
-      <header className="chi-tiet-mo-dau">
+      <header className="chi-tiet-mo-dau tran">
         <Image
           className="chi-tiet-mo-dau__anh"
           src={sanPham.heroImage}
@@ -81,6 +85,7 @@ export async function ChiTietTour({
         </div>
       </header>
 
+      <article className="detail">
       {/* Bốn dữ kiện quyết định, đọc được trong một cái liếc. Chúng lặp lại thứ
           đã có ở chỗ khác trên trang, và lặp là chủ ý: khách so hai tour cạnh
           nhau bằng đúng bốn con số này. */}
@@ -156,8 +161,9 @@ export async function ChiTietTour({
       )}
       {dangXem === 'thongTinThucTe' && <ProductFacts product={sanPham} locale={locale} />}
 
-      <ThanhDay sanPham={sanPham} locale={locale} slug={slug} doan={doan} />
-    </article>
+        <ThanhDay sanPham={sanPham} locale={locale} slug={slug} doan={doan} />
+      </article>
+    </>
   );
 }
 

@@ -13,11 +13,16 @@ Hai ứng dụng: website khách (`apps/site`) và trang quản trị (`apps/adm
 > đăng nhập, bảng điều khiển, sản phẩm (danh sách, tạo, sửa 4 tab), đơn (danh
 > sách, chi tiết), báo giá (danh sách, chi tiết), nội dung khác, người dùng.
 >
-> Giao diện khách đã qua đợt dựng khối: đầu trang có bộ đổi ngôn ngữ, khối mở
-> đầu có ảnh, băng lời hứa, lưới hình thức đi, thẻ tour có ảnh và sao đánh giá,
-> dải dữ kiện ở trang chi tiết, thẻ khách sạn, chân trang bốn cột. Bốn khuôn
-> hình lặp lại — và cả bốn là hợp đồng, không phải tuỳ hứng — ở `docs/21` mục
-> 5.0. Ảnh trên máy dev sinh bằng `python scripts/sinh-anh-mau.py`.
+> Giao diện khách đã qua hai đợt: dựng khối, rồi dựng lại hình thức. Nay có hai
+> họ chữ (Playfair Display cho tiêu đề, Be Vietnam Pro cho thân bài, nạp bằng
+> `next/font` nên **build cần mạng**), bảng màu ấm với màu kêu gọi tách riêng,
+> thang chữ co giãn, và khối mở đầu trải hết bề ngang. Quy tắc khung trang:
+> mọi con trực tiếp của `<main>` được đóng khung 72rem sẵn, khối nào cần tràn
+> thì mang lớp `tran` rồi tự đặt một `khung` bên trong — **không dùng `100vw`**,
+> vì nó tính cả thanh cuộn. Chi tiết ở `docs/21` mục 2, 3 và 5.0.
+>
+> Ảnh trên máy dev tải bằng `python scripts/tai-anh-mau.py`; giấy phép từng tấm
+> ghi ở `web/apps/site/public/img/NGUON.md`.
 
 ## 0. Lệnh
 

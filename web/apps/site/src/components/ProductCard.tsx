@@ -41,10 +41,9 @@ export function ProductCard({ product, locale }: { product: ProductSummary; loca
       </div>
 
       <div className="the-tour__than">
-        <h3 className="the-tour__ten">
-          <Link href={duongDanChiTiet(locale, product.slug)}>{product.title}</Link>
-        </h3>
-
+        {/* Dòng "ở đâu · bao lâu" đứng TRÊN tiêu đề, không đứng dưới: nó là
+            thứ khách lọc bằng mắt khi lướt lưới, còn tiêu đề là thứ họ đọc sau
+            khi đã thấy dòng ấy đúng ý. */}
         <p className="the-tour__noi">
           {product.destination.name} · {product.region.name}
           {product.durationDays !== undefined && (
@@ -56,6 +55,10 @@ export function ProductCard({ product, locale }: { product: ProductSummary; loca
             </>
           )}
         </p>
+
+        <h3 className="the-tour__ten">
+          <Link href={duongDanChiTiet(locale, product.slug)}>{product.title}</Link>
+        </h3>
 
         <p className="the-tour__tom-tat">{product.shortDescription}</p>
 

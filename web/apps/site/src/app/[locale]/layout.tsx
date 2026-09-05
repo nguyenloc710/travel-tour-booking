@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { Be_Vietnam_Pro, Playfair_Display } from 'next/font/google';
 import { isLocale, locales, t, type Locale } from '@travel/i18n';
 import { resolveMarket } from '@/lib/market';
 import { MarketBanner } from '@/components/MarketBanner';
@@ -13,6 +14,36 @@ import {
   duongDanTimTour,
 } from '@/lib/routes';
 import '../globals.css';
+
+/**
+ * Hai bộ chữ, và cả hai phải dựng được **cả `æ ø å` lẫn dấu tiếng Việt** —
+ * `docs/21` mục 3.1. Đó là lý do danh sách `subsets` dưới đây có cả
+ * `latin-ext` lẫn `vietnamese`: thiếu một trong hai thì trình duyệt lấy chữ
+ * thay thế cho đúng những ký tự ấy, và trang hiện ra hai kiểu chữ lẫn lộn ở
+ * đúng những từ quan trọng nhất.
+ *
+ * Be Vietnam Pro dựng riêng cho tiếng Việt nên dấu không bị cụt ở cỡ nhỏ.
+ * Playfair Display chỉ dùng cho tiêu đề — chữ có chân ở thân bài làm khó đọc
+ * trên màn hình cũ, và khách của trang này là người lớn tuổi (`docs/21` mục 1).
+ *
+ * `next/font` tải chữ về lúc BUILD và tự phục vụ từ máy chủ của mình. Hệ quả
+ * phải biết: CI cần mạng khi build. Đổi lại không có lượt gọi nào sang Google
+ * lúc khách xem trang — nhúng thẳng `fonts.googleapis.com` là gửi địa chỉ IP
+ * của khách sang bên thứ ba, đúng việc đã bị phạt ở châu Âu (`docs/31`).
+ */
+const chuTieuDe = Playfair_Display({
+  subsets: ['latin', 'latin-ext', 'vietnamese'],
+  weight: ['500', '600'],
+  variable: '--font-tieu-de',
+  display: 'swap',
+});
+
+const chuThan = Be_Vietnam_Pro({
+  subsets: ['latin', 'latin-ext', 'vietnamese'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-than',
+  display: 'swap',
+});
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -49,7 +80,7 @@ export default async function LocaleLayout({
   const { market, laMacDinh } = await resolveMarket(locale);
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={`${chuTieuDe.variable} ${chuThan.variable}`}>
       <body>
         <a className="skip-link" href="#noi-dung">
           {t(locale, 'a11y.skipToContent')}
