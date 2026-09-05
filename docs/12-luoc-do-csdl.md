@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 01/09/2026
+Cập nhật: 05/09/2026
 Nguồn sự thật về: DDL, ràng buộc, index, quy ước migration, dữ liệu mồi,
                   bộ kiểm tính nhất quán dữ liệu.
 Không nói về: vì sao mô hình như vậy (11), công thức tính (14), API (13).
@@ -1105,25 +1105,47 @@ thuộc về migration.
 
 ### 8.2. Dữ liệu mồi cho môi trường dev
 
-Kịch bản riêng, không phải migration. Tối thiểu để mọi màn hình có gì để hiện:
+Kịch bản riêng, không phải migration: `api/scripts/seed-dev.sql`. Chạy được
+nhiều lần — mọi câu `INSERT` đều có `ON CONFLICT DO NOTHING`, nên chạy lại trên
+một CSDL đã có dữ liệu thì không hỏng và cũng không nhân đôi.
+
+Mục tiêu, và **thực tế đang có** tính tới 05/09/2026:
+
+| | Mục tiêu | Đang có |
+|---|---|---|
+| Thị trường · ngôn ngữ · miền | 2 · 2 · 3 | 2 · 2 · 3 |
+| Điểm đến | 15 | 10 (+1 đã xoá mềm) |
+| Chủ đề | 12 | 6 |
+| Sản phẩm | 6, mỗi loại một | **12**, cả sáu loại đều có |
+| Khách sạn · tham quan | 37 · 33 | 10 · 10 — đủ quy tắc kiểm 12 |
+| Bài viết · buổi thuyết trình | 8 · — | 6 · 6 |
+| Ngày lịch trình | — | 82, song ngữ |
+
+Cột "đang có" thấp hơn mục tiêu ở bốn dòng, và điều đó **không** cản việc gì:
+những con số ấy là mục tiêu cho lúc bàn giao, còn cái quyết định giá trị của
+tệp mồi là nó có chứa sẵn **trường hợp rìa** hay không. Sáu trường hợp rìa đã
+có, và mỗi cái đều có chú thích tại chỗ trong tệp:
 
 ```
-2 thị trường · 2 ngôn ngữ · 3 miền · 15 điểm đến · 12 chủ đề
-6 sản phẩm — mỗi loại một cái, để test cả sáu bố cục
-  · GROUP_TOUR có ≥ 5 ngày khởi hành, đủ mọi trạng thái
-  · CRUISE có ≥ 2 ngày, mỗi ngày đủ 4 hạng cabin
-  · PRIVATE_TOUR có ≥ 4 bậc giá
-1 sản phẩm CHƯA dịch sang vi — để test chính sách không-fallback
-1 sản phẩm dịch rồi nhưng CHƯA gán thị trường VN — để test cổng chặn
-1 ngày khởi hành SOLD_OUT, 1 FEW_SEATS, 1 PENDING
-37 khách sạn · 33 tham quan · 8 bài viết · 21 đánh giá · 4 chuyên viên
-Tài khoản nhân viên: 1 cho MỖI vai trò, + 1 mang hai vai trò, + 1 đã vô hiệu hoá
+P2 có bản `da` nhưng KHÔNG có `vi`      → chính sách không-fallback
+P3 dịch đủ nhưng KHÔNG bán ở VN         → cổng chặn product_market
+P3 không có ngày khởi hành nào          → website hiện "Liên hệ", không hiện 0
+P6 không có dòng product_hotel_stay nào → trạng thái RỖNG của tab khách sạn
+Một điểm đến ĐÃ XOÁ MỀM                 → truy vấn quên `AND NOT soft_delete`
+Ngày khởi hành đủ OPEN / FEW_SEATS / SOLD_OUT / PENDING
+Tài khoản: 1 cho MỖI vai trò, + 1 mang hai vai trò, + 1 đã vô hiệu hoá
   · mật khẩu băm bcrypt như thật — tài khoản không đăng nhập được thì
     toàn bộ bề mặt quản trị không thử tay được
 ```
 
-Hai dòng in đậm ở giữa là quan trọng nhất: **dữ liệu mồi phải chứa sẵn các
-trường hợp rìa**, nếu không sẽ không ai gặp chúng cho tới khi lên production.
+**Tệp mồi đạt 13 trong 19 quy tắc ở mục 9**, kiểm bằng tay ngày 05/09. Sáu quy
+tắc còn lại không kiểm được trên dữ liệu mồi (15–19 nói về job, trigger và
+đường đọc lúc chạy), trừ **quy tắc 13** — xem ngay dưới.
+
+**Quy tắc 13 CỐ TÌNH đỏ: 86 trên 134 cặp (ngày khởi hành, loại khách) chưa có
+giá.** Thị trường DK có ba loại khách nhưng tệp mồi hầu như chỉ đặt giá cho
+`ADULT`. Đó không phải quên: mức giảm theo loại khách là **Q-2**, chưa ai quyết,
+và bịa một cột giá trẻ em là bịa một con số nghiệp vụ. Điền nốt khi Q-2 chốt.
 
 ---
 
