@@ -43,7 +43,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.14.0
+  version: 0.14.1
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -991,6 +991,19 @@ paths:
         `product.last_modified_by`. Nên thao tác này cũng chạm `product` — nếu
         không thì lần bật công tắc doanh thu là thay đổi duy nhất trong hệ thống
         không ai đứng tên.
+
+        **Bật bán bị từ chối bằng `409 SINGLE_PRICE_MISSING`** nếu sản phẩm có
+        lưu trú qua đêm mà còn ngày khởi hành nào chưa có giá phòng đơn
+        (`occupancy = SINGLE`). Thiếu dòng ấy thì không có gì hỏng: máy tính giá
+        lấy `giá phòng đơn − giá phòng đôi`, không thấy dòng nào thì phụ thu bằng
+        0, và khách đi **một mình** đặt được nguyên chuyến ở giá chia đôi phòng.
+        Chênh lệch chỉ lộ ra khi kế toán đối soát với khách sạn — sau khi khách
+        đã đi. Quy tắc kiểm 23 của `docs/12` mục 9.
+
+        `DAY_TOUR` không bị kiểm: tour trong ngày không có đêm nào để ở phòng.
+
+        Tắt bán thì **không** kiểm. Chặn đường ra là giam một sản phẩm dữ liệu
+        sai ở trạng thái đang bán, tức là làm điều ngược hẳn với ý định.
       parameters:
         - $ref: '#/components/parameters/AdminId'
         - name: market
@@ -1019,6 +1032,8 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
 
   /api/v1/admin/products/{id}/price-tiers:
@@ -1237,6 +1252,22 @@ paths:
 
         Tiền tệ **không nhận từ client**: lấy từ cấu hình thị trường. Cùng lý do
         với bậc giá.
+
+        **Sản phẩm có lưu trú qua đêm phải có ít nhất một dòng
+        `occupancy = SINGLE`, và dòng ấy phải cao hơn dòng `DOUBLE` cùng loại
+        khách.** Thiếu, hoặc bằng, đều trả `409 SINGLE_PRICE_MISSING`: phụ thu
+        phòng đơn tính bằng hiệu hai dòng đó, nên cả hai trường hợp cho ra phụ
+        thu 0, và khách đi **một mình** đặt được nguyên chuyến ở giá chia đôi
+        phòng. Không có gì hỏng, không có lỗi nào ghi ra, và chênh lệch chỉ lộ
+        ra khi kế toán đối soát với khách sạn. Quy tắc kiểm 23 của `docs/12`
+        mục 9.
+
+        Đây là chỗ chặn **sớm nhất**: quy trình mở bán của `docs/22` mục 5 bật
+        bán ở bước 6 rồi mới nhập ngày khởi hành ở bước 7, nên lúc bấm công tắc
+        bán thường chưa có ngày nào để kiểm. Màn hình này thì ngược lại — nó là
+        chỗ người ta gõ đúng những con số ấy vào.
+
+        `DAY_TOUR` không bị kiểm: tour trong ngày không có đêm nào để ở phòng.
       parameters:
         - $ref: '#/components/parameters/AdminId'
       requestBody:
@@ -1264,6 +1295,8 @@ paths:
         '403':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
 
   /api/v1/admin/bookings:
@@ -2118,6 +2151,14 @@ paths:
 
         Trả **bảng phân rã từng dòng**. Dòng bằng 0 không xuất hiện — thứ tự cộng
         dồn và quy tắc làm tròn ở `docs/14` mục 2 và 3.
+
+        `singleTravellers > 0` mà ngày khởi hành không có giá `occupancy = SINGLE`
+        trả **`409 SINGLE_PRICE_MISSING`**, không trả một bảng giá không có dòng
+        phụ thu. Hai tình huống dẫn tới cùng một dữ liệu thiếu — "không bán phòng
+        đơn cho chuyến này" và "quên nhập giá" — nên máy chủ **không đoán** giữa
+        chúng: đoán sai theo hướng dễ chịu là bán nguyên chuyến ở giá chia đôi
+        phòng. Đường bật bán chặn từ đầu (`PUT .../markets/{market}`), nên với
+        sản phẩm đang bán thì mã này không nên xuất hiện; nó là lưới thứ hai.
       parameters:
         - $ref: '#/components/parameters/Market'
         - $ref: '#/components/parameters/AcceptLanguage'
@@ -2137,6 +2178,8 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '404':
+          $ref: '#/components/responses/Error'
+        '409':
           $ref: '#/components/responses/Error'
         '422':
           $ref: '#/components/responses/Error'
