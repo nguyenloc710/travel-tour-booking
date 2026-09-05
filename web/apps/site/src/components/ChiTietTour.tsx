@@ -9,6 +9,7 @@ import { duongDanDatTour, duongDanListing, productsSegment } from '@/lib/routes'
 import { duongDanTab, tabCoMat, type TabKey } from '@/lib/tabs';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductFacts } from '@/components/ProductFacts';
+import { SaoDanhGia } from '@/components/SaoDanhGia';
 import { YeuCauBaoGia } from '@/components/YeuCauBaoGia';
 
 /**
@@ -51,49 +52,88 @@ export async function ChiTietTour({
 
   return (
     <article className="detail">
-      <p className="detail__breadcrumb">
-        <Link href={duongDanListing(locale)}>{t(locale, 'detail.backToList')}</Link>
-      </p>
+      {/* Ảnh nằm SAU chữ chứ không nằm trên nó: tiêu đề là thứ khách cần đọc
+          đầu tiên, và một tấm ảnh cao 640px đẩy nó xuống dưới nếp gấp. Chữ đọc
+          được nhờ vùng tối ở đáy ảnh, vốn nằm sẵn trong chính tệp ảnh. */}
+      <header className="chi-tiet-mo-dau">
+        <Image
+          className="chi-tiet-mo-dau__anh"
+          src={sanPham.heroImage}
+          alt={sanPham.heroImageAlt}
+          width={1600}
+          height={900}
+          priority
+          unoptimized
+        />
 
-      <header className="detail__header">
-        <p className="detail__meta">
-          <span className="badge">{t(locale, `productType.${sanPham.productType}`)}</span>
-          <span>
-            {sanPham.destination.name} · {sanPham.region.name}
-          </span>
-          {sanPham.durationDays !== undefined && (
-            <span>
+        <div className="chi-tiet-mo-dau__chu">
+          <p className="chi-tiet-mo-dau__duong">
+            <Link href={duongDanListing(locale)}>{t(locale, 'detail.backToList')}</Link>
+          </p>
+
+          <p className="chi-tiet-mo-dau__nhan">
+            <span className="badge">{t(locale, `productType.${sanPham.productType}`)}</span>
+            {sanPham.isNew && <span className="badge badge--new">{t(locale, 'products.isNew')}</span>}
+          </p>
+
+          <h1>{sanPham.title}</h1>
+          <p className="chi-tiet-mo-dau__tom-tat">{sanPham.shortDescription}</p>
+        </div>
+      </header>
+
+      {/* Bốn dữ kiện quyết định, đọc được trong một cái liếc. Chúng lặp lại thứ
+          đã có ở chỗ khác trên trang, và lặp là chủ ý: khách so hai tour cạnh
+          nhau bằng đúng bốn con số này. */}
+      <dl className="so-lieu">
+        <div>
+          <dt>{t(locale, 'detail.factbar.type')}</dt>
+          <dd>{t(locale, `productType.${sanPham.productType}`)}</dd>
+        </div>
+        {sanPham.durationDays !== undefined && (
+          <div>
+            <dt>{t(locale, 'detail.factbar.duration')}</dt>
+            <dd>
               {t(locale, 'products.duration', {
                 days: formatNumber(sanPham.durationDays, locale),
               })}
-            </span>
-          )}
-        </p>
+            </dd>
+          </div>
+        )}
+        <div>
+          <dt>{t(locale, 'detail.factbar.where')}</dt>
+          <dd>
+            {sanPham.destination.name} · {sanPham.region.name}
+          </dd>
+        </div>
+        {sanPham.rating !== undefined && (
+          <div>
+            <dt>{t(locale, 'detail.factbar.rating')}</dt>
+            <dd>
+              <SaoDanhGia
+                rating={sanPham.rating}
+                reviewCount={sanPham.reviewCount}
+                locale={locale}
+              />
+            </dd>
+          </div>
+        )}
+      </dl>
 
-        <h1>{sanPham.title}</h1>
-        <p className="detail__summary">{sanPham.shortDescription}</p>
-      </header>
-
-      <Image
-        className="detail__image"
-        src={sanPham.heroImage}
-        alt={sanPham.heroImageAlt}
-        width={1200}
-        height={640}
-        priority
-        unoptimized
-      />
-
+      {/* Thanh tab DÍNH dưới đầu trang: ở tab lịch trình của tour 16 ngày, khách
+          cuộn xuống ngày thứ mười rồi muốn sang bảng giá — không có thanh dính
+          thì phải cuộn ngược hết lên. */}
       <nav className="tab-thanh" aria-label={t(locale, 'detail.tabs')}>
-        {tabs.map((k) => (
-          <Link
-            key={k}
-            href={duongDanTab(locale, doan, slug, k)}
-            aria-current={k === dangXem ? 'page' : undefined}
-          >
-            {t(locale, `detail.tab.${k}`)}
-          </Link>
-        ))}
+        <div className="tab-thanh__trong">
+          {tabs.map((k) => (
+            <Link
+              key={k}
+              href={duongDanTab(locale, doan, slug, k)}
+              aria-current={k === dangXem ? 'page' : undefined}
+            >
+              {t(locale, `detail.tab.${k}`)}
+            </Link>
+          ))}
+        </div>
       </nav>
 
       {dangXem === 'tongQuan' && (
@@ -354,28 +394,44 @@ async function TabKhachSan({
         {t(locale, 'detail.hotels.totalNights', { nights: formatNumber(tongDem, locale) })}
       </p>
 
-      <ul className="lich-trinh">
+      <ul className="khach-san">
         {chang.map((c) => (
-          <li key={`${c.name}-${c.destination.slug}`} className="lich-trinh__ngay">
-            <p className="lich-trinh__so">{c.destination.name}</p>
-            {/* Tên riêng của khách sạn KHÔNG dịch — `docs/24` mục 5. */}
-            <h3>{c.name}</h3>
-            {c.description !== undefined && <p>{c.description}</p>}
+          <li key={`${c.name}-${c.destination.slug}`} className="khach-san__the">
+            {/* Ảnh là trường TUỲ CHỌN: một khách sạn chưa có ảnh vẫn hiện được,
+                và thẻ phải xếp đúng khi thiếu ảnh chứ không để lại một ô trống. */}
+            {c.image !== undefined && (
+              <Image
+                className="khach-san__anh"
+                src={c.image}
+                alt={t(locale, 'detail.hotels.imageAlt', { name: c.name })}
+                width={640}
+                height={428}
+                unoptimized
+              />
+            )}
 
-            <p className="lich-trinh__chi-tiet">
-              <span>
-                {t(locale, c.nights === 1 ? 'detail.hotels.night' : 'detail.hotels.nights', {
-                  count: formatNumber(c.nights, locale),
-                })}
-              </span>
-              {/* Số sao hiện bằng CHỮ kèm số, không chỉ bằng biểu tượng: màu và
-                  hình không bao giờ là phương tiện duy nhất (docs/21 mục 2). */}
-              {c.stars !== undefined && (
-                <span>
-                  {t(locale, 'detail.hotels.stars', { count: formatNumber(c.stars, locale) })}
+            <div className="khach-san__than">
+              <p className="khach-san__noi">{c.destination.name}</p>
+              {/* Tên riêng của khách sạn KHÔNG dịch — `docs/24` mục 5. */}
+              <h3>{c.name}</h3>
+
+              <p className="khach-san__dong">
+                <span className="badge">
+                  {t(locale, c.nights === 1 ? 'detail.hotels.night' : 'detail.hotels.nights', {
+                    count: formatNumber(c.nights, locale),
+                  })}
                 </span>
-              )}
-            </p>
+                {/* Số sao hiện bằng CHỮ kèm số, không chỉ bằng biểu tượng: màu
+                    và hình không bao giờ là phương tiện duy nhất (docs/21 mục 2). */}
+                {c.stars !== undefined && (
+                  <span className="badge">
+                    {t(locale, 'detail.hotels.stars', { count: formatNumber(c.stars, locale) })}
+                  </span>
+                )}
+              </p>
+
+              {c.description !== undefined && <p>{c.description}</p>}
+            </div>
           </li>
         ))}
       </ul>
@@ -440,7 +496,11 @@ async function TabGiaVaNgay({
                 {/* Trạng thái hiện bằng CHỮ, không chỉ bằng màu — ngày hết chỗ
                     phải đọc được là "hết chỗ" (docs/21 mục 2 quy tắc 2). */}
                 <td>
-                  <span className="badge">{t(locale, `departureStatus.${d.status}`)}</span>
+                  {/* Lớp theo trạng thái CHỈ đổi màu; chữ vẫn nói đủ nghĩa nếu
+                      màu không tới được mắt người đọc (docs/21 mục 2 quy tắc 2). */}
+                  <span className={`badge badge--tt badge--tt-${d.status}`}>
+                    {t(locale, `departureStatus.${d.status}`)}
+                  </span>
                   <br />
                   <span className="product-card__where">
                     {t(

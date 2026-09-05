@@ -4,10 +4,15 @@ Dự án: **website bán tour du lịch Việt Nam**, hai thị trường, hai n
 Gồm website khách, API và trang quản trị.
 
 > **Trạng thái: G2 xong phần code, phần code của G3 và phần lớn G4 đã chạy.**
-> Khách xem được danh sách tour, trang chi tiết, blog, sự kiện và liên hệ; đặt
-> được tour và gửi được yêu cầu báo giá. Trang quản trị có đủ mười màn hình:
-> sản phẩm, đơn, báo giá, nội dung khác, người dùng. Còn thiếu một PR thật để
-> xác nhận CI, và hai tài liệu `20`, `21` của G3. Mọi lệnh bên dưới chạy được thật.
+> Khách xem được danh sách tour, trang chi tiết chia tab, blog, sự kiện và liên
+> hệ; đặt được tour và gửi được yêu cầu báo giá. Trang quản trị có đủ mười một
+> màn hình: sản phẩm, đơn, báo giá, nội dung khác, người dùng. Còn thiếu một PR
+> thật để xác nhận CI. Mọi lệnh bên dưới chạy được thật.
+>
+> Dữ liệu mồi nạp đủ để **nhìn** chứ không chỉ để test: 12 sản phẩm phủ cả sáu
+> loại, 82 ngày lịch trình song ngữ, khách sạn, tham quan, bài viết, sự kiện —
+> `psql "$DB_URL" -f api/scripts/seed-dev.sql`, chạy lại được nhiều lần. Ảnh
+> mẫu sinh bằng `python scripts/sinh-anh-mau.py`.
 >
 > **Cần JDK 21 và pnpm.** `JAVA_HOME` trỏ JDK cũ thì đặt `org.gradle.java.home`
 > trong `~/.gradle/gradle.properties`; pnpm bật bằng `corepack enable pnpm`.

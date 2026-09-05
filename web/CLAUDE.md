@@ -12,6 +12,12 @@ Hai ứng dụng: website khách (`apps/site`) và trang quản trị (`apps/adm
 > thật ở cả hai locale và hai thị trường. Trang quản trị có mười một màn hình:
 > đăng nhập, bảng điều khiển, sản phẩm (danh sách, tạo, sửa 4 tab), đơn (danh
 > sách, chi tiết), báo giá (danh sách, chi tiết), nội dung khác, người dùng.
+>
+> Giao diện khách đã qua đợt dựng khối: đầu trang có bộ đổi ngôn ngữ, khối mở
+> đầu có ảnh, băng lời hứa, lưới hình thức đi, thẻ tour có ảnh và sao đánh giá,
+> dải dữ kiện ở trang chi tiết, thẻ khách sạn, chân trang bốn cột. Bốn khuôn
+> hình lặp lại — và cả bốn là hợp đồng, không phải tuỳ hứng — ở `docs/21` mục
+> 5.0. Ảnh trên máy dev sinh bằng `python scripts/sinh-anh-mau.py`.
 
 ## 0. Lệnh
 

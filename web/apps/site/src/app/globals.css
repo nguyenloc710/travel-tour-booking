@@ -143,53 +143,6 @@ img {
   border-radius: var(--bo-goc-nho);
 }
 
-.site-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--k4);
-  max-width: var(--khung);
-  margin: 0 auto;
-  padding: var(--k4) var(--k6);
-}
-
-.site-header__name {
-  margin: 0;
-  font-size: var(--chu-the);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-/* Số điện thoại và giờ mở cửa hiện THƯỜNG TRỰC — khách lớn tuổi Bắc Âu gọi
-   điện nhiều hơn điền form (web/CLAUDE.md mục 6). Số to hơn thân bài vì nó là
-   lời kêu gọi hành động thật của trang này. */
-.site-header__contact {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--k2) var(--k4);
-  margin: 0;
-}
-
-.site-header__contact a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--cham);
-  font-size: var(--chu-the);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.site-header__contact a:hover {
-  text-decoration: underline;
-}
-
-.site-header__contact span {
-  color: var(--mau-chu-phu);
-  font-size: var(--chu-phu);
-}
-
 .site-nav {
   border-top: 1px solid var(--mau-vien);
   border-bottom: 1px solid var(--mau-vien);
@@ -246,16 +199,6 @@ main {
   max-width: var(--cot-chu);
 }
 
-.region-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.region-list__item {
-  padding: 0.75rem 0;
-  min-height: 44px;
-  border-bottom: 1px solid var(--mau-vien);
-}
 .region-list__count {
   color: #5a5a5a;
 }
@@ -288,13 +231,6 @@ main {
 /* ------------------------------------------------- Listing và trang chi tiết
    Vùng chạm tối thiểu 44×44px và cỡ chữ tối thiểu 16px áp dụng cho mọi thứ ở
    dưới đây — khách là người lớn tuổi Bắc Âu (web/CLAUDE.md mục 6). */
-
-.home__cta a,
-.detail__breadcrumb a {
-  display: inline-block;
-  min-height: 44px;
-  line-height: 44px;
-}
 
 .filters fieldset {
   border: 1px solid var(--mau-vien);
@@ -342,24 +278,7 @@ main {
   display: flex;
   flex-direction: column;
 }
-.product-card__image,
-.detail__image,
-.detail__map {
-  width: 100%;
-  height: auto;
-}
-.product-card__body {
-  padding: 1rem;
-}
-.product-card__title {
-  font-size: 1.25rem;
-  margin: 0.25rem 0;
-}
 .product-card__where,
-.product-card__rating {
-  color: #5a5a5a;
-  margin: 0.25rem 0;
-}
 
 .badge {
   display: inline-block;
@@ -687,18 +606,6 @@ main {
 
 /* --------------------------------------------------- Yêu cầu báo giá (R4) */
 
-/* CTA của `PRIVATE_TOUR`. Trông như nút nhưng LÀ liên kết neo: nó chạy được cả
-   khi script chưa tải xong, và khách dán link ra ngoài vẫn tới đúng chỗ. */
-.detail__cta-nut {
-  display: inline-block;
-  min-height: 44px;
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
-  background: var(--mau-nhan-manh);
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-}
 
 .detail__cta-nut:hover {
   text-decoration: underline;
@@ -1314,30 +1221,6 @@ main {
 
 /* ------------------------------------------------------------- Trang chủ */
 
-.hero {
-  padding: var(--k12) 0 var(--k8);
-  border-bottom: 1px solid var(--mau-vien);
-  margin-bottom: var(--k8);
-}
-
-.hero h1 {
-  max-width: 20ch;
-  font-size: clamp(2rem, 5vw, 2.75rem);
-}
-
-.hero p {
-  max-width: var(--cot-chu);
-  font-size: var(--chu-the);
-  color: var(--mau-chu-phu);
-}
-
-.hero__nut {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k3);
-  margin-top: var(--k6);
-}
-
 .mien-luoi {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
@@ -1376,14 +1259,6 @@ main {
   background: var(--mau-nen-diu);
 }
 
-.chan-trang__trong {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--k8);
-  max-width: var(--khung);
-  margin: 0 auto;
-}
-
 .chan-trang h2 {
   margin: 0 0 var(--k2);
   font-size: var(--chu-than);
@@ -1399,4 +1274,708 @@ main {
   display: inline-flex;
   align-items: center;
   min-height: var(--cham);
+}
+
+
+/* ==========================================================================
+   Lớp giao diện khách — đợt dựng trang cho người mua
+   ==========================================================================
+
+   Đợt trước áp token của docs/21 lên khung đã có. Đợt này dựng những khối mà
+   một website bán tour phải có mà trang này chưa có: đầu trang có chỗ đổi ngôn
+   ngữ, khối mở đầu có ảnh, băng lời hứa, lưới hình thức đi, thẻ tour có ảnh và
+   sao, dải dữ kiện ở trang chi tiết, thẻ khách sạn, và chân trang thật.
+
+   Ba ràng buộc chi phối mọi con số dưới đây, và cả ba đều từ docs/21 mục 1 —
+   khách là NGƯỜI LỚN TUỔI đọc trên màn hình cũ:
+
+     · không có chữ nào nhỏ hơn --chu-phu, và thân bài không nhỏ hơn 16px
+     · mọi thứ bấm được cao ít nhất --cham
+     · chữ đè lên ảnh phải có lớp phủ tối; ảnh sáng là chỗ tương phản hỏng mà
+       không công cụ đo tự động nào bắt được
+
+   KHÔNG có màu mới. Sáu token màu của docs/21 cộng ba sắc thái suy ra là tất
+   cả những gì dưới đây dùng — cần sắc thái mới thì thêm token và sửa tài liệu,
+   đừng gõ mã màu vào giữa component.
+   ========================================================================== */
+
+/* ------------------------------------------------------------- Đầu trang */
+
+.dau-trang {
+  background: var(--mau-nen);
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.dau-trang__hang {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k4);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k4) var(--k6);
+}
+
+.dau-trang__ten {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.dau-trang__ten a {
+  font-size: var(--chu-muc);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.dau-trang__khau-hieu {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+.dau-trang__phai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k4) var(--k6);
+}
+
+/* Số điện thoại và giờ mở cửa hiện THƯỜNG TRỰC — khách lớn tuổi Bắc Âu gọi
+   điện nhiều hơn điền form (web/CLAUDE.md mục 6). Số to hơn thân bài vì nó là
+   lời kêu gọi hành động thật của trang này, không phải một dòng thông tin. */
+.dau-trang__lien-he {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0;
+}
+
+.dau-trang__so {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  font-size: var(--chu-the);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dau-trang__so:hover {
+  text-decoration: underline;
+}
+
+.dau-trang__gio {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* Đổi ngôn ngữ. Ngôn ngữ ĐANG xem cũng là một liên kết bấm được, không phải
+   chữ chết: khách bấm vào nó và ở nguyên chỗ cũ là kết quả đúng, còn một mục
+   không bấm được thì người ta thử ba lần rồi mới hiểu. */
+.doi-ngu {
+  display: flex;
+  gap: var(--k2);
+  margin: 0;
+}
+
+.doi-ngu a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  padding: 0 var(--k3);
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc-nho);
+  color: var(--mau-chu);
+  font-size: var(--chu-phu);
+  text-decoration: none;
+}
+
+.doi-ngu a[aria-current] {
+  background: var(--mau-nhan-manh);
+  border-color: var(--mau-nhan-manh);
+  color: var(--mau-nen);
+}
+
+/* Menu chính cuộn ngang trên màn hình hẹp thay vì gập vào nút ba gạch: sáu mục
+   không đáng để giấu, và một menu phải bấm mới thấy là một menu ít người thấy. */
+.site-nav__trong {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------- Khối mở đầu */
+
+/* Dùng chung cho trang chủ và đầu trang chi tiết: ảnh phủ kín, chữ trắng đè lên.
+   `isolation: isolate` để `z-index: -1` của ảnh không chui xuống dưới nền body. */
+.mo-dau,
+.chi-tiet-mo-dau {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: var(--bo-goc);
+  color: var(--mau-nen);
+}
+
+.mo-dau {
+  min-height: 26rem;
+}
+
+.chi-tiet-mo-dau {
+  min-height: 20rem;
+}
+
+.mo-dau__anh,
+.chi-tiet-mo-dau__anh {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Lớp phủ tối. Tệp ảnh đã có sẵn một lớp tương tự, và lặp lại ở đây là CHỦ Ý:
+   ảnh thật do biên tập viên tải lên sẽ không có lớp ấy, và khi đó chữ vẫn phải
+   đọc được. Không lặp thì lỗi tương phản chỉ xuất hiện sau ngày bàn giao. */
+.mo-dau::before,
+.chi-tiet-mo-dau::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.76),
+    rgba(0, 0, 0, 0.42) 55%,
+    rgba(0, 0, 0, 0.2)
+  );
+}
+
+.mo-dau__chu,
+.chi-tiet-mo-dau__chu {
+  max-width: var(--cot-chu);
+  padding: var(--k8) var(--k6);
+}
+
+.mo-dau h1,
+.chi-tiet-mo-dau h1 {
+  margin: 0 0 var(--k3);
+  color: var(--mau-nen);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+}
+
+.mo-dau__nhan,
+.chi-tiet-mo-dau__duong {
+  margin: 0 0 var(--k3);
+  font-size: var(--chu-phu);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chi-tiet-mo-dau__duong a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cham);
+  color: var(--mau-nen);
+}
+
+.mo-dau__dan,
+.chi-tiet-mo-dau__tom-tat {
+  margin: 0;
+  font-size: var(--chu-the);
+}
+
+.chi-tiet-mo-dau__nhan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2);
+  margin: 0 0 var(--k3);
+}
+
+.mo-dau__nut {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k3);
+  margin: var(--k6) 0 0;
+}
+
+/* Nhãn đè lên ảnh phải có nền ĐỤC. Nền trong suốt đọc được trên tấm ảnh này và
+   biến mất trên tấm ảnh sau — và không ai thử lại khi thay ảnh. */
+.chi-tiet-mo-dau__nhan .badge,
+.the-tour__nhan .badge {
+  background: var(--mau-nen);
+  color: var(--mau-chu);
+  border-color: var(--mau-nen);
+}
+
+/* ---------------------------------------------------------- Băng lời hứa */
+
+.loi-hua {
+  margin: var(--k8) 0;
+}
+
+.loi-hua__trong {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--k4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.loi-hua li {
+  padding: var(--k4);
+  border-left: 4px solid var(--mau-nhan-manh);
+  border-radius: 0 var(--bo-goc) var(--bo-goc) 0;
+  background: var(--mau-nen-diu);
+}
+
+.loi-hua__ten {
+  margin: 0 0 var(--k1);
+  font-weight: 700;
+}
+
+.loi-hua__mo-ta {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* ------------------------------------------------ Đoạn trang và nền dịu */
+
+.doan {
+  margin: var(--k12) 0;
+}
+
+/* Nền dịu nằm TRONG khung 72rem chứ không tràn ra mép màn hình. Tràn mép cần
+   `100vw`, mà `100vw` tính cả thanh cuộn — trên Windows đó là 15px tràn ngang
+   ở mọi trang, và thân trang không bao giờ được cuộn ngang. */
+.doan--diu {
+  padding: var(--k8) var(--k6);
+  border-radius: var(--bo-goc);
+  background: var(--mau-nen-diu);
+}
+
+.doan__trong > h2:first-child {
+  margin-top: 0;
+}
+
+.doan__dan {
+  max-width: var(--cot-chu);
+  color: var(--mau-chu-phu);
+}
+
+.doan__them {
+  margin: var(--k6) 0 0;
+}
+
+/* --------------------------------------------------- Lưới hình thức đi */
+
+.hinh-thuc {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--k4);
+  list-style: none;
+  margin: var(--k6) 0 0;
+  padding: 0;
+}
+
+.hinh-thuc__o {
+  position: relative;
+  padding: var(--k4);
+  border: 1px solid var(--mau-vien);
+  border-top: 4px solid var(--mau-nhan-manh);
+  border-radius: var(--bo-goc);
+  background: var(--mau-nen);
+}
+
+.hinh-thuc__o:hover {
+  border-color: var(--mau-nhan-manh);
+}
+
+.hinh-thuc__o h3 {
+  margin: 0 0 var(--k2);
+  font-size: var(--chu-the);
+}
+
+.hinh-thuc__o h3 a {
+  text-decoration: none;
+}
+
+/* Cả ô bấm được, nhưng chỉ MỘT liên kết trong cây accessibility — xem chú thích
+   ở ProductCard.tsx. Lớp phủ này là toàn bộ cơ chế đó. */
+.hinh-thuc__o h3 a::after,
+.the-tour__ten a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.hinh-thuc__o p {
+  margin: 0;
+  color: var(--mau-chu-phu);
+}
+
+/* ------------------------------------------------------------- Thẻ tour */
+
+.the-tour {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+  background: var(--mau-nen);
+}
+
+.the-tour:hover {
+  border-color: var(--mau-nhan-manh);
+}
+
+/* `aspect-ratio` trên khung chứ không trên ảnh: ảnh thật sẽ có tỷ lệ khác nhau,
+   và một lưới mà mỗi thẻ cao một kiểu là lưới trông như hỏng. */
+.the-tour__anh {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  background: var(--mau-nen-diu);
+}
+
+.the-tour__anh img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.the-tour__nhan {
+  position: absolute;
+  top: var(--k3);
+  left: var(--k3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2);
+  margin: 0;
+}
+
+.the-tour__than {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--k2);
+  padding: var(--k4);
+}
+
+.the-tour__ten {
+  margin: 0;
+  font-size: var(--chu-the);
+}
+
+.the-tour__ten a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.the-tour__ten a:hover {
+  color: var(--mau-nhan-manh);
+  text-decoration: underline;
+}
+
+.the-tour__noi {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+.the-tour__tom-tat {
+  margin: 0;
+}
+
+/* `margin-top: auto` đẩy giá xuống đáy thẻ, nên giá của mọi thẻ trong một hàng
+   nằm cùng một đường ngang dù tóm tắt dài ngắn khác nhau. Đó là điều kiện để
+   so giá bằng mắt mà không phải đọc từng thẻ. */
+.the-tour__chan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--k2);
+  margin-top: auto;
+  padding-top: var(--k3);
+  border-top: 1px solid var(--mau-vien);
+}
+
+.the-tour__chan .price-from {
+  margin: 0;
+  text-align: right;
+}
+
+/* ------------------------------------------------------- Sao đánh giá */
+
+.danh-gia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k1) var(--k2);
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+.danh-gia__sao {
+  position: relative;
+  display: inline-block;
+  color: var(--mau-vien);
+  letter-spacing: 0.05em;
+  /* `1ch` bằng bề rộng chữ số, không bằng bề rộng dấu sao — nhưng dãy dưới và
+     dãy trên dùng cùng một chuỗi ký tự trong cùng một font, nên chúng luôn
+     chồng khít nhau bất kể font là gì. */
+  white-space: nowrap;
+}
+
+.danh-gia__sao-day {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: var(--mau-canh-bao-vien);
+  white-space: nowrap;
+}
+
+.danh-gia--chua {
+  font-style: italic;
+}
+
+/* --------------------------------------------- Dải dữ kiện trang chi tiết */
+
+.so-lieu {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--k4);
+  margin: var(--k6) 0;
+  padding: var(--k4);
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+}
+
+.so-lieu dt {
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.so-lieu dd {
+  margin: var(--k1) 0 0;
+  font-weight: 600;
+}
+
+/* Thanh tab DÍNH ở đỉnh khung nhìn. Ở tab lịch trình của tour mười sáu ngày,
+   khách đọc tới ngày thứ mười rồi muốn xem giá — không dính thì phải cuộn
+   ngược hết lên. Đầu trang cố tình KHÔNG dính, nếu không hai thanh chồng nhau
+   và ăn mất một phần ba màn hình điện thoại. */
+.tab-thanh {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: var(--k6) 0 var(--k8);
+  background: var(--mau-nen);
+  border-bottom: 1px solid var(--mau-vien);
+}
+
+.tab-thanh__trong {
+  display: flex;
+  gap: var(--k6);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------- Thẻ khách sạn */
+
+.khach-san {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: var(--k6);
+  list-style: none;
+  margin: var(--k6) 0 0;
+  padding: 0;
+}
+
+.khach-san__the {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--mau-vien);
+  border-radius: var(--bo-goc);
+}
+
+.khach-san__anh {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+
+.khach-san__than {
+  padding: var(--k4);
+}
+
+.khach-san__noi {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.khach-san__than h3 {
+  margin: var(--k1) 0 var(--k3);
+}
+
+.khach-san__dong {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k2);
+  margin: 0 0 var(--k3);
+}
+
+/* --------------------------------------- Trạng thái ngày khởi hành */
+
+/* Lớp này CHỈ đổi màu. Chữ trong viên đã nói đủ nghĩa — "hết chỗ" đọc lên là
+   hết chỗ — nên người không phân biệt được màu vẫn đọc đúng bảng
+   (docs/21 mục 2 quy tắc 2). Gỡ hết màu ở đây thì bảng vẫn dùng được. */
+.badge--tt-OPEN,
+.badge--tt-GUARANTEED {
+  border-color: var(--mau-nhan-manh);
+  color: var(--mau-nhan-manh);
+}
+
+.badge--tt-FEW_SEATS,
+.badge--tt-PENDING {
+  border-color: var(--mau-canh-bao-vien);
+  background: var(--mau-canh-bao-nen);
+}
+
+.badge--tt-SOLD_OUT {
+  background: var(--mau-nen-diu);
+  color: var(--mau-chu-phu);
+}
+
+/* ------------------------------------------------- Thẻ bài viết, sự kiện */
+
+.bai-the__anh {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.bai-the__than {
+  padding: var(--k4);
+}
+
+.bai-the__than h3 {
+  margin: 0 0 var(--k2);
+}
+
+.bai-the__than h3 a {
+  color: var(--mau-chu);
+  text-decoration: none;
+}
+
+.bai-the__than h3 a:hover {
+  color: var(--mau-nhan-manh);
+  text-decoration: underline;
+}
+
+.bai-the__ngay {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+.su-kien-dai {
+  list-style: none;
+  margin: var(--k6) 0 0;
+  padding: 0;
+}
+
+.su-kien-dai li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--k2) var(--k4);
+  padding: var(--k4) 0;
+  border-top: 1px solid var(--mau-vien);
+}
+
+.su-kien-dai__ngay {
+  min-width: 11rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.su-kien-dai__ten {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
+.su-kien-dai__noi {
+  margin: 0;
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
+}
+
+/* --------------------------------------------------------- Chân trang */
+
+.chan-trang {
+  margin-top: var(--k12);
+  padding: 0;
+  border-top: 1px solid var(--mau-vien);
+  background: var(--mau-nen-diu);
+}
+
+.chan-trang__cot {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--k8);
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: var(--k8) var(--k6);
+}
+
+.chan-trang__ten {
+  margin: 0 0 var(--k2);
+  font-size: var(--chu-the);
+  font-weight: 800;
+}
+
+.chan-trang__muc {
+  margin: 0 0 var(--k2);
+  font-weight: 700;
+}
+
+.chan-trang nav a {
+  display: flex;
+  align-items: center;
+  min-height: var(--cham);
+  text-decoration: none;
+}
+
+.chan-trang nav a:hover {
+  text-decoration: underline;
+}
+
+.chan-trang__luat {
+  max-width: var(--khung);
+  margin: 0 auto;
+  padding: 0 var(--k6) var(--k8);
+  color: var(--mau-chu-phu);
+  font-size: var(--chu-phu);
 }

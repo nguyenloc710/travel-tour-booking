@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 01/09/2026
+Cập nhật: 05/09/2026
 Nguồn sự thật về: token màu và chữ, thang khoảng cách, điểm ngắt, danh mục
                   component dùng chung, tiêu chuẩn tiếp cận, quy tắc định dạng
                   số và tiền ở giao diện.
@@ -138,6 +138,33 @@ Nằm ở `web/packages/ui`. Cái gì có mặt ở đây thì **không được
 | Thẻ sản phẩm | Listing, danh sách liên quan | Giữ thứ tự thông tin giống nhau ở mọi màn hình |
 | Ba trạng thái màn hình | Mọi khối có dữ liệu | Quy tắc ở `20` mục 4 |
 | Băng thị trường | Khi market khác mặc định của locale | `02` mục 5.3 |
+
+### 5.0. Bốn khuôn hình lặp lại ở site khách
+
+Không nằm ở `packages/ui` vì chúng là **bố cục**, không phải hàm — nhưng cả bốn
+lặp lại ở nhiều màn hình, nên chúng cũng là hợp đồng chứ không phải tuỳ hứng.
+
+**a. Cả thẻ bấm được, nhưng chỉ MỘT liên kết.** Thẻ tour và ô hình thức đi đều
+bấm được toàn bộ diện tích. Cách làm là đặt liên kết ở tiêu đề rồi cho `::after`
+của nó trải kín thẻ. Bọc cả thẻ trong `<a>` là HTML không hợp lệ khi bên trong
+còn liên kết khác; đặt hai `<a>` (một trên ảnh, một trên tiêu đề) thì trình đọc
+màn hình đọc hai lần cùng một đích.
+
+**b. Chữ đè lên ảnh luôn có lớp phủ tối, khai ở CSS.** Ảnh mẫu hiện có sẵn vùng
+tối ở đáy, nhưng ảnh thật do biên tập viên tải lên thì không. Lớp phủ nằm ở CSS
+là thứ duy nhất còn lại khi ảnh đổi — và tương phản chữ trắng trên ảnh là chỗ
+không công cụ đo tự động nào bắt được.
+
+**c. Nhãn đè lên ảnh có nền ĐỤC.** Nền trong suốt đọc được trên tấm ảnh này và
+biến mất trên tấm sau. Không ai thử lại khi thay ảnh.
+
+**d. Sao đánh giá đi kèm CHỮ, luôn luôn.** Dãy sao mang `aria-hidden`, và con số
+"4,6 af 5 · 87 anmeldelser" mới là thứ trình đọc màn hình đọc. Bốn sao rưỡi nhìn
+bằng mắt là bốn ô vàng rưỡi — mục 2 quy tắc 2 cấm để màu và hình làm phương tiện
+duy nhất, và đây là chỗ vi phạm dễ nhất.
+
+Cùng lý do ấy: **viên trạng thái ngày khởi hành** đổi màu theo trạng thái nhưng
+chữ trong viên đã nói đủ nghĩa. Gỡ hết màu đi thì bảng vẫn dùng được.
 
 ### 5.1. Định dạng theo locale
 

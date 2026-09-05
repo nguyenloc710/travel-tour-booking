@@ -10,6 +10,7 @@ import {
   duongDanLienHe,
   duongDanListing,
   duongDanSuKien,
+  duongDanTimTour,
 } from '@/lib/routes';
 import '../globals.css';
 
@@ -54,37 +55,128 @@ export default async function LocaleLayout({
           {t(locale, 'a11y.skipToContent')}
         </a>
 
-        <header className="site-header">
-          <p className="site-header__name">{t(locale, 'site.name')}</p>
-          {/* Số điện thoại và giờ mở cửa hiện THƯỜNG TRỰC — khách lớn tuổi
-              Bắc Âu gọi điện nhiều hơn điền form. web/CLAUDE.md mục 6. */}
-          <p className="site-header__contact">
-            <a href={`tel:${t(locale, 'site.phone').replace(/\s/g, '')}`}>
-              {t(locale, 'site.phone')}
-            </a>
-            <span>{t(locale, 'site.openingHours')}</span>
-          </p>
-        </header>
+        {/* Đầu trang KHÔNG dính. Thanh tab của trang chi tiết mới là thứ dính
+            (xem globals.css), và hai thanh dính chồng nhau ăn mất một phần ba
+            màn hình điện thoại. Số điện thoại vẫn có mặt suốt trang chi tiết
+            nhờ thanh dính đáy của docs/05 mục 4. */}
+        <header className="dau-trang">
+          <div className="dau-trang__hang">
+            <p className="dau-trang__ten">
+              <Link href={`/${locale}`}>{t(locale, 'site.name')}</Link>
+              <span className="dau-trang__khau-hieu">{t(locale, 'site.tagline')}</span>
+            </p>
 
-        {/* Menu chính. Không có nó thì blog, sự kiện và liên hệ tồn tại mà
-            không ai tìm ra — trang dựng được không đồng nghĩa với trang đến
-            được. Liên kết thật, không phải menu đổ xuống cần hover: hover là
-            điều kiện duy nhất để lộ thông tin thì khách dùng cảm ứng mất lối
-            (web/CLAUDE.md mục 6). */}
-        <nav className="site-nav" aria-label={t(locale, 'nav.label')}>
-          <div className="site-nav__trong">
-            <Link href={duongDanListing(locale)}>{t(locale, 'nav.products')}</Link>
-            <Link href={duongDanDiemDen(locale)}>{t(locale, 'nav.destinations')}</Link>
-            <Link href={duongDanBlog(locale)}>{t(locale, 'nav.blog')}</Link>
-            <Link href={duongDanSuKien(locale)}>{t(locale, 'nav.events')}</Link>
-            <Link href={duongDanLienHe(locale)}>{t(locale, 'nav.contact')}</Link>
+            <div className="dau-trang__phai">
+              <ChuyenNgonNgu locale={locale} />
+
+              <p className="dau-trang__lien-he">
+                <a
+                  className="dau-trang__so"
+                  href={`tel:${t(locale, 'site.phone').replace(/\s/g, '')}`}
+                >
+                  {t(locale, 'site.phone')}
+                </a>
+                <span className="dau-trang__gio">{t(locale, 'site.openingHours')}</span>
+              </p>
+            </div>
           </div>
-        </nav>
+
+          {/* Menu chính. Liên kết thật, không phải menu đổ xuống cần hover:
+              hover là điều kiện duy nhất để lộ thông tin thì khách dùng cảm
+              ứng mất lối (web/CLAUDE.md mục 6). Cuộn ngang được trên màn hình
+              hẹp — thà cuộn còn hơn giấu sau một nút ba gạch. */}
+          <nav className="site-nav" aria-label={t(locale, 'nav.label')}>
+            <div className="site-nav__trong">
+              <Link href={duongDanListing(locale)}>{t(locale, 'nav.products')}</Link>
+              <Link href={duongDanDiemDen(locale)}>{t(locale, 'nav.destinations')}</Link>
+              <Link href={duongDanTimTour(locale)}>{t(locale, 'nav.tourFinder')}</Link>
+              <Link href={duongDanBlog(locale)}>{t(locale, 'nav.blog')}</Link>
+              <Link href={duongDanSuKien(locale)}>{t(locale, 'nav.events')}</Link>
+              <Link href={duongDanLienHe(locale)}>{t(locale, 'nav.contact')}</Link>
+            </div>
+          </nav>
+        </header>
 
         {!laMacDinh && <MarketBanner locale={locale as Locale} market={market} />}
 
         <main id="noi-dung">{children}</main>
+
+        <ChanTrang locale={locale} />
       </body>
     </html>
+  );
+}
+
+/**
+ * Đổi ngôn ngữ — dẫn về **trang chủ** của locale kia, không dịch tại chỗ.
+ *
+ * Dịch tại chỗ nghe hợp lý hơn và sai nhiều hơn: đoạn đường dẫn khác nhau theo
+ * locale (`/da/rejser/…` với `/vi/tour/…`) và slug của bản ghi cũng khác, nên
+ * dịch URL đòi hỏi tra ngược slug qua API cho từng trang. Tệ hơn: bản ghi có
+ * thể **không tồn tại** ở locale kia — chính sách không-fallback bắt nó trả 404
+ * (`CLAUDE.md` điều 3). Đưa khách từ một trang đang đọc được sang một trang 404
+ * là cách chắc chắn nhất để mất khách đó.
+ *
+ * Về trang chủ thì luôn đúng. Dịch URL từng trang là việc của `docs/02` mục 5.2
+ * khi có endpoint tra slug hai chiều.
+ */
+function ChuyenNgonNgu({ locale }: { locale: Locale }) {
+  return (
+    <p className="doi-ngu" aria-label={t(locale, 'a11y.languageSwitch')}>
+      {locales.map((ma) => (
+        <Link
+          key={ma}
+          href={`/${ma}`}
+          hrefLang={ma}
+          aria-current={ma === locale ? 'true' : undefined}
+        >
+          {t(locale, `locale.${ma}`)}
+        </Link>
+      ))}
+    </p>
+  );
+}
+
+function ChanTrang({ locale }: { locale: Locale }) {
+  return (
+    <footer className="chan-trang">
+      <div className="chan-trang__cot">
+        <div>
+          <p className="chan-trang__ten">{t(locale, 'footer.company')}</p>
+          <p>{t(locale, 'footer.blurb')}</p>
+          <p>
+            <a href={`tel:${t(locale, 'site.phone').replace(/\s/g, '')}`}>
+              {t(locale, 'site.phone')}
+            </a>
+            <br />
+            <a href={`mailto:${t(locale, 'site.email')}`}>{t(locale, 'site.email')}</a>
+            <br />
+            {t(locale, 'site.openingHours')}
+          </p>
+        </div>
+
+        <nav aria-labelledby="chan-tour">
+          <p className="chan-trang__muc" id="chan-tour">
+            {t(locale, 'footer.explore')}
+          </p>
+          <Link href={duongDanListing(locale)}>{t(locale, 'nav.products')}</Link>
+          <Link href={duongDanDiemDen(locale)}>{t(locale, 'nav.destinations')}</Link>
+          <Link href={duongDanTimTour(locale)}>{t(locale, 'nav.tourFinder')}</Link>
+        </nav>
+
+        <nav aria-labelledby="chan-ve">
+          <p className="chan-trang__muc" id="chan-ve">
+            {t(locale, 'footer.about')}
+          </p>
+          <Link href={duongDanBlog(locale)}>{t(locale, 'nav.blog')}</Link>
+          <Link href={duongDanSuKien(locale)}>{t(locale, 'nav.events')}</Link>
+          <Link href={duongDanLienHe(locale)}>{t(locale, 'footer.contact')}</Link>
+        </nav>
+      </div>
+
+      {/* Câu miễn trừ về giá lặp lại ở chân trang, không chỉ ở cạnh từng con số:
+          yêu cầu pháp lý (CLAUDE.md điều 4 của mục quy tắc bắt buộc). */}
+      <p className="chan-trang__luat">{t(locale, 'footer.legal')}</p>
+    </footer>
   );
 }

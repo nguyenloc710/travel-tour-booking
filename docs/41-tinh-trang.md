@@ -89,6 +89,9 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | **Nội dung khác và người dùng** | `22` M13, M14 · spec v0.14 | Điểm đến, bài viết, buổi thuyết trình sửa được từ giao diện; ADMIN gán được vai trò. Bốn màn hình quản trị — **22 test** |
 | **Ba trang còn thiếu của site khách** | `20` R9, R10, R11 | Blog kèm lọc thẻ, sự kiện, liên hệ. Menu chính ở header; sitemap nhận thêm bài viết |
 | **Hệ thống thiết kế áp vào site khách** | `21` mục 2–5 · `05` mục 3–5 | Token màu, chữ, khoảng cách, điểm ngắt; trang chủ R1 thật; **trang chi tiết chia tab** kèm thanh dính đáy |
+| **Giao diện khách dựng đủ khối** | `21` mục 5.0 · `20` R1 | Đầu trang có bộ đổi ngôn ngữ, khối mở đầu có ảnh, băng lời hứa, lưới hình thức đi, thẻ tour có ảnh và sao, dải dữ kiện, thẻ khách sạn, chân trang bốn cột |
+| **Dữ liệu mồi đủ để nhìn** | `12` mục 8.2 | 12 sản phẩm phủ cả sáu loại, 82 ngày lịch trình song ngữ, 10 khách sạn, 10 tham quan, 6 chủ đề, 6 bài viết, 6 buổi thuyết trình. **Đạt 13/19 quy tắc kiểm** ở `12` mục 9 |
+| **Ảnh mẫu cho dev** | `24` mục 7.1b · `scripts/sinh-anh-mau.py` | 35 tệp SVG. Trước đó mọi `<Image>` trên site đều là khung vỡ |
 
 ---
 
@@ -285,6 +288,26 @@ lần chạy đầu trên máy sạch thì `.next/` chưa tồn tại — không
 Cách sửa là đảo thứ tự hai bước trong `web.yml`, hoặc chạy `next typegen` trước
 bước kiểm kiểu. Chưa làm — nó không chặn việc gì hôm nay, nhưng nó làm tín hiệu
 xanh của CI mất giá trị đúng ở chỗ dễ tin nhất.
+
+### 6.6. Bộ kiểm dữ liệu của `12` mục 9 CHƯA có mã, và nó đã bắt được lỗi thật
+
+Mười chín quy tắc ở `12` mục 9 tới nay vẫn chỉ là một bảng trong tài liệu —
+`scripts/` không có tệp nào chạy chúng. Đợt nạp dữ liệu mồi 05/09 phải kiểm bằng
+tay bằng SQL viết tại chỗ, và **ba quy tắc bắt được lỗi thật trong dữ liệu vừa
+nhập**:
+
+| Quy tắc | Bắt được gì |
+|---|---|
+| 3 | Ba sản phẩm không có ngày lịch trình nào. Ý định ban đầu là "để trạng thái rỗng có thứ chứng minh" — quy tắc bác, và nó đúng |
+| 7 | `CRUISE` chênh giá cabin 15.4% ở bậc đầu (ngưỡng là 20–45%), và một ngày khởi hành chỉ có ba hạng thay vì bốn. Lỗi 15.4% có **từ trước** đợt này |
+| 11 | Mô tả ngày lịch trình trung bình 47 ký tự, ngưỡng là 80. Có ngày chỉ vỏn vẹn "Biển." |
+
+Quy tắc 11 là cái đáng nhớ nhất: nó không bắt lỗi kỹ thuật mà bắt **nội dung
+lấp chỗ trống**, thứ mà đọc code không thấy và mở trang cũng dễ bỏ qua.
+
+Việc còn lại là đóng mười chín quy tắc thành mã chạy được trong CI. Cho tới lúc
+đó, ai nạp dữ liệu mồi thì tự đối chiếu bảng ở `12` mục 9 — đừng tin là dữ liệu
+đúng chỉ vì `psql` không báo lỗi.
 
 ### 6.5. `pnpm i18n:check` không bắt được khoá thiếu ở CẢ HAI ngôn ngữ
 
