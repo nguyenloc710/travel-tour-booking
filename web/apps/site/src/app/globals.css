@@ -2379,11 +2379,19 @@ main > .tran {
 
 .ke-chuyen__chu p {
   margin: 0;
+  /* Chặn bề rộng dòng: đoạn văn trải hết nửa màn hình 27 inch là dòng dài
+     90 ký tự, và mắt lạc dòng khi quay về đầu dòng sau. */
+  max-width: 34ch;
   font-size: 1.125rem;
 }
 
+/* Ảnh 3:2 và CHẶN CHIỀU CAO. Bản đầu để 4:3 không chặn: với đoạn văn hai dòng —
+   độ dài thật của dữ liệu, không phải trường hợp rìa — ảnh cao 500px đứng cạnh
+   hai dòng chữ ra một biển khoảng trắng, và cả dải trông như hỏng chứ không như
+   thoáng. Dải là để dẫn mắt đi xuống, không phải để trưng ảnh. */
 .ke-chuyen__anh {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 2;
+  max-height: 20rem;
   overflow: hidden;
   background: var(--mau-nen-diu);
 }
