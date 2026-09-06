@@ -263,6 +263,7 @@ CREATE TABLE product (
   duration_days          SMALLINT,                     -- NULL với DAY_TOUR
   hero_image             TEXT        NOT NULL,
   map_image              TEXT,
+  layout                 VARCHAR(40),                  -- V7, NULL = mặc định của loại
   is_new                 BOOLEAN     NOT NULL DEFAULT FALSE,
   rating                 NUMERIC(2,1),
   review_count           INTEGER     NOT NULL DEFAULT 0,
@@ -282,6 +283,21 @@ CREATE TABLE product (
   CONSTRAINT ux_product_id_type UNIQUE (id, product_type)
 );
 ```
+
+**`layout` là chuỗi tự do, không phải enum và không phải bảng tham chiếu.** Danh
+mục template thuộc về frontend: thêm một template là thêm một component và một
+dòng đăng ký ở `web/`. Để CSDL giữ danh mục ấy nữa thì mỗi template mới cần một
+migration, và hai danh mục sẽ lệch nhau vào đúng ngày ai đó quên. Cùng lý do đã
+khiến `code` của `ErrorResponse` là chuỗi tự do (`13` mục 5).
+
+Cái giá: CSDL không cưỡng chế được giá trị hợp lệ. Nhận có ý thức — frontend rơi
+về template mặc định của loại khi gặp giá trị lạ. Gỡ một template mà sản phẩm cũ
+còn trỏ tới là chuyện chắc chắn xảy ra, và nó không được phép làm trắng một trang
+đang bán hàng.
+
+`NULL` **khác** với "đã chọn đúng cái đang là mặc định", nên cột không có giá trị
+mặc định: ngày đổi template mặc định của một loại, nhóm chưa chọn phải đi theo,
+nhóm đã chọn phải đứng yên.
 
 ### 4.2. Bảng con — cưỡng chế đúng loại
 

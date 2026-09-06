@@ -61,7 +61,8 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | 4 | `42-quy-trinh-tai-lieu` | Đã duyệt |
 
 ADR-001 … ADR-006 và ADR-010: **đã chốt**. ADR-007 (cổng thanh toán), ADR-008
-(lưu ảnh) và ADR-009 (phạm vi `COMBO`): **đề xuất**, chờ Q-3, Q-6 và Q-7.
+(lưu ảnh) **bị thay thế bởi ADR-011** khi Q-6 chốt ngày 06/09; ADR-009 (phạm vi
+`COMBO`) vẫn **đề xuất**, chờ Q-7, và ADR-007 chờ Q-3.
 Không còn ADR nào được trỏ tới mà chưa viết.
 
 Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
@@ -74,7 +75,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
 | Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài. Máy đang làm **nay đã có Python 3.12 thật** — mục 6.1 đã lạc hậu |
 | Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 204 file Java, migration `V1`–`V6` |
-| Hợp đồng API | `contracts/openapi.yaml` | **v0.14.0** — 54 endpoint |
+| Hợp đồng API | `contracts/openapi.yaml` | **v0.15.0** — 54 endpoint |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
@@ -124,7 +125,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
 | Đã commit | ✔ nhánh `dung-khung-va-loi-danh-muc`, 44 commit trước `main`. **Bảy commit mới nhất chưa đẩy** lên origin |
 | Test | ✔ **276/276 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 05/09 trên Postgres 16 qua Testcontainers. 21 lớp: 13 IT và 8 unit thuần không context |
-| `contracts/openapi.yaml` **v0.14.0** (54 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
+| `contracts/openapi.yaml` **v0.15.0** (54 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
 | `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 05/09. `i18n:check` **219 khoá**, `vi` 100.0% — nhưng xem lỗ hổng của nó ở mục 6.5. **`typecheck` phải chạy SAU `build`** ở máy local — xem mục 6.3 |
@@ -154,7 +155,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Sitemap theo locale và `robots.txt` | ✔ `/sitemap/da.xml` 12 URL · `/sitemap/vi.xml` 9 URL — chênh lệch chính là chính sách không-fallback |
 | **Luồng đặt tour trên web khách** — R7 bốn bước, R8 xác nhận | ✔ giữ chỗ ở bước 1, tính giá lại mỗi lần đổi, tạo đơn, tra cứu bằng mã + email |
 | Bốn nhóm bảng thiếu: vai trò, bộ ảnh kèm giấy phép, slug cũ, hành khách | ✔ `V2` — chạy thật trên Postgres 16, 13 test |
-| Đọc và ghi bốn nhóm bảng đó qua API | **Ba trong bốn đã có** (rà 04/09, dòng cũ ghi ✗ là sai): `staff_user_role` đọc ở `auth/StaffRoleRepository`, `slug_history` đọc qua `GET /redirects`, `booking_passenger` **ghi thật** trong luồng đặt tour. Chỉ `media_asset` là **chưa một dòng nào chạm tới** — chặn ở Q-6 |
+| Đọc và ghi bốn nhóm bảng đó qua API | **Ba trong bốn đã có** (rà 04/09, dòng cũ ghi ✗ là sai): `staff_user_role` đọc ở `auth/StaffRoleRepository`, `slug_history` đọc qua `GET /redirects`, `booking_passenger` **ghi thật** trong luồng đặt tour. `media_asset` **đã có đường đọc** từ 06/09 (bộ ảnh ở trang chi tiết); đường ghi còn thiếu |
 | `product.hero_image` và `map_image` trỏ tới `media_asset` | ✗ đổi phá vỡ tương thích, phải tách hai lần triển khai — `12` mục 10 |
 | Chuyển hướng slug cũ đọc `slug_history` | ✔ spec v0.10 `GET /{market}/redirects/{type}/{slug}` + trang chi tiết bắt 404 rồi chuyển hướng **308**. Chỉ chuyển khi đích thật sự xem được — xem `20` mục 6 |
 | Danh sách sản phẩm quản trị, hàng đợi dịch, bảng độ phủ | ✔ 12 test — `22` M2, M10, M12 |
@@ -172,7 +173,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Nhân bản lịch khởi hành giữa hai thị trường — **không** chép giá | ✔ `22` M4, ADR-006 |
 | `price_from` tự tính từ `departure_price` | ✔ `V5` — trước đó cột này chưa bao giờ được điền |
 | Đổi loại sản phẩm sau khi tạo | ✗ **có chủ ý cấm** — `22` mục 7; `productType` là `updatable = false` ở entity |
-| Media, ảnh sản phẩm, presigned URL | ✗ **Q-6** → ADR-008 |
+| Presigned URL và màn tải ảnh ở trang quản trị | ✗ — cần client S3, đường ĐỌC đã xong 06/09 |
 | **`pnpm contracts:generate`** | ✔ sửa 05/09 — nó gọi `:web:contractsGenerate`, đường dẫn task chết từ khi ADR-010 gộp module |
 | Trang `blog`, `kontakt`, `foredrag` của site khách | ✔ **xong 05/09** — R9 kèm lọc thẻ lặp lại được, R10, R11. Bảng `pathnames` không còn hứa nhiều hơn thứ đang có |
 | Giới hạn 10 lượt đăng nhập / 15 phút | ✗ `22` mục 9 mô tả như đã có, **chưa có gì cài** — `31` mục 6.2. Rà lại 04/09: `api/src/main` không có một dòng nào về rate limit |
@@ -193,7 +194,7 @@ Số ngày treo tính từ 31/08/2026.
 | Q-3 | GĐ-6 — v1 có thanh toán online thật, hay nhận đặt chỗ rồi gọi điện chốt? Nay chỉ còn chặn **mục 3 và 4** của `30`; ba mục kia và ADR-007 đã viết xong không chờ nó | G5 | Chủ sản phẩm | 31/08 |
 | Q-4 | Quy mô dự kiến: bao nhiêu tour, bao nhiêu đơn mỗi tháng? | G2 | Chủ sản phẩm | 31/08 |
 | Q-5 | Chạy một hay nhiều instance? | G2 | Kiến trúc sư | 31/08 |
-| Q-6 | Lưu ảnh ở đâu: VPS, S3, hay CDN? → **ADR-008 đã bày sẵn ba phương án và một đề xuất**, chỉ còn chọn nhà cung cấp và vùng | G3 | Kiến trúc sư + Chủ sản phẩm (duyệt chi) | 31/08 |
+| ~~Q-6~~ | ~~Lưu ảnh ở đâu: VPS, S3, hay CDN?~~ → **đã chốt 06/09: MinIO tự dựng cho cả dev và prod, ADR-011**, thay thế đề xuất "kho có quản" của ADR-008 | — | — | xong 06/09 |
 | Q-7 | `COMBO` làm bó cố định do nhân viên soạn, hay tồn kho thời gian thực? → **ADR-009 đã quyết: bó cố định**, chỉ còn xác nhận | **v1.5**, không phải G4 — xem ghi chú dưới bảng | Chủ sản phẩm | 31/08 |
 | Q-8 | Nâng `02` và `04` lên `Đã duyệt` — hai file này quyết định lược đồ CSDL, G0 đã qua mà chúng vẫn ở `Nháp` | **G2** | Chủ sản phẩm + Kiến trúc sư | 31/08 |
 
@@ -644,3 +645,5 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 04/09/2026 | Dựng lại bộ công cụ: cài `pnpm` 11.24.0, `pnpm install`, bật Docker | Chỉ còn Python là thiếu |
 | 04/09/2026 | **M6 + M7 — vận hành đơn.** Spec v0.11, hai endpoint đọc, `AdminBookingRepository/Service`, hai màn hình `admin/don`, 17 test mới | Lỗ hổng "nhận được đơn mà không vận hành được đơn" đã khép ở phần **xem**. Phần **đổi trạng thái** vẫn chưa có — xem mục 3 |
 | 04/09/2026 | **Đường ghi của M7.** Spec v0.12, `POST /admin/bookings/{reference}/status`, khoá bi quan, trả chỗ về kho, khối thao tác có ô xác nhận nói rõ hậu quả. 8 test mới, tổng **228** | Lộ ra hai lỗi có sẵn: thân JSON sai kiểu trả 500 ở **mọi** endpoint (đã sửa), và `seats_booked` cộng/trừ theo hai nguồn khác nhau (chưa sửa — mục 6.2). Còn thiếu huỷ hàng loạt theo chuyến (`14` mục 6.6) |
+| 06/09/2026 | **Q-6 chốt — ADR-011: MinIO tự dựng cho cả dev và prod**, thay thế đề xuất "kho có quản" của ADR-008. Cập nhật `10` mục 10 và 11 | Chưa viết dòng code nào. Bảy hệ quả ở ADR-011 mục 6 chưa làm; nặng nhất là **sao lưu ảnh** (`35` chưa viết) |
+| 06/09/2026 | **Bộ ảnh — đường ĐỌC end-to-end.** MinIO vào `compose.yaml`; spec v0.15.0 thêm `gallery` và `layout`; `V7` thêm `product.layout`; 29 `media_asset` + 61 `product_image` vào dữ liệu mồi; khối bộ ảnh ở trang chi tiết. 4 test mới, tổng **290** | Đường GHI chưa có: chưa xin được dependency S3, nên biên tập viên chưa tự thêm ảnh — ảnh do `scripts/nap-anh-len-kho.py` nạp. Ô chọn template ở trang quản trị và các template chưa dựng |
