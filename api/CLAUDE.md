@@ -12,7 +12,7 @@ Backend: Java 21, Spring Boot, **một** module Gradle chia theo feature, Postgr
 > không cần lập trình viên**: đăng nhập, ma trận quyền, bản dịch, CRUD sản phẩm,
 > gán thị trường, ngày khởi hành, bảng giá, vận hành đơn (`docs/22` M6, M7), báo
 > giá (M8), nội dung khác (M13 — điểm đến, bài viết, sự kiện) và người dùng
-> (M14). 290 test xanh, gồm bộ kiểm nhất quán dữ liệu của `docs/12` mục 9.
+> (M14). 293 test xanh, gồm bộ kiểm nhất quán dữ liệu của `docs/12` mục 9.
 > Chưa có: huỷ **hàng loạt** theo ngày khởi hành (`docs/14` mục 6.6), sinh
 > `Booking` từ báo giá đã chấp nhận (**Q-3**), M9 yêu cầu tư vấn (thiếu bảng
 > `lead`), giới hạn số lần gọi, media (**Q-6**), thanh toán (**Q-3**).

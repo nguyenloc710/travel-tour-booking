@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,6 +76,9 @@ class DestinationEndpointIT {
     @BeforeEach
     void chuanBiDuLieu() {
         jdbc.execute("""
+                DELETE FROM destination_image;
+                DELETE FROM media_asset_translation;
+                DELETE FROM media_asset;
                 DELETE FROM product_market;
                 DELETE FROM product_translation;
                 DELETE FROM product_group_tour;
@@ -101,6 +105,26 @@ class DestinationEndpointIT {
                   ('b1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000001','HANOI',1),
                   ('b1000000-0000-4000-8000-000000000002','a1000000-0000-4000-8000-000000000001','SAPA',2),
                   ('b1000000-0000-4000-8000-000000000003','a1000000-0000-4000-8000-000000000002','HOIAN',1);
+
+                -- Ảnh minh hoạ. Hà Nội có HAI tấm, sort_order NGƯỢC thứ tự chèn:
+                -- tầng đọc phải lấy tấm sort_order = 1, không phải tấm chèn trước.
+                -- Hội An có một tấm CHỈ CÓ alt tiếng Đan. Sapa không có ảnh nào.
+                INSERT INTO media_asset (id, path, width, height, byte_size, source, licence_ref) VALUES
+                  ('d1000000-0000-4000-8000-000000000001','diem-den/ha-noi.jpg',1400,933,200000,'PURCHASED','ref-1'),
+                  ('d1000000-0000-4000-8000-000000000002','diem-den/ha-noi-2.jpg',1200,800,150000,'PURCHASED','ref-2'),
+                  ('d1000000-0000-4000-8000-000000000003','diem-den/hoi-an.jpg',900,600,100000,'PURCHASED','ref-3');
+
+                INSERT INTO media_asset_translation (asset_id, locale, alt) VALUES
+                  ('d1000000-0000-4000-8000-000000000001','da','Foerste'),
+                  ('d1000000-0000-4000-8000-000000000001','vi','Tấm đầu'),
+                  ('d1000000-0000-4000-8000-000000000002','da','Anden'),
+                  ('d1000000-0000-4000-8000-000000000002','vi','Tấm hai'),
+                  ('d1000000-0000-4000-8000-000000000003','da','Kun dansk');
+
+                INSERT INTO destination_image (destination_id, asset_id, sort_order) VALUES
+                  ('b1000000-0000-4000-8000-000000000001','d1000000-0000-4000-8000-000000000002',2),
+                  ('b1000000-0000-4000-8000-000000000001','d1000000-0000-4000-8000-000000000001',1),
+                  ('b1000000-0000-4000-8000-000000000003','d1000000-0000-4000-8000-000000000003',1);
 
                 INSERT INTO destination_translation (destination_id, locale, slug, name, summary) VALUES
                   ('b1000000-0000-4000-8000-000000000001','da','hanoi','Hanoi','Hovedstaden i nord.'),
@@ -167,6 +191,49 @@ class DestinationEndpointIT {
                 "Không được hiện bản tiếng Đan thay thế — docs/02 mục 4");
         assertEquals("Hà Nội", ds[0].getName());
         assertEquals("Thủ đô miền Bắc.", ds[0].getSummary());
+    }
+
+    @Test
+    @DisplayName("Ảnh minh hoạ: lấy tấm sort_order nhỏ nhất, URL ghép từ đường dẫn tương đối")
+    void anhMinhHoa() {
+        Destination hn = tim(danhSach("dk", "da", Map.of()), "Hanoi");
+
+        assertNotNull(hn.getImage());
+        assertEquals("Foerste", hn.getImage().getAlt(),
+                "Tấm chèn TRƯỚC có sort_order 2 — quên ORDER BY thì bài này đỏ");
+        // CSDL lưu `diem-den/ha-noi.jpg`; địa chỉ gốc ở cấu hình, không ở dữ liệu.
+        assertTrue(hn.getImage().getUrl().endsWith("/diem-den/ha-noi.jpg"), hn.getImage().getUrl());
+        assertEquals(1400, hn.getImage().getWidth());
+        assertEquals(933, hn.getImage().getHeight());
+    }
+
+    /**
+     * Điểm đến chưa có ảnh vẫn phải hiện ra — cùng một cái bẫy mà
+     * {@code diemDenRongVanHien} canh cho {@code productCount}, chỉ khác chỗ:
+     * {@code JOIN} thay vì {@code LEFT JOIN LATERAL} thì Sapa biến mất khỏi
+     * danh sách mà không ai báo.
+     */
+    @Test
+    @DisplayName("Điểm đến chưa có ảnh vẫn xuất hiện, chỉ là không có trường image")
+    void khongCoAnhVanHien() {
+        Destination sapa = tim(danhSach("dk", "da", Map.of()), "Sapa");
+
+        assertNull(sapa.getImage(), "Không có ảnh thì bỏ hẳn trường, không trả đối tượng toàn null");
+    }
+
+    /**
+     * Luật không fallback áp vào ảnh. Tấm của Hội An chỉ có {@code alt} tiếng
+     * Đan; ở locale {@code vi} nó phải vắng, và điểm đến vẫn hiện bình thường.
+     */
+    @Test
+    @DisplayName("Ảnh thiếu alt ở locale nào thì vắng khỏi locale đó, điểm đến vẫn còn")
+    void anhThieuAltThiVang() {
+        assertNotNull(tim(danhSach("dk", "da", Map.of()), "Hoi An").getImage());
+
+        Destination hoiAnVi = tim(danhSach("dk", "vi", Map.of()), "Hội An");
+        assertNull(hoiAnVi.getImage(),
+                "Hiện ảnh kèm alt tiếng Đan giữa trang tiếng Việt là đọc sai cho đúng "
+                        + "nhóm người phụ thuộc vào alt nhất");
     }
 
     @Test

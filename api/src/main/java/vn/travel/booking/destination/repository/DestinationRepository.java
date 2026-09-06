@@ -3,7 +3,9 @@ package vn.travel.booking.destination.repository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import vn.travel.booking.destination.repository.DestinationRepository;
+import vn.travel.booking.common.config.DiaChiKho;
 import vn.travel.booking.destination.dto.DestinationSummary;
+import vn.travel.booking.product.dto.GalleryImage;
 import vn.travel.booking.product.dto.NamedRef;
 
 import java.sql.ResultSet;
@@ -35,6 +37,10 @@ public class DestinationRepository {
                    dt.summary,
                    rt.slug AS region_slug,
                    rt.name AS region_name,
+                   anh.path AS anh_path,
+                   anh.alt  AS anh_alt,
+                   anh.width  AS anh_width,
+                   anh.height AS anh_height,
                    (SELECT count(*)
                       FROM product p
                       JOIN product_market pm
@@ -60,16 +66,41 @@ public class DestinationRepository {
               ON rt.region_id = r.id
              AND rt.locale = ?
              AND NOT rt.soft_delete
+            -- Ảnh minh hoạ: tấm đầu theo sort_order. LEFT JOIN LATERAL chứ không
+            -- một truy vấn riêng cho mỗi dòng — danh sách này trả cả mười điểm
+            -- đến một lần, và N+1 ở đây là mười lần đi lại CSDL cho một trang.
+            --
+            -- LEFT chứ không INNER: điểm đến chưa có ảnh vẫn phải hiện ra. Đây
+            -- đúng là lỗi mà chú thích về product_count ở trên đã cảnh báo, chỉ
+            -- khác chỗ.
+            LEFT JOIN LATERAL (
+              SELECT a.path, a.width, a.height, t.alt
+              FROM destination_image di
+              JOIN media_asset a
+                ON a.id = di.asset_id
+               AND NOT a.soft_delete
+              JOIN media_asset_translation t
+                ON t.asset_id = a.id
+               AND t.locale = ?
+               AND NOT t.soft_delete
+              WHERE di.destination_id = d.id
+              ORDER BY di.sort_order
+              LIMIT 1
+            ) anh ON TRUE
             WHERE NOT d.soft_delete
             """;
 
     private final JdbcTemplate jdbc;
+    private final DiaChiKho diaChiKho;
 
-    public DestinationRepository(JdbcTemplate jdbc) {
+    public DestinationRepository(JdbcTemplate jdbc, DiaChiKho diaChiKho) {
         this.jdbc = jdbc;
+        this.diaChiKho = diaChiKho;
     }
     public List<DestinationSummary> findDestinations(String market, String locale, String regionSlug) {
-        List<Object> thamSo = new ArrayList<>(List.of(market, locale, locale, locale));
+        // Năm tham số của NGUON, đúng thứ tự dấu ? xuất hiện: market và locale của
+        // truy vấn đếm, rồi locale của ba phép JOIN dịch — điểm đến, miền, ảnh.
+        List<Object> thamSo = new ArrayList<>(List.of(market, locale, locale, locale, locale));
         String loc = "";
 
         if (regionSlug != null && !regionSlug.isBlank()) {
@@ -88,17 +119,31 @@ public class DestinationRepository {
         return jdbc.query(
                         NGUON + " AND dt.slug = ?",
                         (rs, i) -> doc(rs),
-                        market, locale, locale, locale, slug)
+                        market, locale, locale, locale, locale, slug)
                 .stream()
                 .findFirst();
     }
 
-    private static DestinationSummary doc(ResultSet rs) throws SQLException {
+    private DestinationSummary doc(ResultSet rs) throws SQLException {
         return new DestinationSummary(
                 rs.getString("slug"),
                 rs.getString("name"),
                 rs.getString("summary"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
+                anh(rs),
                 rs.getInt("product_count"));
+    }
+
+    /** Không có ảnh thì LATERAL trả toàn NULL, và cả khối thành null. */
+    private GalleryImage anh(ResultSet rs) throws SQLException {
+        String path = rs.getString("anh_path");
+        if (path == null) {
+            return null;
+        }
+        return new GalleryImage(
+                diaChiKho.diaChiCua(path),
+                rs.getString("anh_alt"),
+                rs.getInt("anh_width"),
+                rs.getInt("anh_height"));
     }
 }

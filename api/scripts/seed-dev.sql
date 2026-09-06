@@ -1915,4 +1915,33 @@ UPDATE product SET layout = 'tap-chi'
 UPDATE product SET layout = 'ke-chuyen'
  WHERE id = 'f0000000-0000-4000-8000-000000000011';   -- Sydvietnam og Mekong
 
+-- ======================================================= ẢNH CỦA ĐIỂM ĐẾN
+--
+-- `V8`. Trang điểm đến là trang cho khách **chưa biết mình muốn gì** (`01` mục
+-- 3.1) — người đang chọn vùng đất chứ chưa chọn chuyến đi. Một danh sách tên
+-- địa danh không nói được với người đó rằng Sa Pa khác Phú Quốc ở chỗ nào.
+--
+-- Đi qua `media_asset` chứ không thêm một cột chữ: `12` mục 10 đã ghi cột ảnh
+-- dạng chữ vào danh sách nợ vì chúng không có chứng từ giấy phép.
+--
+-- Dùng lại chính 29 tấm mẫu đã nạp ở khối trên, nên không tốn thêm tệp nào và
+-- giấy phép đã có sẵn. Vài tấm vừa minh hoạ một tour vừa minh hoạ điểm đến —
+-- đúng lý do `media_asset` là thực thể riêng chứ không phải cột trên bảng cha
+-- (`12` mục 4.6): một ảnh, một giấy phép, nhiều chỗ dùng.
+--
+-- Mỗi điểm đến một tấm. Bảng chịu được nhiều hơn — `sort_order` có sẵn — và
+-- tầng đọc lấy tấm đầu.
+INSERT INTO destination_image (destination_id, asset_id, sort_order) VALUES
+  ('e0000000-0000-4000-8000-000000000001', '33330000-0000-4000-8000-000000000014', 1),  -- HANOI      -> toà nhà kiểu thuộc địa
+  ('e0000000-0000-4000-8000-000000000002', '33330000-0000-4000-8000-000000000003', 1),  -- HALONG     -> thuyền trong vịnh Hạ Long
+  ('e0000000-0000-4000-8000-000000000005', '33330000-0000-4000-8000-000000000005', 1),  -- SAPA       -> ruộng bậc thang
+  ('e0000000-0000-4000-8000-000000000006', '33330000-0000-4000-8000-000000000013', 1),  -- NINH_BINH  -> chùa giữa sông nước và núi đá
+  ('e0000000-0000-4000-8000-000000000003', '33330000-0000-4000-8000-000000000004', 1),  -- HOI_AN     -> phố đèn lồng
+  ('e0000000-0000-4000-8000-000000000007', '33330000-0000-4000-8000-000000000006', 1),  -- HUE        -> chùa dưới trời trong
+  ('e0000000-0000-4000-8000-000000000008', '33330000-0000-4000-8000-000000000022', 1),  -- DA_NANG    -> bể bơi giữa hàng cọ
+  ('e0000000-0000-4000-8000-000000000004', '33330000-0000-4000-8000-000000000029', 1),  -- MEKONG     -> thuyền chở hàng trên chợ nổi
+  ('e0000000-0000-4000-8000-000000000009', '33330000-0000-4000-8000-000000000023', 1),  -- HCMC       -> đường chân trời thành phố về đêm
+  ('e0000000-0000-4000-8000-000000000010', '33330000-0000-4000-8000-000000000011', 1)   -- PHU_QUOC   -> hàng dừa dọc bãi biển
+ON CONFLICT DO NOTHING;
+
 COMMIT;

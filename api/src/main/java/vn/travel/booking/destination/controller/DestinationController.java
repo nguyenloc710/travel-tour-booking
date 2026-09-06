@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import vn.travel.booking.destination.dto.DestinationSummary;
+import vn.travel.booking.web.generated.model.GalleryImage;
 import vn.travel.booking.destination.service.DestinationService;
 import vn.travel.booking.destination.service.DestinationService;
 import vn.travel.booking.web.generated.api.DestinationsApi;
@@ -57,8 +58,12 @@ public class DestinationController implements DestinationsApi {
                 d.name(),
                 RefMapper.sangRef(d.region()),
                 d.productCount())
-                // Chưa có mô tả thì bỏ hẳn trường khỏi JSON, không trả chuỗi rỗng.
-                .summary(d.summary());
+                // Chưa có mô tả hoặc chưa có ảnh thì bỏ hẳn trường khỏi JSON,
+                // không trả chuỗi rỗng và không trả đối tượng toàn null.
+                .summary(d.summary())
+                .image(d.image() == null ? null : new GalleryImage(
+                        d.image().url(), d.image().alt(),
+                        d.image().width(), d.image().height()));
     }
 
     private static ResponseEntity.BodyBuilder phanHoi(String locale) {
