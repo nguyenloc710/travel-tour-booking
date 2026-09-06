@@ -239,8 +239,10 @@ collation và `unaccent`, mà đó chính là hai thứ dễ sai nhất của d�
 | 005 | Mỗi loại sản phẩm một bảng con | Đã chốt |
 | 006 | Ngày khởi hành thuộc về một thị trường | Đã chốt |
 | 007 | Cổng thanh toán từng thị trường | **Đề xuất** — chờ Q-3 và `30` |
-| 008 | Lưu trữ ảnh | **Đề xuất** — chờ Q-6 |
+| 008 | Lưu trữ ảnh | **Bị thay thế bởi ADR-011** |
 | 009 | `COMBO` bó cố định hay tồn kho thời gian thực | **Đề xuất** — chờ Q-7. Chặn **v1.5**, không chặn cổng nào của v1 |
+| 010 | Một module Gradle, chia theo feature ở tầng package | Đã chốt |
+| 011 | MinIO tự dựng, cho cả dev và bản chạy thật | Đã chốt — Q-6 xong |
 
 Một file một quyết định. Đổi ý thì viết ADR mới thay thế, **không sửa ADR cũ**.
 
@@ -251,6 +253,6 @@ Một file một quyết định. Đổi ý thì viết ADR mới thay thế, **
 | Việc | Chặn cái gì | Ghi chú |
 |---|---|---|
 | Quy mô dự kiến (số tour, số đơn/tháng) | Chọn hạ tầng, có cần cache không | Hỏi nghiệp vụ — `01` mục 7 |
-| Lưu ảnh ở đâu: VPS, S3, hay CDN | **ADR-008** (đề xuất), `24` | Ảnh hero nặng, nhóm khách lớn tuổi hay dùng mạng chậm |
+| Sao lưu ảnh ra ngoài VPS, và kiểm thử khôi phục | `35` — chưa viết | **ADR-011** chốt MinIO tự dựng, nên sao lưu Postgres không còn đủ: nó không đụng tới kho đối tượng |
 | Có cần cache tầng ứng dụng ở v1 không | `35` | Nghiêng về **không** — Postgres đủ nhanh ở quy mô này, và cache làm chính sách locale khó suy luận hơn |
 | Chạy một hay nhiều instance | Cần ShedLock hay không cho job quét hạn giữ chỗ | `14`, `35` |

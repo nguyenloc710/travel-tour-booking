@@ -3,6 +3,7 @@
 ```
 Trạng thái: Đề xuất
 Ngày: 02/09/2026
+Bị thay thế bởi ADR-011
 ```
 
 > **Chưa chốt, và cố ý chưa chốt.** Q-6 giao cho Kiến trúc sư (`41` mục 4). Tài
