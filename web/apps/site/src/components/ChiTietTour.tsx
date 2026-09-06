@@ -7,7 +7,9 @@ import type { Departure, HotelStay, ItineraryDay, ProductDetail } from '@travel/
 import { productsApi, requestScope } from '@/lib/api';
 import { duongDanDatTour, duongDanListing, productsSegment } from '@/lib/routes';
 import { duongDanTab, tabCoMat, type TabKey } from '@/lib/tabs';
+import { khungCua, type Khung } from '@/lib/templates';
 import { BoAnh } from '@/components/BoAnh';
+import { KeChuyen } from '@/components/KeChuyen';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductFacts } from '@/components/ProductFacts';
 import { SaoDanhGia } from '@/components/SaoDanhGia';
@@ -46,6 +48,9 @@ export async function ChiTietTour({
   slug: string;
   tab: TabKey;
 }) {
+  // Template do biên tập viên chọn. Giá trị lạ hoặc vắng rơi về `co-dien`;
+  // xem `lib/templates.ts` về việc vì sao nó không được phép ném lỗi.
+  const khung = khungCua(sanPham.productType, sanPham.layout);
   const tabs = tabCoMat(sanPham.productType);
   // Tab không có mặt ở loại này thì về tổng quan thay vì hiện một khối rỗng.
   const dangXem: TabKey = tabs.includes(tab) ? tab : 'tongQuan';
@@ -60,7 +65,7 @@ export async function ChiTietTour({
           Ảnh nằm SAU chữ chứ không nằm trên nó: tiêu đề là thứ khách cần đọc
           đầu tiên, và một tấm ảnh cao 640px đẩy nó xuống dưới nếp gấp. Chữ đọc
           được nhờ vùng tối ở đáy ảnh, vốn nằm sẵn trong chính tệp ảnh. */}
-      <header className="chi-tiet-mo-dau tran">
+      <header className={`chi-tiet-mo-dau chi-tiet-mo-dau--${khung} tran`}>
         <Image
           className="chi-tiet-mo-dau__anh"
           src={sanPham.heroImage}
@@ -86,7 +91,7 @@ export async function ChiTietTour({
         </div>
       </header>
 
-      <article className="detail">
+      <article className={`detail detail--${khung}`}>
       {/* Bốn dữ kiện quyết định, đọc được trong một cái liếc. Chúng lặp lại thứ
           đã có ở chỗ khác trên trang, và lặp là chủ ý: khách so hai tour cạnh
           nhau bằng đúng bốn con số này. */}
@@ -143,7 +148,13 @@ export async function ChiTietTour({
       </nav>
 
       {dangXem === 'tongQuan' && (
-        <TabTongQuan sanPham={sanPham} locale={locale} market={market} slug={slug} />
+        <TabTongQuan
+          sanPham={sanPham}
+          locale={locale}
+          market={market}
+          slug={slug}
+          khung={khung}
+        />
       )}
       {dangXem === 'lichTrinh' && (
         <Suspense fallback={<KhoiCho />}>
@@ -186,12 +197,15 @@ async function TabTongQuan({
   locale,
   market,
   slug,
+  khung,
 }: {
   sanPham: ProductDetail;
   locale: Locale;
   market: Market;
   slug: string;
+  khung: Khung;
 }) {
+  const anh = sanPham.gallery ?? [];
   return (
     <>
       {/* `PRIVATE_TOUR`: khối "chuyến đi này điều chỉnh được" đứng NGAY sau đoạn
@@ -204,22 +218,29 @@ async function TabTongQuan({
         </p>
       )}
 
-      <section className="why">
-        <h2>{t(locale, 'detail.whyChooseThis')}</h2>
-        <ul>
-          {sanPham.whyChooseThis.map((ly_do) => (
-            <li key={ly_do}>{ly_do}</li>
-          ))}
-        </ul>
-      </section>
+      {/* `tap-chi` mở bằng ảnh: mosaic đứng NGAY trên chữ, vì template này bán
+          bằng hình. Hai template kia giữ thứ tự của `05` mục 5.1 — chữ trước,
+          bộ ảnh là khối 8. */}
+      {khung === 'tap-chi' && <BoAnh anh={anh} locale={locale} kieu="mosaic" />}
 
-      <div className="detail__body">
-        {/* Từng đoạn văn một, không phải một khối HTML: nội dung do biên tập
-            viên nhập, và HTML tự do từ CSDL là lỗ chèn mã chờ sẵn. */}
-        {sanPham.longDescription.map((doan_van, i) => (
-          <p key={i}>{doan_van}</p>
-        ))}
-      </div>
+      {/* `ke-chuyen` đẩy "vì sao chọn" xuống CUỐI: template này dẫn khách qua
+          các dải ảnh–chữ trước, rồi mới tổng kết. Hai template kia giữ nó ở
+          đầu, đúng khối 2 của `05` mục 5.1. */}
+      {khung !== 'ke-chuyen' && <KhoiViSao sanPham={sanPham} locale={locale} />}
+
+      {khung === 'ke-chuyen' ? (
+        <KeChuyen doanVan={sanPham.longDescription} anh={anh} />
+      ) : (
+        <div className="detail__body">
+          {/* Từng đoạn văn một, không phải một khối HTML: nội dung do biên tập
+              viên nhập, và HTML tự do từ CSDL là lỗ chèn mã chờ sẵn. */}
+          {sanPham.longDescription.map((doan_van, i) => (
+            <p key={i}>{doan_van}</p>
+          ))}
+        </div>
+      )}
+
+      {khung === 'ke-chuyen' && <KhoiViSao sanPham={sanPham} locale={locale} />}
 
       {sanPham.mapImage !== undefined && (
         <Image
@@ -245,12 +266,33 @@ async function TabTongQuan({
         />
       )}
 
-      <BoAnh anh={sanPham.gallery} locale={locale} />
+      {/* `tap-chi` đã hiện bộ ảnh ở đầu trang, nên không hiện lại.
+          `ke-chuyen` đã tiêu thụ mấy tấm đầu vào các dải, nên chỉ còn phần
+          thừa — và `BoAnh` tự ẩn khi rỗng, nên không cần kiểm ở đây. */}
+      {khung === 'co-dien' && <BoAnh anh={anh} locale={locale} />}
+      {khung === 'ke-chuyen' && (
+        <BoAnh anh={anh.slice(sanPham.longDescription.length)} locale={locale} />
+      )}
 
       <Suspense fallback={null}>
         <TourLienQuan locale={locale} market={market} sanPham={sanPham} slug={slug} />
       </Suspense>
     </>
+  );
+}
+
+/** Khối 2 của `05` mục 5.1. Tách ra vì `ke-chuyen` đặt nó ở cuối, hai template
+ * kia đặt ở đầu — cùng một khối, hai vị trí, một chỗ định nghĩa. */
+function KhoiViSao({ sanPham, locale }: { sanPham: ProductDetail; locale: Locale }) {
+  return (
+    <section className="why">
+      <h2>{t(locale, 'detail.whyChooseThis')}</h2>
+      <ul>
+        {sanPham.whyChooseThis.map((ly_do) => (
+          <li key={ly_do}>{ly_do}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

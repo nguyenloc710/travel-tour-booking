@@ -2297,3 +2297,100 @@ main > .tran {
     aspect-ratio: auto;
   }
 }
+
+/* ====================================================== Template trang chi tiết
+ *
+ * Ba khung cho GROUP_TOUR — `lib/templates.ts` giữ danh mục, biên tập viên chọn
+ * bằng `product.layout`. Khác nhau ở BỐ CỤC và THỨ TỰ KHỐI, không ở bảng màu,
+ * họ chữ hay thang chữ: đổi cả bốn thứ là làm ra ba website, và ba website thì
+ * không còn nhận ra là một hãng.
+ *
+ * `co-dien` không có lớp riêng nào dưới đây. Nó là bản gốc, và mọi quy tắc ở
+ * trên đã là của nó — thêm `.detail--co-dien` chỉ để lặp lại chính mình.
+ */
+
+/* ------------------------------------------------------------- tap-chi */
+
+/* Khối mở đầu cao hơn hẳn: template này bán bằng ảnh, nên tấm đầu tiên được
+   nhiều chỗ hơn. Vẫn chặn trên theo khung nhìn — đẩy hết nội dung xuống dưới
+   nếp gấp là cái giá quá đắt cho một tấm ảnh to. */
+.chi-tiet-mo-dau--tap-chi {
+  min-height: min(82vh, 44rem);
+}
+
+.chi-tiet-mo-dau--tap-chi h1 {
+  max-width: 16ch;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+}
+
+/* Đoạn dẫn to hơn thân bài, và CHỈ đoạn đầu. Cả khối to lên thì không còn là
+   đoạn dẫn nữa, chỉ là chữ to. */
+.detail--tap-chi .detail__body p:first-child {
+  font-size: 1.375rem;
+  line-height: 1.55;
+  color: var(--mau-chu);
+}
+
+/* Bộ ảnh đứng ngay dưới thanh tab nên cần thở ở dưới, không phải ở trên. */
+.detail--tap-chi .bo-anh {
+  margin-bottom: var(--k12);
+}
+
+/* ----------------------------------------------------------- ke-chuyen */
+
+/* Khối mở đầu thấp: template này kể chuyện bằng các dải bên dưới, nên phần đầu
+   chỉ cần giới thiệu rồi nhường chỗ. */
+.chi-tiet-mo-dau--ke-chuyen {
+  min-height: min(48vh, 26rem);
+}
+
+.ke-chuyen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k12);
+  margin: var(--k12) 0;
+}
+
+.ke-chuyen__dai {
+  display: grid;
+  gap: var(--k6);
+  align-items: center;
+}
+
+/* Một cột trên máy hẹp, và chữ luôn đứng TRƯỚC ảnh ở dạng đó — thứ tự DOM là
+   thứ tự đọc, và đảo nó bằng `order` là nói một đằng cho mắt, một nẻo cho
+   trình đọc màn hình. */
+@media (min-width: 56rem) {
+  .ke-chuyen__dai {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--k12);
+  }
+
+  /* Dải chẵn đảo bên. Dùng `direction` thay cho `order` vì nó chỉ đổi thứ tự
+     TRỰC QUAN của hai ô lưới, không đụng tới thứ tự tab và thứ tự đọc. */
+  .ke-chuyen__dai--dao {
+    direction: rtl;
+  }
+
+  .ke-chuyen__dai--dao > * {
+    direction: ltr;
+  }
+}
+
+.ke-chuyen__chu p {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.ke-chuyen__anh {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--mau-nen-diu);
+}
+
+.ke-chuyen__anh img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
