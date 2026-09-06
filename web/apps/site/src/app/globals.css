@@ -2245,3 +2245,55 @@ main > .tran {
   border-color: var(--mau-keu-goi);
   border-width: 2px;
 }
+
+/* ---------------------------------------------------------------- Bộ ảnh */
+
+/* Khối 8 của docs/05 mục 5.1. Hai bố cục dùng CHUNG một component — khác nhau
+   bằng CSS, không bằng hai cây React (xem BoAnh.tsx). */
+
+.bo-anh__luoi {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--k4);
+}
+
+.bo-anh__luoi li {
+  /* Ảnh mẫu có cả ngang lẫn dọc — 1400x933 cạnh 1400x2035. Ép mọi ô về cùng
+     một tỷ lệ rồi `object-fit: cover` để lưới không so le; không ép thì một
+     tấm dọc kéo cả hàng cao gấp đôi. */
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: var(--mau-nen-diu);
+}
+
+.bo-anh__luoi img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bo-anh__luoi--luoi {
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+/* Mosaic: tấm đầu chiếm hai cột hai hàng, phần còn lại xếp quanh. Chỉ bật từ
+   bề rộng có đủ ba cột — dưới ngưỡng đó nó thành một cột và "chiếm hai cột"
+   trở thành vô nghĩa. */
+.bo-anh__luoi--mosaic {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 60rem) {
+  .bo-anh__luoi--mosaic {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .bo-anh__luoi--mosaic li:first-child {
+    grid-column: span 2;
+    grid-row: span 2;
+    aspect-ratio: auto;
+  }
+}

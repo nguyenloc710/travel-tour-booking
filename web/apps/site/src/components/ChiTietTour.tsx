@@ -7,6 +7,7 @@ import type { Departure, HotelStay, ItineraryDay, ProductDetail } from '@travel/
 import { productsApi, requestScope } from '@/lib/api';
 import { duongDanDatTour, duongDanListing, productsSegment } from '@/lib/routes';
 import { duongDanTab, tabCoMat, type TabKey } from '@/lib/tabs';
+import { BoAnh } from '@/components/BoAnh';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductFacts } from '@/components/ProductFacts';
 import { SaoDanhGia } from '@/components/SaoDanhGia';
@@ -173,10 +174,12 @@ export async function ChiTietTour({
  * Thứ tự khối lấy từ `docs/05` mục 5.1, và giữ nguyên vì nó đi từ **cảm hứng**
  * tới **chi tiết** tới **hành động**.
  *
- * Bốn khối của tài liệu chưa dựng được: bộ ảnh và bản đồ lớn dạng lightbox
- * (chờ media, **Q-6**), hồ sơ nhân viên tư vấn (chưa có endpoint), trích dẫn
- * khách và rating (chưa có bảng). Bỏ trống còn hơn dựng ô giả — một khối rỗng
- * trông như đã xong.
+ * Bộ ảnh (khối 8) đã dựng được từ 06/09: Q-6 chốt bằng ADR-011, ảnh nằm trong
+ * kho đối tượng và API trả ra `gallery`.
+ *
+ * Ba khối của tài liệu vẫn chưa dựng được: bản đồ lớn dạng lightbox, hồ sơ nhân
+ * viên tư vấn (chưa có endpoint), trích dẫn khách và rating (chưa có bảng). Bỏ
+ * trống còn hơn dựng ô giả — một khối rỗng trông như đã xong.
  */
 async function TabTongQuan({
   sanPham,
@@ -241,6 +244,8 @@ async function TabTongQuan({
           leadTimeDays={sanPham.leadTimeDays}
         />
       )}
+
+      <BoAnh anh={sanPham.gallery} locale={locale} />
 
       <Suspense fallback={null}>
         <TourLienQuan locale={locale} market={market} sanPham={sanPham} slug={slug} />

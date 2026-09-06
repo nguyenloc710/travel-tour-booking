@@ -108,6 +108,7 @@
   "detail.private.leadTime": "Bestil mindst {days} dage før afrejse",
   "detail.private.note": "Denne rejse bookes ikke online — vi sammensætter den med dig.",
   "detail.private.quoteValid": "Tilbuddet gælder {days} dage",
+  "detail.gallery": "Billeder",
   "detail.related": "Andre rejser til {destination}",
   "detail.tab.giaVaNgay": "Priser og datoer",
   "detail.tab.khachSan": "Hoteller",

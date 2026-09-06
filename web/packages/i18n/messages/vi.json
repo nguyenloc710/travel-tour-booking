@@ -108,6 +108,7 @@
   "detail.private.leadTime": "Đặt trước ít nhất {days} ngày",
   "detail.private.note": "Tour này không đặt trực tuyến — chúng tôi dựng cùng bạn.",
   "detail.private.quoteValid": "Báo giá có hiệu lực {days} ngày",
+  "detail.gallery": "Bộ ảnh",
   "detail.related": "Tour khác tới {destination}",
   "detail.tab.giaVaNgay": "Giá và ngày",
   "detail.tab.khachSan": "Khách sạn",
