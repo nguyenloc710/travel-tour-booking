@@ -2,9 +2,10 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 31/08/2026
+Cập nhật: 06/09/2026
 Nguồn sự thật về: thành phần trang chi tiết theo từng loại sản phẩm — đầu trang,
-                  tab nào có, thứ tự khối, nút chính, thanh dính đáy, trạng thái rìa.
+                  tab nào có, thứ tự khối, danh mục template, nút chính, thanh
+                  dính đáy, trạng thái rìa.
 Không nói về: nghiệp vụ và ràng buộc dữ liệu từng loại (04), bố cục pixel và
               breakpoint (20), luồng đặt sau khi bấm nút (23).
 ```
@@ -46,6 +47,39 @@ và 8.
 
 Tab nằm trên **route con**, không phải state trong component: đổi tab thì URL
 đổi, F5 giữ nguyên tab, dán link ra đúng tab đó.
+
+### 1.1. Template — cùng dữ liệu, khác bố cục
+
+Khung trên là **bộ xương**, và một loại sản phẩm có thể mặc nhiều bộ áo. Biên tập
+viên chọn bằng `product.layout` (`12` mục 4.1); danh mục nằm ở
+`web/apps/site/src/lib/templates.ts`, không nằm trong CSDL.
+
+`GROUP_TOUR` có ba, từ 06/09/2026:
+
+| Template | Khác gì | Dùng khi |
+|---|---|---|
+| `co-dien` | Thứ tự khối của mục 5.1, nguyên vẹn. Bộ ảnh là khối 8, lưới đều | Mặc định. Tour mà chữ bán hàng nhiều hơn ảnh |
+| `tap-chi` | Khối mở đầu cao hơn; **bộ ảnh dạng mosaic đứng ngay dưới thanh tab**, trên cả "vì sao chọn"; đoạn dẫn cỡ lớn | Tour có bộ ảnh mạnh, và ảnh là lý do khách bấm vào |
+| `ke-chuyen` | Khối mở đầu thấp; mô tả dài **tách thành các dải ảnh–chữ xen kẽ**, ảnh đổi bên mỗi dải; "vì sao chọn" xuống cuối; ảnh thừa về khối bộ ảnh | Tour dài, nhiều chặng, mô tả nhiều đoạn |
+
+Năm loại còn lại hiện chỉ có `co-dien`. `05` mục 7 và 8 đã tả riêng khung cho
+`COMBO` và `DAY_TOUR` nhưng chúng chưa dựng, nên chưa vào danh mục — liệt kê tên
+một template chưa tồn tại là hứa một thứ không có.
+
+**Ba ràng buộc, cả ba đều là quy tắc chứ không phải sở thích:**
+
+- **Template đổi bố cục và thứ tự khối, KHÔNG đổi bảng màu, họ chữ hay thang
+  chữ.** Đổi cả bốn thứ là làm ra ba website, và ba website thì không còn nhận
+  ra là một hãng.
+- **Không template nào được bỏ một khối bắt buộc.** Giá vẫn kèm chữ "từ" và
+  disclaimer, ba trạng thái màn hình vẫn đủ, thanh dính đáy vẫn còn.
+- **Giá trị lạ hoặc vắng rơi về `co-dien`, không báo lỗi.** Gỡ một template mà
+  sản phẩm cũ còn trỏ tới là chuyện chắc chắn xảy ra, và nó không được phép làm
+  trắng một trang đang bán hàng.
+
+Thứ tự đọc trên máy hẹp **luôn là chữ trước ảnh**, kể cả ở dải đảo bên của
+`ke-chuyen`: bố cục đảo bằng CSS, thứ tự DOM giữ nguyên. Đảo bằng `order` là nói
+một đằng cho mắt, một nẻo cho trình đọc màn hình.
 
 ---
 
