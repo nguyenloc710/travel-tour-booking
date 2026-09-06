@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { t, type Locale } from '@travel/i18n';
 import { formatNumber } from '@travel/ui';
 import type { Destination } from '@travel/api-client';
@@ -11,6 +12,11 @@ import { duongDanDiemDen } from '@/lib/routes';
  * rồi tới thứ tự trong miền, để danh sách đọc được như một hành trình từ Bắc
  * vào Nam chứ không phải một mớ theo bảng chữ cái. Gọi `.sort()` ở đây là phá
  * đúng tính chất đó.
+ *
+ * **Ảnh có thể vắng, và thẻ phải dựng được khi vắng.** Điểm đến chưa có ảnh là
+ * trạng thái hợp lệ, và ảnh cũng vắng khi nó thiếu `alt` ở ngôn ngữ đang xem —
+ * luật không fallback cho nội dung bán hàng. Ô ảnh giữ nguyên chỗ trong cả hai
+ * trường hợp: thẻ không có ảnh mà co lại làm cả hàng so le.
  *
  * `productCount` **đếm từ dữ liệu** trong phạm vi `(market, locale)` đang xem —
  * hai locale ra hai con số khác nhau, vì điểm đến chưa dịch bị ẩn hoàn toàn và
@@ -33,6 +39,19 @@ export function DestinationList({
           <ul className="dd-luoi">
             {ds.map((d) => (
               <li key={d.slug} className="dd-the">
+                <div className="dd-the__anh">
+                  {d.image !== undefined && (
+                    <Image
+                      src={d.image.url}
+                      // `alt` mô tả TẤM ẢNH, không mô tả điểm đến — `24` mục 6.
+                      alt={d.image.alt}
+                      width={d.image.width}
+                      height={d.image.height}
+                      unoptimized
+                    />
+                  )}
+                </div>
+
                 <Link href={duongDanDiemDen(locale, d.slug)}>
                   <h3>{d.name}</h3>
                 </Link>

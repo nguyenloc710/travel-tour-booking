@@ -2171,6 +2171,30 @@ main > .tran {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+/* Ảnh minh hoạ. Ô này LUÔN được dựng, kể cả khi điểm đến chưa có ảnh — ô rỗng
+   giữ đúng chỗ, còn thẻ không có ảnh mà co lại thì cả hàng so le. Nền dịu làm
+   ô rỗng trông như một khoảng cố ý chứ không như ảnh hỏng. */
+.dd-the__anh {
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  margin-bottom: var(--k4);
+  background: var(--mau-nen-diu);
+}
+
+.dd-the__anh img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Đường kẻ chuyển xuống DƯỚI ảnh. Nó vốn là gạch đầu thẻ; để nguyên ở trên thì
+   nó nằm phía trên tấm ảnh và trông như một nét thừa. Dưới ảnh thì nó lại làm
+   đúng việc cũ: tách ảnh khỏi phần chữ. */
+.dd-the__anh + a {
+  display: block;
   padding-top: var(--k4);
   border-top: 2px solid var(--mau-chu);
 }
