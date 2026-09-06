@@ -386,6 +386,7 @@ public class AdminController implements AdminApi {
                 nho(input.getDurationDays()),
                 input.getHeroImage(),
                 input.getMapImage(),
+                input.getLayout(),
                 input.getIsNew(),
                 input.getConsultantId(),
                 sangBanDich(input.getSource()),
@@ -409,6 +410,7 @@ public class AdminController implements AdminApi {
                 nho(input.getDurationDays()),
                 input.getHeroImage(),
                 input.getMapImage(),
+                input.getLayout(),
                 input.getIsNew(),
                 input.getConsultantId(),
                 khoi(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
@@ -671,6 +673,7 @@ public class AdminController implements AdminApi {
                         .toList())
                 .durationDays(lon(v.durationDays()))
                 .mapImage(v.mapImage())
+                .layout(v.layout())
                 .rating(v.rating() == null ? null : v.rating().doubleValue())
                 .consultantId(v.consultantId())
                 .lastModifiedAt(v.lastModifiedAt())

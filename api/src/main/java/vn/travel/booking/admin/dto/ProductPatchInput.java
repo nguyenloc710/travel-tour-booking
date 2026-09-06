@@ -18,6 +18,7 @@ public record ProductPatchInput(
         Short durationDays,
         String heroImage,
         String mapImage,
+        String layout,
         Boolean isNew,
         UUID consultantId,
         ProductTypeBlocks blocks) {

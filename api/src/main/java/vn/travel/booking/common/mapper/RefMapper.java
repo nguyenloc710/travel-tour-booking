@@ -7,6 +7,7 @@ import vn.travel.booking.common.money.Money;
 import vn.travel.booking.web.generated.model.ComboDetail;
 import vn.travel.booking.web.generated.model.CruiseDetail;
 import vn.travel.booking.web.generated.model.DayTourDetail;
+import vn.travel.booking.web.generated.model.GalleryImage;
 import vn.travel.booking.web.generated.model.GroupTourDetail;
 import vn.travel.booking.web.generated.model.IndividualPackageDetail;
 import vn.travel.booking.web.generated.model.PrivateTourDetail;
@@ -76,7 +77,8 @@ public final class RefMapper {
                     v.minPax(), v.maxPax(), v.guaranteedThreshold(), v.tourLeaderLanguage(),
                     v.fitnessLevel())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating());
+                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .gallery(boAnh(d.gallery())).layout(d.layout());
 
             case ProductVariant.IndividualPackage v -> new IndividualPackageDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -84,7 +86,8 @@ public final class RefMapper {
                     sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.minPartySize(), v.flexibleDateWindowDays())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating());
+                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .gallery(boAnh(d.gallery())).layout(d.layout());
 
             case ProductVariant.PrivateTour v -> new PrivateTourDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -92,7 +95,8 @@ public final class RefMapper {
                     sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.leadTimeDays(), v.quoteValidDays())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating());
+                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .gallery(boAnh(d.gallery())).layout(d.layout());
 
             case ProductVariant.Cruise v -> new CruiseDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -100,7 +104,8 @@ public final class RefMapper {
                     sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.shipName(), v.portCount())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating());
+                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .gallery(boAnh(d.gallery())).layout(d.layout());
 
             case ProductVariant.Combo v -> new ComboDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -108,7 +113,8 @@ public final class RefMapper {
                     sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.nights(), v.validFrom(), v.validTo())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating());
+                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .gallery(boAnh(d.gallery())).layout(d.layout());
 
             // DAY_TOUR không có durationDays — loại này đo bằng giờ, và CSDL
             // cưỡng chế duration_days IS NULL cho nó (ck_product_duration).
@@ -118,7 +124,8 @@ public final class RefMapper {
                     sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.durationHours(), v.cutoffHours())
                     .mapImage(d.mapImage())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating());
+                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .gallery(boAnh(d.gallery())).layout(d.layout());
         };
     }
 
@@ -128,6 +135,21 @@ public final class RefMapper {
 
     public static Ref sangRef(NamedRef r) {
         return new Ref(r.slug(), r.name());
+    }
+
+    /**
+     * Bộ ảnh. Danh sách <b>rỗng</b> chứ không null: sản phẩm chưa có ảnh nào là
+     * trạng thái hợp lệ, và bắt frontend phân biệt "chưa có ảnh" với "không có
+     * trường" là bịa ra một trường hợp rìa không tồn tại.
+     */
+    private static java.util.List<GalleryImage> boAnh(
+            java.util.List<vn.travel.booking.product.dto.GalleryImage> anh) {
+        if (anh == null) {
+            return java.util.List.of();
+        }
+        return anh.stream()
+                .map(a -> new GalleryImage(a.url(), a.alt(), a.width(), a.height()))
+                .toList();
     }
 
     /**

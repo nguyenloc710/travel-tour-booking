@@ -36,6 +36,17 @@ travel:
     # kèm credentials, và đặc tả cấm `*` đi cùng credentials — xem SecurityConfig.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
 
+  storage:
+    # Địa chỉ CÔNG KHAI của kho ảnh — cái đi vào thân phản hồi cho trình duyệt.
+    # `media_asset.path` lưu đường dẫn tương đối, giá trị này là phần đầu ghép
+    # vào (ADR-011 mục 2, docs/12 mục 4.6).
+    #
+    # Đây KHÔNG phải endpoint nội bộ. Hai địa chỉ tách biệt có chủ ý (docs/15
+    # mục 2): SigV4 ký cả host, nên đường ghi phải ký bằng địa chỉ công khai —
+    # ký bằng địa chỉ nội bộ thì trình duyệt nhận 403 mà không nói vì sao. Ở dev
+    # hai giá trị trùng nhau, nên lỗi này ẩn hoàn toàn cho tới lúc triển khai.
+    public-base-url: ${STORAGE_PUBLIC_BASE_URL:http://localhost:9000/travel-media}
+
 server:
   port: ${PORT:8080}
   error:

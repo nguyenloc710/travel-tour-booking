@@ -3,6 +3,7 @@ package vn.travel.booking.product.repository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import vn.travel.booking.product.dto.GalleryImage;
 import vn.travel.booking.product.dto.NamedRef;
 import vn.travel.booking.product.dto.ProductDetail;
 import vn.travel.booking.product.dto.ProductQuery;
@@ -10,6 +11,7 @@ import vn.travel.booking.product.repository.ProductRepository;
 import vn.travel.booking.product.dto.ProductSummary;
 import vn.travel.booking.product.dto.ProductType;
 import vn.travel.booking.product.dto.ProductVariant;
+import vn.travel.booking.common.config.DiaChiKho;
 import vn.travel.booking.common.dto.PagedResult;
 import vn.travel.booking.common.money.Money;
 
@@ -106,9 +108,11 @@ public class ProductRepository {
     private static final Pattern TEN_COLLATION = Pattern.compile("^[A-Za-z0-9_-]+$");
 
     private final JdbcTemplate jdbc;
+    private final DiaChiKho diaChiKho;
 
-    public ProductRepository(JdbcTemplate jdbc) {
+    public ProductRepository(JdbcTemplate jdbc, DiaChiKho diaChiKho) {
         this.jdbc = jdbc;
+        this.diaChiKho = diaChiKho;
     }
     public PagedResult<ProductSummary> findProducts(ProductQuery query) {
         List<Object> thamSo = new ArrayList<>();
@@ -138,12 +142,13 @@ public class ProductRepository {
                      , pt.long_description,
                        pt.why_choose_this,
                        p.map_image,
+                       p.layout,
                        p.id AS product_id
                 """ + NGUON + " AND pt.slug = ?";
 
         List<ProductDetail> ket_qua = jdbc.query(
                 sql,
-                (RowMapper<ProductDetail>) (rs, i) -> docChiTiet(rs),
+                (RowMapper<ProductDetail>) (rs, i) -> docChiTiet(rs, locale),
                 market, locale, locale, locale, slug);
 
         return ket_qua.stream().findFirst();
@@ -248,8 +253,9 @@ public class ProductRepository {
                 rs.getInt("review_count"));
     }
 
-    private ProductDetail docChiTiet(ResultSet rs) throws SQLException {
+    private ProductDetail docChiTiet(ResultSet rs, String locale) throws SQLException {
         ProductType loai = ProductType.valueOf(rs.getString("product_type"));
+        java.util.UUID productId = (java.util.UUID) rs.getObject("product_id");
         return new ProductDetail(
                 rs.getString("slug"),
                 rs.getString("title"),
@@ -260,6 +266,8 @@ public class ProductRepository {
                 rs.getString("hero_image"),
                 rs.getString("hero_image_alt"),
                 rs.getString("map_image"),
+                boAnh(productId, locale),
+                rs.getString("layout"),
                 soNguyenHoacNull(rs, "duration_days"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
                 new NamedRef(rs.getString("destination_slug"), rs.getString("destination_name")),
@@ -267,7 +275,44 @@ public class ProductRepository {
                 rs.getBoolean("is_new"),
                 soThucHoacNull(rs, "rating"),
                 rs.getInt("review_count"),
-                bienThe(loai, (java.util.UUID) rs.getObject("product_id")));
+                bienThe(loai, productId));
+    }
+
+    /**
+     * Bộ ảnh của sản phẩm, theo thứ tự biên tập viên đã sắp.
+     *
+     * <p><b>{@code JOIN} chứ không {@code LEFT JOIN} sang bảng dịch</b>: ảnh
+     * không có {@code alt} ở locale đang đọc thì không xuất hiện. Đây là luật
+     * không fallback cho nội dung bán hàng (CLAUDE.md quy tắc 3) áp vào ảnh, và
+     * nó trông vô lý cho tới khi nhìn chiều ngược lại — hiện ảnh kèm {@code alt}
+     * tiếng Đan giữa một trang tiếng Việt là đọc sai cho đúng nhóm người phụ
+     * thuộc vào {@code alt} nhất (docs/24 mục 6).
+     *
+     * <p>Ảnh xoá mềm bị loại ở cả hai bảng: xoá mềm một {@code media_asset}
+     * <b>không</b> xoá tệp trong kho (ADR-011 mục 3), nên tệp vẫn tải được bằng
+     * URL trực tiếp — chỗ duy nhất quyết định nó còn hiện hay không là truy vấn
+     * này.
+     */
+    private List<GalleryImage> boAnh(java.util.UUID productId, String locale) {
+        return jdbc.query("""
+                SELECT a.path, a.width, a.height, t.alt
+                FROM product_image pi
+                JOIN media_asset a
+                  ON a.id = pi.asset_id
+                 AND NOT a.soft_delete
+                JOIN media_asset_translation t
+                  ON t.asset_id = a.id
+                 AND t.locale = ?
+                 AND NOT t.soft_delete
+                WHERE pi.product_id = ?
+                ORDER BY pi.sort_order
+                """,
+                (rs, i) -> new GalleryImage(
+                        diaChiKho.diaChiCua(rs.getString("path")),
+                        rs.getString("alt"),
+                        rs.getInt("width"),
+                        rs.getInt("height")),
+                locale, productId);
     }
 
     /**

@@ -17,6 +17,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.web.generated.model.ErrorResponse;
+import vn.travel.booking.web.generated.model.GalleryImage;
 import vn.travel.booking.web.generated.model.GroupTourDetail;
 import vn.travel.booking.web.generated.model.ProductPage;
 import vn.travel.booking.web.generated.model.ProductSummary;
@@ -81,6 +82,9 @@ class ProductEndpointIT {
     @BeforeEach
     void chuanBiDuLieu() {
         jdbc.execute("""
+                DELETE FROM product_image;
+                DELETE FROM media_asset_translation;
+                DELETE FROM media_asset;
                 DELETE FROM departure_price;
                 DELETE FROM departure;
                 DELETE FROM pax_type;
@@ -134,6 +138,33 @@ class ProductEndpointIT {
                    'b0000000-0000-4000-8000-000000000001',10,'/img/p4.jpg',FALSE,NULL,0),
                   ('c0000000-0000-4000-8000-000000000005','COMBO',
                    'b0000000-0000-4000-8000-000000000002',4,'/img/p5.jpg',FALSE,NULL,0);
+
+                -- Bộ ảnh. Ba tấm cho GROUP_TOUR, đặt sort_order NGƯỢC thứ tự chèn để
+                -- test bắt được nếu tầng đọc quên ORDER BY.
+                INSERT INTO media_asset (id, path, width, height, byte_size, source, licence_ref) VALUES
+                  ('d0000000-0000-4000-8000-000000000001','tour/mot.jpg',1400,933,200000,'PURCHASED','ref-1'),
+                  ('d0000000-0000-4000-8000-000000000002','tour/hai.jpg',1200,800,150000,'PURCHASED','ref-2'),
+                  ('d0000000-0000-4000-8000-000000000003','tour/ba.jpg',900,600,100000,'PURCHASED','ref-3'),
+                  ('d0000000-0000-4000-8000-000000000004','tour/xoa-mem.jpg',800,600,90000,'PURCHASED','ref-4');
+
+                -- Tấm `ba` cố ý KHÔNG có bản dịch `vi`: nó phải biến mất khỏi locale đó.
+                INSERT INTO media_asset_translation (asset_id, locale, alt) VALUES
+                  ('d0000000-0000-4000-8000-000000000001','da','Rismarker'),
+                  ('d0000000-0000-4000-8000-000000000001','vi','Ruộng bậc thang'),
+                  ('d0000000-0000-4000-8000-000000000002','da','Lanterner'),
+                  ('d0000000-0000-4000-8000-000000000002','vi','Đèn lồng'),
+                  ('d0000000-0000-4000-8000-000000000003','da','Kun dansk'),
+                  ('d0000000-0000-4000-8000-000000000004','da','Blødt slettet'),
+                  ('d0000000-0000-4000-8000-000000000004','vi','Đã xoá mềm');
+
+                UPDATE media_asset SET soft_delete = TRUE
+                 WHERE id = 'd0000000-0000-4000-8000-000000000004';
+
+                INSERT INTO product_image (product_id, asset_id, sort_order) VALUES
+                  ('c0000000-0000-4000-8000-000000000001','d0000000-0000-4000-8000-000000000003',3),
+                  ('c0000000-0000-4000-8000-000000000001','d0000000-0000-4000-8000-000000000001',1),
+                  ('c0000000-0000-4000-8000-000000000001','d0000000-0000-4000-8000-000000000002',2),
+                  ('c0000000-0000-4000-8000-000000000001','d0000000-0000-4000-8000-000000000004',4);
 
                 INSERT INTO product_group_tour (product_id, min_pax, max_pax, guaranteed_threshold,
                                                 tour_leader_language, fitness_level) VALUES
@@ -369,6 +400,83 @@ class ProductEndpointIT {
         assertEquals(2, than.getLongDescription().size());
         assertEquals("da", phanHoi.getHeaders().getFirst(HttpHeaders.CONTENT_LANGUAGE));
         assertTrue(phanHoi.getHeaders().getVary().contains(HttpHeaders.ACCEPT_LANGUAGE));
+    }
+
+    @Test
+    @DisplayName("Bộ ảnh: đúng thứ tự sort_order, URL ghép từ đường dẫn tương đối")
+    void boAnhTheoThuTu() {
+        GroupTourDetail than = goiChiTiet(
+                "dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class).getBody();
+
+        List<GalleryImage> anh = than.getGallery();
+        assertEquals(3, anh.size(), "tấm xoá mềm phải bị loại");
+
+        // Dữ liệu chèn theo thứ tự 3, 1, 2 — ra phải theo sort_order.
+        assertEquals(List.of("Rismarker", "Lanterner", "Kun dansk"),
+                anh.stream().map(GalleryImage::getAlt).toList());
+
+        // CSDL lưu `tour/mot.jpg`; địa chỉ gốc nằm ở cấu hình, không ở dữ liệu —
+        // ADR-011 mục 2. Đây là chỗ bắt được nếu ai đó lưu URL đầy đủ vào CSDL.
+        GalleryImage dau = anh.getFirst();
+        assertTrue(dau.getUrl().endsWith("/tour/mot.jpg"), dau.getUrl());
+        assertTrue(dau.getUrl().startsWith("http"), dau.getUrl());
+        assertEquals(1400, dau.getWidth());
+        assertEquals(933, dau.getHeight());
+    }
+
+    /**
+     * Luật không fallback cho nội dung bán hàng, áp vào ảnh.
+     *
+     * <p>Tấm thứ ba chỉ có {@code alt} tiếng Đan. Ở locale {@code vi} nó phải
+     * biến mất hẳn, <b>không</b> hiện kèm câu tiếng Đan — trình đọc màn hình sẽ
+     * đọc một câu sai ngôn ngữ giữa trang tiếng Việt (docs/24 mục 6).
+     */
+    @Test
+    @DisplayName("Ảnh thiếu alt ở locale nào thì biến mất khỏi locale đó")
+    void anhThieuAltThiAn() {
+        GroupTourDetail da = goiChiTiet(
+                "dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class).getBody();
+        GroupTourDetail vi = goiChiTiet(
+                "dk", "vi", "viet-nam-tu-bac-vao-nam", GroupTourDetail.class).getBody();
+
+        assertEquals(3, da.getGallery().size());
+        assertEquals(2, vi.getGallery().size());
+        assertEquals(List.of("Ruộng bậc thang", "Đèn lồng"),
+                vi.getGallery().stream().map(GalleryImage::getAlt).toList());
+    }
+
+    /**
+     * Sản phẩm chưa có ảnh nào là trạng thái hợp lệ, và template phải dựng được
+     * khi rỗng. Trường vắng hẳn khỏi JSON vì {@code default-property-inclusion}
+     * là {@code non_null} và danh sách rỗng bị bỏ — điều frontend đã phải xử lý
+     * cho mọi trường tuỳ chọn khác.
+     */
+    @Test
+    @DisplayName("Sản phẩm không có ảnh nào vẫn trả 200")
+    void khongCoAnhVanTra200() {
+        ResponseEntity<Object> phanHoi =
+                goiChiTiet("dk", "da", "aalborg-krydstogt", Object.class);
+
+        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
+    }
+
+    /**
+     * {@code layout} chưa ai chọn thì vắng khỏi JSON, và frontend rơi về template
+     * mặc định của loại. Đặt một giá trị bất kỳ phải trả về nguyên văn — cột là
+     * chuỗi tự do có chủ ý, CSDL không cưỡng chế danh mục (docs/12 mục 4.1).
+     */
+    @Test
+    @DisplayName("layout: vắng khi chưa chọn, trả nguyên văn khi đã chọn")
+    void layoutTraNguyenVan() {
+        assertNull(goiChiTiet("dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class)
+                .getBody().getLayout());
+
+        jdbc.update("UPDATE product SET layout = ? WHERE id = CAST(? AS uuid)",
+                "tap-chi-anh-lon", "c0000000-0000-4000-8000-000000000001");
+
+        assertEquals("tap-chi-anh-lon",
+                goiChiTiet("dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class)
+                        .getBody().getLayout());
     }
 
     @Test

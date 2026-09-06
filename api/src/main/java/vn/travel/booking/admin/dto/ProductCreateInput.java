@@ -14,6 +14,7 @@ public record ProductCreateInput(
         Short durationDays,
         String heroImage,
         String mapImage,
+        String layout,
         Boolean isNew,
         UUID consultantId,
         ProductTranslationInput source,

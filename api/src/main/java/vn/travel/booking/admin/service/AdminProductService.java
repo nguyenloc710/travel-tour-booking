@@ -80,7 +80,7 @@ public class AdminProductService {
         UUID id = UUID.randomUUID();
         ProductEntity e = new ProductEntity(id, loai);
         ghiPhanChung(e, input.primaryDestinationId(), input.durationDays(), input.heroImage(),
-                input.mapImage(), input.isNew(), input.consultantId());
+                input.mapImage(), input.layout(), input.isNew(), input.consultantId());
         sanPham.save(e);
 
         khoiLoai.luu(id, loai, input.blocks());
@@ -112,7 +112,8 @@ public class AdminProductService {
 
         return new ProductDetailView(
                 e.getId(), e.getProductType(), e.getPrimaryDestinationId(), e.getDurationDays(),
-                e.getHeroImage(), e.getMapImage(), e.isNew(), e.getRating(), e.getReviewCount(),
+                e.getHeroImage(), e.getMapImage(), e.getLayout(), e.isNew(), e.getRating(),
+                e.getReviewCount(),
                 e.getConsultantId(), thi_truong, ban_dich,
                 khoiLoai.doc(id, e.getProductType()),
                 e.getLastModifiedAt(), e.getLastModifiedBy());
@@ -138,7 +139,7 @@ public class AdminProductService {
             kiemSoNgay(e.getProductType(), input.durationDays());
         }
         ghiPhanChung(e, input.primaryDestinationId(), input.durationDays(), input.heroImage(),
-                input.mapImage(), input.isNew(), input.consultantId());
+                input.mapImage(), input.layout(), input.isNew(), input.consultantId());
 
         sanPham.saveAndFlush(e);
         return chiTiet(id);
@@ -303,7 +304,7 @@ public class AdminProductService {
     }
 
     private static void ghiPhanChung(ProductEntity e, UUID diemDen, Short soNgay, String anh,
-                                     String anhBanDo, Boolean moi, UUID tuVanVien) {
+                                     String anhBanDo, String khung, Boolean moi, UUID tuVanVien) {
         if (diemDen != null) {
             e.setPrimaryDestinationId(diemDen);
         }
@@ -315,6 +316,9 @@ public class AdminProductService {
         }
         if (anhBanDo != null) {
             e.setMapImage(anhBanDo);
+        }
+        if (khung != null) {
+            e.setLayout(khung);
         }
         if (moi != null) {
             e.setNew(moi);

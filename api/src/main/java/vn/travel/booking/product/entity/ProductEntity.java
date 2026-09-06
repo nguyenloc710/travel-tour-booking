@@ -45,6 +45,10 @@ public class ProductEntity extends BaseEntity {
     @Column(name = "map_image")
     private String mapImage;
 
+    /** Template trang chi tiết. NULL = chưa chọn, frontend dùng mặc định của loại. */
+    @Column(name = "layout")
+    private String layout;
+
     @Column(name = "is_new", nullable = false)
     private boolean isNew;
 
@@ -99,6 +103,14 @@ public class ProductEntity extends BaseEntity {
 
     public String getMapImage() {
         return mapImage;
+    }
+
+    public String getLayout() {
+        return layout;
+    }
+
+    public void setLayout(String layout) {
+        this.layout = layout;
     }
 
     public void setMapImage(String mapImage) {

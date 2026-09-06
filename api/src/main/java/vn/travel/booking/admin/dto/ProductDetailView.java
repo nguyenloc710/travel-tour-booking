@@ -15,6 +15,7 @@ public record ProductDetailView(
         Short durationDays,
         String heroImage,
         String mapImage,
+        String layout,
         boolean isNew,
         BigDecimal rating,
         int reviewCount,
