@@ -43,7 +43,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.14.1
+  version: 0.15.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -2808,6 +2808,12 @@ components:
             `ck_product_duration` cưỡng chế cả hai chiều.
         heroImage: { type: string, maxLength: 500 }
         mapImage: { type: string, maxLength: 500 }
+        layout:
+          type: string
+          maxLength: 40
+          description: |
+            Template trang chi tiết. Bỏ trống thì dùng template mặc định của
+            loại — xem `ProductDetailBase.layout`.
         isNew: { type: boolean, default: false }
         consultantId: { type: string, format: uuid }
         source:
@@ -2832,6 +2838,7 @@ components:
         durationDays: { type: integer, format: int32, minimum: 1, maximum: 60 }
         heroImage: { type: string, maxLength: 500 }
         mapImage: { type: string, maxLength: 500 }
+        layout: { type: string, maxLength: 40 }
         isNew: { type: boolean }
         consultantId: { type: string, format: uuid }
         groupTour: { $ref: '#/components/schemas/GroupTourFields' }
@@ -2851,6 +2858,7 @@ components:
         durationDays: { type: integer, format: int32 }
         heroImage: { type: string }
         mapImage: { type: string }
+        layout: { type: string }
         isNew: { type: boolean }
         rating: { type: number, format: double }
         reviewCount: { type: integer, format: int32 }
@@ -4090,6 +4098,37 @@ components:
         heroImage: { type: string }
         heroImageAlt: { type: string }
         mapImage: { type: string }
+        gallery:
+          type: array
+          items: { $ref: '#/components/schemas/GalleryImage' }
+          description: |
+            Bộ ảnh của sản phẩm, theo thứ tự biên tập viên đã sắp
+            (`product_image.sort_order`). **Có thể rỗng** — sản phẩm chưa có ảnh
+            nào là trạng thái hợp lệ, và template phải dựng được khi rỗng.
+
+            Ảnh **không có `alt` ở locale đang đọc thì không xuất hiện**, đúng
+            luật không fallback cho nội dung bán hàng (`CLAUDE.md` quy tắc 3).
+            Đây là chỗ dễ thấy vô lý — "sao ảnh biến mất chỉ vì thiếu một câu mô
+            tả" — nên nói rõ: một tấm ảnh không có `alt` là một tấm ảnh vô hình
+            với đúng nhóm người phụ thuộc vào nó nhất (`24` mục 6). Hiện nó ra
+            kèm `alt` của ngôn ngữ khác còn tệ hơn: trình đọc màn hình sẽ đọc một
+            câu tiếng Đan giữa trang tiếng Việt.
+        layout:
+          type: string
+          maxLength: 40
+          description: |
+            Template trang chi tiết mà biên tập viên đã chọn cho sản phẩm này.
+
+            **Chuỗi tự do, cố ý không phải enum**, cùng lý do với `code` của
+            `ErrorResponse`: thêm một template là việc của frontend, không đáng
+            bắt sinh lại mã cả hai bên. Danh mục template nào hợp với loại nào
+            do frontend giữ.
+
+            Bỏ trống, hoặc mang giá trị không có trong danh mục, thì trang dựng
+            bằng **template mặc định của loại** — không báo lỗi, không trang
+            trắng. Đây là chủ ý: template bị gỡ đi mà sản phẩm cũ còn trỏ tới là
+            chuyện chắc chắn xảy ra, và nó không được phép làm hỏng trang đang
+            bán hàng.
         durationDays: { type: integer, format: int32 }
         region: { $ref: '#/components/schemas/Ref' }
         destination: { $ref: '#/components/schemas/Ref' }
@@ -4098,6 +4137,31 @@ components:
         isNew: { type: boolean }
         rating: { type: number, format: double }
         reviewCount: { type: integer, format: int32 }
+
+    GalleryImage:
+      type: object
+      description: |
+        Một tấm trong bộ ảnh.
+
+        **`url` là địa chỉ đầy đủ, nhưng CSDL không lưu nó.** `media_asset.path`
+        giữ đường dẫn tương đối (`tour/sapa-ruong-bac-thang-01.jpg`) và API ghép
+        với địa chỉ gốc lấy từ cấu hình — ADR-011 mục 2, `12` mục 4.6. Lưu URL
+        đầy đủ vào từng dòng dữ liệu là đóng cứng nhà cung cấp vào dữ liệu, và
+        ngày đổi kho sẽ cần một migration thay vì một biến môi trường.
+      required: [url, alt, width, height]
+      properties:
+        url: { type: string }
+        alt:
+          type: string
+          description: Mô tả **tấm ảnh đang hiện**, theo locale ở `Accept-Language`.
+        width: { type: integer, format: int32 }
+        height:
+          type: integer
+          format: int32
+          description: |
+            Kèm `width` để frontend đặt chỗ trước, tránh trang nhảy khi ảnh tải
+            xong. Hai giá trị này là kích thước **ảnh gốc**, không phải kích
+            thước hiển thị.
 
     GroupTourDetail:
       description: Đoàn ghép có trưởng đoàn. `guaranteedThreshold` là số khách tối thiểu để chuyến chắc chắn khởi hành.
