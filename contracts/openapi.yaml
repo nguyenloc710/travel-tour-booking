@@ -43,7 +43,7 @@ openapi: 3.0.3
 
 info:
   title: Travel Tour Booking API
-  version: 0.15.0
+  version: 0.16.0
   description: |
     API cho website bán tour du lịch Việt Nam, hai thị trường (DK, VN),
     hai ngôn ngữ (da, vi).
@@ -2498,6 +2498,15 @@ components:
           description: Bỏ hẳn khỏi JSON khi chưa có bản mô tả.
         region:
           $ref: '#/components/schemas/Ref'
+        image:
+          allOf: [{ $ref: '#/components/schemas/GalleryImage' }]
+          description: |
+            Ảnh minh hoạ — tấm đầu tiên theo `destination_image.sort_order`.
+
+            **Bỏ hẳn khỏi JSON khi điểm đến chưa có ảnh**, và đó là trạng thái
+            hợp lệ chứ không phải lỗi: thẻ điểm đến phải dựng được khi không có
+            ảnh. Cũng vắng khi ảnh không có `alt` ở locale đang đọc — luật không
+            fallback cho nội dung bán hàng, giống hệt bộ ảnh của sản phẩm.
         productCount:
           type: integer
           format: int32
