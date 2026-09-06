@@ -97,7 +97,6 @@ psql "$DB_URL" -f api/scripts/kiem-nhat-quan.sql    # 23 quy tắc của docs/12
 # api/
 ./gradlew build                   # biên dịch + test
 ./gradlew test                    # JUnit + Testcontainers
-./gradlew archTest                # kiểm ranh giới module — domain không dính Spring
 ./gradlew :web:bootRun            # migration Flyway chạy lúc khởi động ứng dụng
 
 # web/
