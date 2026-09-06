@@ -1897,4 +1897,22 @@ INSERT INTO product_image (product_id, asset_id, sort_order) VALUES
   ('f0000000-0000-4000-8000-000000000012', '33330000-0000-4000-8000-000000000027', 4)
 ON CONFLICT DO NOTHING;
 
+
+-- ======================================================= TEMPLATE TRANG CHI TIẾT
+--
+-- `product.layout` — biên tập viên chọn khung cho từng sản phẩm (`V7`, `12` mục
+-- 4.1). Danh mục nằm ở `web/apps/site/src/lib/templates.ts`, không ở CSDL.
+--
+-- Đặt sẵn hai giá trị để mở trang là thấy được cả ba khung mà không phải vào
+-- trang quản trị. Hai sản phẩm còn lại để NULL có chủ ý: NULL là trạng thái của
+-- mọi sản phẩm chưa ai chạm tới, và nó phải dựng ra được một trang tử tế.
+--
+-- UPDATE chứ không INSERT nên tự nó chạy lại được.
+UPDATE product SET layout = 'tap-chi'
+ WHERE id = 'f0000000-0000-4000-8000-000000000004';   -- Nordvietnam og Sapa
+-- Sản phẩm 11 chứ không phải 05: 05 chỉ bán ở thị trường DK, nên ở locale `vi`
+-- nó trả 404 — đúng luật, nhưng làm ví dụ này không mở được bằng tiếng Việt.
+UPDATE product SET layout = 'ke-chuyen'
+ WHERE id = 'f0000000-0000-4000-8000-000000000011';   -- Sydvietnam og Mekong
+
 COMMIT;
