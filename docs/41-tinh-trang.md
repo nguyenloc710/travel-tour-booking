@@ -75,7 +75,7 @@ Ba file `CLAUDE.md`: gốc repo, `api/`, `web/`.
 | Quy trình cho Claude Code | `.claude/` | Skill, lệnh, hook, agent |
 | Bộ kiểm tài liệu | `scripts/docs_check.py` | Không cần thư viện ngoài. Máy đang làm **nay đã có Python 3.12 thật** — mục 6.1 đã lạc hậu |
 | Scaffolding backend | `api/` | **Một** module Gradle chia theo feature (ADR-010), 204 file Java, migration `V1`–`V6` |
-| Hợp đồng API | `contracts/openapi.yaml` | **v0.15.0** — 54 endpoint |
+| Hợp đồng API | `contracts/openapi.yaml` | **v0.16.0** — 54 endpoint |
 | Postgres cho dev | `compose.yaml` | Postgres 16, có ICU và contrib |
 | Scaffolding frontend | `web/` | pnpm workspace, 2 app Next.js, 3 package dùng chung |
 | CI | `.github/workflows/` | `api.yml`, `web.yml`, `tai-lieu.yml` — lọc theo đường dẫn |
@@ -125,7 +125,7 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Cột kiểm toán + xoá mềm: 18 bảng đủ 5 cột, 3 bảng 4 cột, 21 trigger, 15 index duy nhất bộ phận | ✔ |
 | Đã commit | ✔ nhánh `dung-khung-va-loi-danh-muc`, 44 commit trước `main`. **Bảy commit mới nhất chưa đẩy** lên origin |
 | Test | ✔ **276/276 xanh, 0 lỗi** — `./gradlew test` chạy thật ngày 05/09 trên Postgres 16 qua Testcontainers. 21 lớp: 13 IT và 8 unit thuần không context |
-| `contracts/openapi.yaml` **v0.15.0** (54 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
+| `contracts/openapi.yaml` **v0.16.0** (54 endpoint) → interface Java | ✔ sinh và biên dịch sạch |
 | `contracts/openapi.yaml` → TS client | ✔ sinh và biên dịch sạch. `packages/api-client` chỉ commit `package.json` + `tsconfig`, mã nguồn sinh lúc build — đúng quy tắc 9 của `CLAUDE.md` |
 | `web/` pnpm workspace: `site`, `admin`, `i18n`, `ui`, `api-client` | ✔ |
 | `pnpm typecheck` · `lint` · `test` · `i18n:check` · `build` | ✔ tất cả xanh, chạy lại 05/09. `i18n:check` **219 khoá**, `vi` 100.0% — nhưng xem lỗ hổng của nó ở mục 6.5. **`typecheck` phải chạy SAU `build`** ở máy local — xem mục 6.3 |
@@ -647,3 +647,4 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 04/09/2026 | **Đường ghi của M7.** Spec v0.12, `POST /admin/bookings/{reference}/status`, khoá bi quan, trả chỗ về kho, khối thao tác có ô xác nhận nói rõ hậu quả. 8 test mới, tổng **228** | Lộ ra hai lỗi có sẵn: thân JSON sai kiểu trả 500 ở **mọi** endpoint (đã sửa), và `seats_booked` cộng/trừ theo hai nguồn khác nhau (chưa sửa — mục 6.2). Còn thiếu huỷ hàng loạt theo chuyến (`14` mục 6.6) |
 | 06/09/2026 | **Q-6 chốt — ADR-011: MinIO tự dựng cho cả dev và prod**, thay thế đề xuất "kho có quản" của ADR-008. Cập nhật `10` mục 10 và 11 | Chưa viết dòng code nào. Bảy hệ quả ở ADR-011 mục 6 chưa làm; nặng nhất là **sao lưu ảnh** (`35` chưa viết) |
 | 06/09/2026 | **Bộ ảnh — đường ĐỌC end-to-end.** MinIO vào `compose.yaml`; spec v0.15.0 thêm `gallery` và `layout`; `V7` thêm `product.layout`; 29 `media_asset` + 61 `product_image` vào dữ liệu mồi; khối bộ ảnh ở trang chi tiết. 4 test mới, tổng **290** | Đường GHI chưa có: chưa xin được dependency S3, nên biên tập viên chưa tự thêm ảnh — ảnh do `scripts/nap-anh-len-kho.py` nạp. Ô chọn template ở trang quản trị và các template chưa dựng |
+| 06/09/2026 | **Ảnh minh hoạ cho điểm đến.** Spec v0.16.0 thêm `Destination.image`; `V8` thêm bảng `destination_image` cùng khuôn với `product_image`; 10 điểm đến có ảnh. Đọc bằng `LEFT JOIN LATERAL` để không sinh N+1. 3 test mới, tổng **293** | Không thêm cột ảnh dạng chữ như `hotel.image` — `12` mục 10 đã ghi khuôn đó vào danh sách nợ. Trang chi tiết điểm đến chưa dùng ảnh; màn quản lý ảnh vẫn chờ dependency S3 |

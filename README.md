@@ -132,7 +132,7 @@ bên**.
 
 ```bash
 # api/
-./gradlew test          # 290 test, JUnit + Testcontainers (cần Docker)
+./gradlew test          # 293 test, JUnit + Testcontainers (cần Docker)
 
 # web/
 pnpm typecheck

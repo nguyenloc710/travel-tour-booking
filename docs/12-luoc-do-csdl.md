@@ -516,6 +516,16 @@ CREATE TABLE product_image (
 );
 
 CREATE INDEX ix_product_image ON product_image (product_id, sort_order);
+
+-- Ảnh minh hoạ của một điểm đến — `V8`, cùng khuôn với `product_image`.
+CREATE TABLE destination_image (
+  destination_id UUID     NOT NULL REFERENCES destination (id) ON DELETE CASCADE,
+  asset_id       UUID     NOT NULL REFERENCES media_asset (id),
+  sort_order     SMALLINT NOT NULL,
+  PRIMARY KEY (destination_id, asset_id)
+);
+
+CREATE INDEX ix_destination_image ON destination_image (destination_id, sort_order);
 ```
 
 Ba điều cố ý:
@@ -527,6 +537,12 @@ Ba điều cố ý:
    một `media_asset` còn được dùng sẽ bị khoá ngoại chặn — đúng như mong muốn.
 3. **`alt` là `NOT NULL`.** Ảnh không có chữ thay thế là ảnh không dùng được cho
    người khiếm thị, và `24` mục 6 coi alt là nội dung phải dịch.
+
+`destination_image` (`V8`) là **cùng một khuôn, không phải khuôn thứ ba**. Hôm
+nay mỗi điểm đến chỉ cần một tấm, và một cột `image_asset_id` sẽ đủ — nhưng
+thêm khuôn thứ ba cho cùng một loại quan hệ đắt hơn cái tiết kiệm được: người
+đọc lược đồ sau này phải nhớ ba cách thay vì một. Không chọn cột chữ như
+`hotel.image` vì mục 10 đã ghi chính khuôn ấy vào danh sách nợ.
 
 `product.hero_image` và `map_image` **vẫn là cột chữ** ở phiên bản này. Chuyển
 chúng sang tham chiếu `media_asset` là đổi phá vỡ tương thích, nên phải tách làm
