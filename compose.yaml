@@ -20,8 +20,44 @@ services:
       timeout: 3s
       retries: 10
 
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: travel-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: travel
+      MINIO_ROOT_PASSWORD: travel-dev-secret
+    ports:
+      # 9000 là endpoint S3, 9001 là bảng điều khiển cho người xem bằng mắt.
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Tạo bucket và mở quyền đọc ẩn danh, rồi thoát. Chạy một lần mỗi lần `up`, và
+  # chạy lại được: `mb --ignore-existing` không kêu khi bucket đã có.
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: travel-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set kho http://minio:9000 travel travel-dev-secret &&
+      mc mb --ignore-existing kho/travel-media &&
+      mc anonymous set download kho/travel-media
+      "
+    restart: "no"
+
 volumes:
   pgdata:
+  miniodata:
 
 # Ảnh postgres:16 chính thức đã có sẵn contrib (unaccent, pg_trgm) và ICU, nên
 # hai collation "da-DK-x-icu" và "vi-VN-x-icu" dùng được ngay. Bản alpine cắt
@@ -33,3 +69,24 @@ volumes:
 #
 # Dữ liệu mồi cho dev:
 #   psql postgresql://travel:travel@localhost:5432/travel -f api/scripts/seed-dev.sql
+#
+# ---------------------------------------------------------------- MinIO
+#
+# Kho ảnh — ADR-011 chốt MinIO tự dựng cho cả dev và bản chạy thật. Bảng điều
+# khiển ở http://localhost:9001, đăng nhập travel / travel-dev-secret.
+#
+# **Hai endpoint, không phải một.** ADR-011 mục 2 và docs/15 mục 2: SigV4 ký cả
+# host, nên URL ký bằng host nội bộ thì trình duyệt nhận 403 mà không nói vì
+# sao. Ở dev hai giá trị tình cờ giống nhau vì API chạy thẳng trên máy, nhưng
+# vẫn khai riêng — để chỗ dễ sai này lộ ra ở dev chứ không đợi tới prod:
+#   TRAVEL_STORAGE_ENDPOINT_INTERNAL=http://localhost:9000   ← backend gọi
+#   TRAVEL_STORAGE_ENDPOINT_PUBLIC=http://localhost:9000     ← dùng để ký
+#
+# Mật khẩu ở trên là của môi trường dev, cố ý để trong repo. Bản chạy thật lấy
+# từ bí mật của docs/34 mục 3.1.
+#
+# Bucket `travel-media` mở quyền đọc ẩn danh: next/image cần tải được ảnh mà
+# không ký. Chỉ đường GHI mới cần presigned URL.
+#
+# media_asset.path lưu đường dẫn TƯƠNG ĐỐI (`tour/sapa-01.jpg`), không bao giờ
+# lưu URL đầy đủ — ADR-011 mục 2, docs/12 mục 4.6.
