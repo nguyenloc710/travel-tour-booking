@@ -152,7 +152,7 @@ rồi `./gradlew bootRun` là chạy. Bắt phải có file `.env` trước khi 
 | `DB_PASSWORD` | `.env` trên máy chủ, `chmod 600` | ✔ có chỗ, chờ giá trị thật |
 | `MINIO_ROOT_PASSWORD` | `.env` trên máy chủ | ✔ có chỗ, chờ giá trị thật |
 | Khoá đăng nhập registry | **Không tồn tại** — xem dưới | ✔ không cần |
-| `VPS_HOST` · `VPS_USER` · `VPS_PASSWORD` · `VPS_KNOWN_HOSTS` | GitHub Secrets | ✔ pipeline đã đọc, chờ điền |
+| `VPS_HOST` · `VPS_USER` · `VPS_PASSWORD` | GitHub Secrets | ✔ pipeline đã đọc, chờ điền |
 | Khoá cổng thanh toán | `30` | ✗ **Q-3** chưa trả lời |
 
 **Ba chỗ lệch với khuôn thường gặp, cả ba đều có lý do.**
@@ -171,22 +171,32 @@ lượt chạy kết thúc, nên **máy chủ không cất khoá dài hạn nào
 là thứ tốt hơn thiết kế cũ, không phải thứ bị bỏ sót.
 
 *Đăng nhập máy chủ bằng mật khẩu, không bằng khoá.* Máy chủ của dự án chỉ mở
-user/password, nên pipeline dùng `sshpass -e` và đọc bí mật `VPS_PASSWORD`. Đây
-là chỗ lệch **yếu hơn** khuôn thường gặp, không mạnh hơn, và nó kéo theo ba hệ
-quả:
+user/password. Pipeline dùng `appleboy/ssh-action` và `appleboy/scp-action` —
+**cùng khuôn với `comic-social-network-be`**, repo mà `15` nói là mượn khuôn đã
+chạy thật. Đây là chỗ lệch **yếu hơn** khuôn thường gặp, không mạnh hơn:
 
-- `VPS_KNOWN_HOSTS` chuyển từ "nên có" thành **bắt buộc**, và pipeline dừng nếu
-  nó rỗng. Với khoá thì gặp máy chủ giả chỉ hỏng một lượt triển khai; với mật
-  khẩu thì ta **gửi luôn mật khẩu** cho máy giả đó. Không bao giờ thay bằng
-  `StrictHostKeyChecking=no`, kể cả để "thử cho nhanh".
-- Lấy giá trị đó bằng `ssh-keyscan -p <cổng> <host>` **một lần, trên máy mình, ở
-  một mạng tin được**. Chạy `ssh-keyscan` bên trong pipeline là tin bất cứ ai
-  trả lời — tức là không kiểm gì cả.
-- Mật khẩu này dùng được ở **mọi nơi** chứ không riêng việc triển khai, và ai
-  sửa được workflow là có đường đọc nó. Ngày muốn siết: sinh một cặp khoá riêng
-  cho triển khai, thêm khoá công khai vào `authorized_keys`, đổi hai bước SSH về
-  `ssh -i`. Mật khẩu của người vẫn giữ nguyên — hai đường đăng nhập không loại
-  trừ nhau, nên đây là việc thêm vào, không phải việc thay thế.
+- **Không kiểm danh tính máy chủ.** Hai action này không ghim dấu vân tay, nên
+  mỗi lượt triển khai gửi mật khẩu VPS cho bất cứ máy nào trả lời ở địa chỉ đó.
+  Với khoá thì gặp máy chủ giả chỉ hỏng một lượt; với mật khẩu thì mất luôn mật
+  khẩu.
+- **Đã thử đường chặt hơn và bỏ.** Bản đầu tự gọi `ssh`/`scp` qua `sshpass` và
+  ghim vân tay bằng secret `VPS_KNOWN_HOSTS`. Nó đúng về bảo mật nhưng đắt về
+  vận hành: giá trị phải lấy lại mỗi lần đổi IP hoặc cài lại máy, cột đầu phải
+  khớp `VPS_HOST` từng ký tự, và khi sai thì OpenSSH chỉ nói
+  `Host key verification failed` — câu dùng chung cho cả "host lạ" lẫn "khoá đã
+  đổi", nên không đoán được. Ba lượt triển khai hỏng liên tiếp vì nó. Một biện
+  pháp bảo mật mà mỗi lần chạm vào là một lượt CI đỏ thì sớm muộn cũng bị gỡ.
+- **Cách siết lại KHÔNG phải quay về `known_hosts`** mà là chuyển sang khoá SSH:
+  thêm khoá công khai vào `authorized_keys`, đổi `password:` thành `key:` ở hai
+  bước. Lúc đó máy chủ giả không lấy được gì, và cũng không cần ghim vân tay nữa
+  — một thay đổi giải cả hai vấn đề, thay vì thêm một thứ phải bảo trì. Mật khẩu
+  của người vẫn giữ nguyên; hai đường đăng nhập không loại trừ nhau.
+- **Hai action này là phụ thuộc mới của repo.** Chúng đã chạy thật ở
+  `comic-social-network-be` hai tháng, và cùng một tác giả nên cùng một mô hình
+  cấu hình.
+
+Mật khẩu này dùng được ở **mọi nơi** chứ không riêng việc triển khai, và ai sửa
+được workflow là có đường đọc nó. Đó là lý do gạch đầu dòng thứ ba đáng làm sớm.
 
 Quy tắc, áp ngay từ bí mật đầu tiên:
 

@@ -272,10 +272,9 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
     - Bật **branch protection** trên `main`, đặt `api`, `web`, `tai-lieu` là
       check bắt buộc. Làm trước tiên: thiếu nó thì pipeline triển khai sẵn sàng
       đẩy một commit đỏ lên máy chủ
-    - Điền bốn **Secrets**: `VPS_HOST`, `VPS_USER`, `VPS_PASSWORD`,
-      `VPS_KNOWN_HOSTS`. Máy chủ đăng nhập bằng mật khẩu nên pipeline dùng
-      `sshpass`; `VPS_KNOWN_HOSTS` vì thế là **bắt buộc**, không phải tuỳ chọn
-      (`34` mục 3.1)
+    - Điền ba **Secrets**: `VPS_HOST`, `VPS_USER`, `VPS_PASSWORD`. Pipeline
+      dùng `appleboy/ssh-action` cùng khuôn với `comic-social-network-be`, nên
+      không phải ghim dấu vân tay máy chủ — đánh đổi ghi ở `34` mục 3.1
     - Điền năm **Variables**: `PUBLIC_SITE_URL`, `PUBLIC_API_URL`,
       `MEDIA_PROTOCOL`, `MEDIA_HOST`, `MEDIA_PORT` — biến chứ không phải bí
       mật, và chúng bị **nướng vào ảnh lúc build** nên phải khớp với `.env`
@@ -680,6 +679,7 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 04/09/2026 | **Đường ghi của M7.** Spec v0.12, `POST /admin/bookings/{reference}/status`, khoá bi quan, trả chỗ về kho, khối thao tác có ô xác nhận nói rõ hậu quả. 8 test mới, tổng **228** | Lộ ra hai lỗi có sẵn: thân JSON sai kiểu trả 500 ở **mọi** endpoint (đã sửa), và `seats_booked` cộng/trừ theo hai nguồn khác nhau (chưa sửa — mục 6.2). Còn thiếu huỷ hàng loạt theo chuyến (`14` mục 6.6) |
 | 06/09/2026 | **Q-6 chốt — ADR-011: MinIO tự dựng cho cả dev và prod**, thay thế đề xuất "kho có quản" của ADR-008. Cập nhật `10` mục 10 và 11 | Chưa viết dòng code nào. Bảy hệ quả ở ADR-011 mục 6 chưa làm; nặng nhất là **sao lưu ảnh** (`35` chưa viết) |
 | 06/09/2026 | **Bộ ảnh — đường ĐỌC end-to-end.** MinIO vào `compose.yaml`; spec v0.15.0 thêm `gallery` và `layout`; `V7` thêm `product.layout`; 29 `media_asset` + 61 `product_image` vào dữ liệu mồi; khối bộ ảnh ở trang chi tiết. 4 test mới, tổng **290** | Đường GHI chưa có: chưa xin được dependency S3, nên biên tập viên chưa tự thêm ảnh — ảnh do `scripts/nap-anh-len-kho.py` nạp. Ô chọn template ở trang quản trị và các template chưa dựng |
+| 07/09/2026 | **Bỏ `sshpass` + `VPS_KNOWN_HOSTS`, theo khuôn `comic-social-network-be`.** Dùng `appleboy/ssh-action` và `appleboy/scp-action` — cùng cách repo kia đã chạy thật hai tháng, và `15` vốn nói mượn khuôn đó | Đổi vì ba lượt triển khai hỏng liên tiếp ở khâu ghim vân tay máy chủ. Đánh đổi có ý thức, ghi ở `34` mục 3.1: pipeline không còn kiểm danh tính máy chủ. Đường siết lại là chuyển sang khoá SSH, **không** phải quay về `known_hosts` |
 | 07/09/2026 | **Lượt `trien-khai` đầu tiên — đỏ.** Variables chưa đặt nên build-arg rỗng, và build-arg rỗng ghi đè mặc định của `ARG`; `next build` chết với `Expected 'http' | 'https', received ''`. Thêm bước kiểm năm Variables ở đầu job `anh`, và đổi `??` sang `||` ở ba chỗ đọc biến bị nướng vào ảnh | Guard bản đầu dùng `eval "v=$b"` — gán TÊN biến chứ không gán giá trị, nên nó luôn xanh. Đã thay bằng năm dòng thẳng và thử cả ba ca |
 | 07/09/2026 | **Đóng gói và triển khai.** Ba `Dockerfile` hai giai đoạn; `output: 'standalone'` + `outputFileTracingRoot` cho hai app Next; `deploy/compose.prod.yaml`, `Caddyfile`, `.env.prod.example`; `.github/workflows/trien-khai.yml`. Cookie `Secure` và HTTPS sau proxy hoá ra chỉ là bốn thuộc tính Spring, không phải sửa code | **Chưa build ảnh nào**: VM Docker trên máy không ra được registry. Chưa chạy pipeline, chưa điền bí mật. PR gộp vào `main` **vẫn chưa mở** — thử gọi API GitHub bằng credential đã lưu thì bị chặn, `gh` thì chưa cài |
 | 06/09/2026 | **Ảnh minh hoạ cho điểm đến.** Spec v0.16.0 thêm `Destination.image`; `V8` thêm bảng `destination_image` cùng khuôn với `product_image`; 10 điểm đến có ảnh. Đọc bằng `LEFT JOIN LATERAL` để không sinh N+1. 3 test mới, tổng **293** | Không thêm cột ảnh dạng chữ như `hotel.image` — `12` mục 10 đã ghi khuôn đó vào danh sách nợ. Trang chi tiết điểm đến chưa dùng ảnh; màn quản lý ảnh vẫn chờ dependency S3 |
