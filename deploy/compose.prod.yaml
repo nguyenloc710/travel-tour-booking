@@ -1,0 +1,143 @@
+# Bản chạy thật, phần DÙNG CHUNG — docs/34 mục 5.
+#
+# File này KHÔNG publish cổng nào và KHÔNG có proxy. Nó tự nó không đủ để chạy:
+# phải ghép với đúng một file phủ, và `.env` chọn file đó qua `COMPOSE_FILE`.
+#
+#   COMPOSE_FILE=compose.prod.yaml:compose.ip.yaml       ← chưa có tên miền
+#   COMPOSE_FILE=compose.prod.yaml:compose.tenmien.yaml  ← đã có tên miền
+#
+# Vì sao tách: hai cách phơi ra ngoài khác nhau về BẢN CHẤT, không chỉ khác vài
+# dòng. Chạy bằng IP thì định tuyến theo **cổng**; chạy bằng tên miền thì định
+# tuyến theo **Host header**, và chỉ lúc đó mới có HTTPS. Nhồi cả hai vào một
+# file là để dành một mớ `if` cho tương lai.
+#
+# Mọi biến viết dạng `${X:?}` — thiếu là compose DỪNG, không lặng lẽ dùng mặc
+# định của dev.
+
+# Tên project, KHÔNG phải `travel`. Máy chủ đã có sẵn một container tên
+# `travel-web` của dự án khác; nếu nó thuộc compose project tên `travel` thì
+# `docker compose up -d --remove-orphans` ở đây sẽ coi nó là orphan và XOÁ NÓ.
+# Tên riêng là thứ rẻ nhất ngăn được chuyện đó.
+name: travel-booking
+
+services:
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?thieu DB_NAME}
+      POSTGRES_USER: ${DB_USER:?thieu DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?thieu DB_PASSWORD}
+      # Giống dev: không đặt collation mặc định cho cả CSDL — docs/12 mục 1.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # KHÔNG publish 5432, kể cả ở chế độ IP. Mở cổng CSDL ra Internet là mời cả
+    # thế giới thử mật khẩu. Cần `psql` thì đi qua SSH tunnel:
+    #   ssh -L 5432:localhost:5432 <user>@<vps>
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?thieu MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?thieu MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Tạo bucket và mở quyền đọc ẩn danh rồi thoát — chạy lại được, giống dev.
+  # `next/image` cần tải ảnh mà không ký; chỉ đường GHI mới cần presigned URL.
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set kho http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing kho/$${MINIO_BUCKET} &&
+      mc anonymous set download kho/$${MINIO_BUCKET}
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+      MINIO_BUCKET: ${MINIO_BUCKET:?thieu MINIO_BUCKET}
+    restart: "no"
+
+  api:
+    image: ${REGISTRY:?thieu REGISTRY}/travel-api:${TAG:?thieu TAG}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # `postgres` là tên service, phân giải trong mạng của compose.
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PORT: 8080
+
+      # Địa chỉ site như TRÌNH DUYỆT KHÁCH nhìn thấy. Trình duyệt gọi thẳng API
+      # (`bookingApi()` chạy phía client), nên gốc này phải được CORS cho phép.
+      # KHÔNG dùng `*`: phiên xác thực bằng cookie, và đặc tả cấm `*` đi cùng
+      # credentials (SecurityConfig).
+      CORS_ALLOWED_ORIGINS: ${SITE_URL:?thieu SITE_URL}
+
+      # Phần đầu ghép vào `media_asset.path` — ADR-011 mục 2, docs/12 mục 4.6.
+      STORAGE_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_URL:?thieu MEDIA_PUBLIC_URL}
+
+      # Hạ từ DEBUG — điều kiện chặn của docs/34 mục 5.2.
+      LOGGING_LEVEL_VN_TRAVEL_BOOKING: INFO
+
+      # Hai giá trị này ĐỔI THEO CHẾ ĐỘ, nên chúng ở `.env` chứ không đặt cứng:
+      #
+      #   chạy bằng IP, http     COOKIE_SECURE=false   FORWARD_HEADERS=none
+      #   chạy sau Caddy, https  COOKIE_SECURE=true    FORWARD_HEADERS=framework
+      #
+      # Đặt `COOKIE_SECURE=true` khi chưa có HTTPS thì trình duyệt lặng lẽ vứt
+      # cookie phiên: đăng nhập trang quản trị trả 204 rồi màn hình sau vẫn đá
+      # về trang đăng nhập, không có lỗi nào ở đâu cả.
+      SERVER_FORWARD_HEADERS_STRATEGY: ${FORWARD_HEADERS:?thieu FORWARD_HEADERS}
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: ${COOKIE_SECURE:?thieu COOKIE_SECURE}
+      SERVER_SERVLET_SESSION_COOKIE_SAME_SITE: lax
+    healthcheck:
+      # Không có Actuator trong dependency (thêm nó là một PR riêng — quy tắc 8
+      # của CLAUDE.md), nên chỉ kiểm cổng đã mở chưa. Cổng 8080 mở nghĩa là
+      # Flyway đã chạy xong: Spring Boot mở cổng SAU migration — docs/34 mục 4.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  site:
+    image: ${REGISTRY}/travel-site:${TAG}
+    restart: unless-stopped
+    depends_on:
+      - api
+    # Không có biến môi trường nào, và đó KHÔNG phải thiếu sót: mọi
+    # `NEXT_PUBLIC_*` đã bị nướng vào mã lúc `docker build`. Đặt lại ở đây không
+    # có tác dụng gì — xem chú thích dài trong web/apps/site/Dockerfile.
+
+  admin:
+    image: ${REGISTRY}/travel-admin:${TAG}
+    restart: unless-stopped
+    depends_on:
+      - api
+    # Tương tự: `API_URL` là tham số build, đã đóng băng thành http://api:8080.
+
+volumes:
+  pgdata:
+  miniodata:

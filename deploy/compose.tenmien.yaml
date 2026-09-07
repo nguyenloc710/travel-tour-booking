@@ -1,0 +1,51 @@
+# Phủ cho chế độ **đã có tên miền**: Caddy đứng trước, HTTPS thật.
+#
+#     COMPOSE_FILE=compose.prod.yaml:compose.tenmien.yaml
+#
+# Chỉ mở 80 và 443. Bốn service phía sau không publish cổng nào — chúng chỉ
+# nghe trong mạng nội bộ của compose, và Caddy định tuyến theo Host header.
+#
+# Đổi từ chế độ IP sang chế độ này, theo thứ tự:
+#   1. Trỏ bốn bản ghi A về IP máy chủ, ĐỢI DNS lan xong
+#   2. Trong `.env`: đổi COMPOSE_FILE sang file này; đổi SITE_URL và
+#      MEDIA_PUBLIC_URL sang https://…; đặt COOKIE_SECURE=true và
+#      FORWARD_HEADERS=framework; điền bốn *_DOMAIN và ACME_EMAIL
+#   3. Trên GitHub, đổi PUBLIC_SITE_URL, PUBLIC_API_URL, MEDIA_* sang https
+#   4. **Build lại ảnh** — bước 3 chỉ có tác dụng khi ảnh được build lại,
+#      docs/34 mục 5.3. Chạy lại workflow `trien-khai` là đủ
+#
+# Bỏ bước 4 là site mới chạy trên HTTPS nhưng vẫn gọi API qua http://<IP>:8080,
+# và trình duyệt chặn thẳng vì mixed content.
+
+services:
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - site
+      - admin
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?thieu SITE_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?thieu ADMIN_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?thieu API_DOMAIN}
+      MEDIA_DOMAIN: ${MEDIA_DOMAIN:?thieu MEDIA_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?thieu ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+  minio:
+    environment:
+      # Bảng điều khiển MinIO cần biết địa chỉ công khai của chính nó khi đứng
+      # sau proxy. SigV4 ký cả host — ADR-011 mục 2.
+      MINIO_BROWSER_REDIRECT_URL: https://${MEDIA_DOMAIN}/minio
+
+volumes:
+  caddydata:
+  caddyconfig:
