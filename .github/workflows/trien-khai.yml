@@ -56,6 +56,39 @@ jobs:
             dockerfile: web/apps/admin/Dockerfile
 
     steps:
+      # Bước ĐẦU TIÊN, trước cả checkout: hỏng ở đây tốn 5 giây, hỏng ở
+      # `next build` tốn 8 phút.
+      #
+      # Biến rỗng KHÔNG rơi về mặc định của `ARG` trong Dockerfile — truyền
+      # `--build-arg X=` là ghi đè bằng chuỗi rỗng. Không chặn ở đây thì lỗi
+      # hiện ra tận giữa `next build`, dưới dạng
+      #     Expected http | https, received 
+      # một câu không nhắc gì tới GitHub Variables, nơi thật sự thiếu.
+      - name: Năm Variables phải có giá trị
+        env:
+          PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+          MEDIA_PROTOCOL: ${{ vars.MEDIA_PROTOCOL }}
+          MEDIA_HOST: ${{ vars.MEDIA_HOST }}
+          MEDIA_PORT: ${{ vars.MEDIA_PORT }}
+        run: |
+          thieu=""
+          # Năm dòng thẳng thay vì một vòng lặp: bản đầu dùng `eval "v=$b"`,
+          # thứ gán TÊN biến chứ không gán GIÁ TRỊ, nên guard luôn xanh kể cả
+          # khi thiếu. Chỗ này không đáng khéo.
+          [ -n "$PUBLIC_SITE_URL" ] || thieu="$thieu PUBLIC_SITE_URL"
+          [ -n "$PUBLIC_API_URL" ]  || thieu="$thieu PUBLIC_API_URL"
+          [ -n "$MEDIA_PROTOCOL" ]  || thieu="$thieu MEDIA_PROTOCOL"
+          [ -n "$MEDIA_HOST" ]      || thieu="$thieu MEDIA_HOST"
+          [ -n "$MEDIA_PORT" ]      || thieu="$thieu MEDIA_PORT"
+          if [ -n "$thieu" ]; then
+            echo "Thiếu GitHub Variables:$thieu" >&2
+            echo "Đặt ở Settings → Secrets and variables → Actions → tab Variables." >&2
+            echo "Chúng bị nướng vào ảnh lúc build nên không được để trống — docs/34 mục 5.3." >&2
+            exit 1
+          fi
+          echo "Năm Variables đủ. Site: $PUBLIC_SITE_URL · API: $PUBLIC_API_URL"
+
       - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v3

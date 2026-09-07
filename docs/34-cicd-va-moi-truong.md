@@ -341,6 +341,14 @@ bản `output: 'standalone'` còn đóng băng cả `next.config.ts` đã giải
 - **Ảnh gắn liền với một môi trường.** Không build một ảnh rồi đem cùng ảnh đó
   chạy ở staging và prod. Ngày trả lời **Q-9** mà câu trả lời là "có staging"
   thì phải build hai lượt, hai bộ thẻ.
+- **Build-arg rỗng KHÔNG rơi về mặc định của `ARG`.** Truyền
+  `--build-arg X=` là ghi đè bằng chuỗi rỗng, và `ARG X=https` trong
+  Dockerfile không cứu được. Lần đầu chạy pipeline đã đỏ vì đúng chuyện này:
+  Variables chưa đặt → build-arg rỗng → `next build` chết giữa chừng với
+  `Expected http | https, received `, một câu không nhắc gì tới GitHub
+  Variables. Nay có hai lớp chặn: job `anh` kiểm năm Variables ở **bước đầu
+  tiên**, trước cả checkout, và `next.config.ts` dùng `||` chứ không `??` —
+  `??` chỉ bắt `undefined`, không bắt chuỗi rỗng.
 - Tên miền vì thế xuất hiện **hai chỗ**: GitHub Variables (lúc build) và `.env`
   trên máy chủ (lúc chạy). Lệch nhau thì site gọi sang API sai địa chỉ và trình
   duyệt báo lỗi CORS. Đổi tên miền là đổi **cả hai chỗ**.
