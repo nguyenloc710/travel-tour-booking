@@ -11,7 +11,11 @@ import {
 import type { Locale, Market } from '@travel/i18n';
 import { marketSegment } from './market-segment';
 
-const BASE_PATH = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
+// `||` chứ không `??`: biến này bị nướng vào mã lúc build, và một `--build-arg`
+// bỏ trống nướng vào chuỗi rỗng chứ không phải `undefined`. `??` sẽ để lọt
+// `basePath: ''`, khiến mọi lời gọi API thành đường dẫn tương đối trỏ về chính
+// máy chủ Next — hỏng im lặng, không có lỗi nào lúc build.
+const BASE_PATH = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 /**
  * Client API sinh từ `contracts/openapi.yaml`.

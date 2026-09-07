@@ -10,7 +10,7 @@
  * **Đây là thứ phải sửa trước lần triển khai thật đầu tiên.** Sitemap trỏ vào
  * `localhost` thì công cụ tìm kiếm bỏ qua toàn bộ, và không có lỗi nào nổ.
  */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
   '',
 );

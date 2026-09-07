@@ -31,11 +31,19 @@ const config: NextConfig = {
     // và ảnh không đi qua bộ tối ưu thì `next/image` không kiểm host. Khai sẵn
     // vì ngày bỏ `unoptimized` — quyết định còn để ngỏ ở `24` mục 7.1 — thiếu
     // dòng này thì mọi ảnh bộ hỏng, và nó hỏng im lặng chứ không báo lỗi.
+    //
+    // `||` chứ KHÔNG phải `??`. Ba biến này đến từ `--build-arg`, và một
+    // build-arg khai báo nhưng bỏ trống truyền vào chuỗi RỖNG chứ không phải
+    // `undefined` — nó còn ghi đè cả giá trị mặc định của `ARG` trong
+    // Dockerfile. `??` không bắt chuỗi rỗng, nên cấu hình lọt qua với
+    // `protocol: ''` và Next 16 nổ ở giữa `next build`:
+    //     Expected 'http' | 'https', received ''
+    // Thông báo đó không nhắc gì tới GitHub Variables, nơi thật sự thiếu.
     remotePatterns: [
       {
-        protocol: (process.env.NEXT_PUBLIC_STORAGE_PROTOCOL ?? 'http') as 'http' | 'https',
-        hostname: process.env.NEXT_PUBLIC_STORAGE_HOST ?? 'localhost',
-        port: process.env.NEXT_PUBLIC_STORAGE_PORT ?? '9000',
+        protocol: (process.env.NEXT_PUBLIC_STORAGE_PROTOCOL || 'http') as 'http' | 'https',
+        hostname: process.env.NEXT_PUBLIC_STORAGE_HOST || 'localhost',
+        port: process.env.NEXT_PUBLIC_STORAGE_PORT || '9000',
         pathname: '/**',
       },
     ],
