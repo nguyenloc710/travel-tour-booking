@@ -127,20 +127,21 @@ jobs:
 
   # ------------------------------------------------------------- triển khai
   #
-  # Đăng nhập bằng MẬT KHẨU, không bằng khoá — VPS của dự án này chỉ có sẵn
-  # user/password. Ba hệ quả phải sống chung:
+  # Dùng `appleboy/ssh-action` và `appleboy/scp-action` — cùng khuôn với
+  # `comic-social-network-be`, repo mà `docs/15` nói là mượn khuôn đã chạy thật.
   #
-  #   1. Cần `sshpass`, vì `ssh` cố tình từ chối đọc mật khẩu từ stdin hay từ
-  #      tham số. Đây là một phụ thuộc của runner, không phải của sản phẩm.
-  #   2. `VPS_KNOWN_HOSTS` chuyển từ "nên có" sang **bắt buộc**. Với khoá thì
-  #      gặp máy chủ giả cũng chỉ hỏng lượt triển khai; với mật khẩu thì ta
-  #      GỬI LUÔN MẬT KHẨU cho máy giả đó. Không bao giờ thay bằng
-  #      `StrictHostKeyChecking=no`.
-  #   3. `VPS_PASSWORD` là mật khẩu đăng nhập máy chủ, dùng được ở mọi nơi chứ
-  #      không riêng việc triển khai. Ai sửa được workflow là có đường đọc nó.
-  #      Ngày muốn siết: sinh một cặp khoá riêng cho triển khai, thêm khoá công
-  #      khai vào máy chủ, đổi hai bước dưới về `ssh -i`. Mật khẩu của người
-  #      vẫn giữ nguyên — hai đường đăng nhập không loại trừ nhau.
+  # Bản trước tự gọi `ssh`/`scp` với `sshpass` và ghim dấu vân tay máy chủ qua
+  # secret `VPS_KNOWN_HOSTS`. Chặt hơn, nhưng đắt: mỗi lần đổi IP hoặc cài lại
+  # máy chủ là phải lấy lại giá trị đó, và khi sai thì OpenSSH báo
+  # "Host key verification failed" — câu dùng chung cho cả "host lạ" lẫn
+  # "khoá đã đổi", nên rất khó đoán.
+  #
+  # Đánh đổi đã chấp nhận có ý thức: hai action này KHÔNG kiểm danh tính máy
+  # chủ, nên mỗi lượt triển khai gửi mật khẩu VPS cho bất cứ máy nào trả lời ở
+  # địa chỉ đó. Ngày muốn siết lại thì cách rẻ nhất không phải quay về
+  # `known_hosts` mà là chuyển sang khoá SSH: thêm khoá công khai vào
+  # `authorized_keys`, rồi đổi `password:` thành `key:` ở hai bước dưới. Lúc đó
+  # máy chủ giả không lấy được gì, và không cần ghim vân tay nữa.
   trien-khai:
     needs: anh
     runs-on: ubuntu-latest
@@ -149,116 +150,79 @@ jobs:
       contents: read
       packages: read
 
-    env:
-      # Tắt hẳn xác thực bằng khoá: không có khoá nào để thử, và để `ssh` thử
-      # rồi mới rơi về mật khẩu chỉ làm log khó đọc lúc hỏng.
-      SSH_OPT: -o StrictHostKeyChecking=yes -o PubkeyAuthentication=no -o PreferredAuthentications=password -o ConnectTimeout=15
-      DICH: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
-      CONG: ${{ vars.VPS_PORT || 22 }}
-      THU_MUC: ${{ vars.VPS_DIR || '/opt/travel' }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: sshpass và dấu vân tay máy chủ
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq sshpass
-          mkdir -p ~/.ssh
-          # Lấy giá trị này MỘT LẦN trên máy chủ, đọc thẳng từ đĩa:
-          #     for f in /etc/ssh/ssh_host_*_key.pub; do
-          #       echo "<VPS_HOST> $(cut -d' ' -f1,2 $f)"
-          #     done
-          # rồi cất nguyên văn thành bí mật VPS_KNOWN_HOSTS. Đừng chạy
-          # ssh-keyscan bên trong pipeline: làm thế là tin bất cứ ai trả lời.
-          printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-          # KHÔNG dùng `test -s`. Secret chưa khai thì printf vẫn ghi ra một dòng
-          # trắng, tức 1 byte, và `test -s` cho qua — guard im lặng đúng ở ca nó
-          # sinh ra để bắt. Lỗi khi đó hiện thành "Host key verification failed"
-          # ở bước sau, một câu không nhắc gì tới secret nào cả.
-          if ! grep -q '[^[:space:]]' ~/.ssh/known_hosts; then
-            echo "Thiếu secret VPS_KNOWN_HOSTS." >&2
-            echo "Chạy TRÊN MÁY CHỦ để lấy giá trị:" >&2
-            echo '  for f in /etc/ssh/ssh_host_*_key.pub; do echo "<VPS_HOST> $(cut -d" " -f1,2 $f)"; done' >&2
-            echo "Với đăng nhập bằng mật khẩu, đây là thứ duy nhất ngăn pipeline" >&2
-            echo "gửi mật khẩu cho một máy chủ giả — docs/34 mục 3.1." >&2
-            exit 1
-          fi
-
-          # Có nội dung vẫn chưa đủ: nội dung phải khớp ĐÚNG host sắp gọi. Cột
-          # đầu của known_hosts là chuỗi ssh tra cứu, và nó so từng ký tự —
-          # "Megahost" không khớp "160.30.113.40" dù cùng là một máy.
-          if [ "$CONG" = "22" ]; then khoa="$VPS_HOST"; else khoa="[$VPS_HOST]:$CONG"; fi
-          if ! ssh-keygen -F "$khoa" -f ~/.ssh/known_hosts > /dev/null; then
-            echo "VPS_KNOWN_HOSTS có nội dung, nhưng không dòng nào khớp host đang gọi." >&2
-            echo "Cột đầu mỗi dòng phải khớp TỪNG KÝ TỰ với secret VPS_HOST," >&2
-            echo "và ở dạng [host]:port nếu VPS_PORT khác 22." >&2
-            echo "Cột đầu đang có: $(cut -d' ' -f1 ~/.ssh/known_hosts | sort -u | tr '\n' ' ')" >&2
-            exit 1
-          fi
-          echo "known_hosts: $(grep -c '[^[:space:]]' ~/.ssh/known_hosts) dòng, khớp host đang gọi."
-
-      # Bốn file cấu hình sống trong repo nhưng chạy trên máy chủ. Chép cả bốn mỗi
-      # lượt để sửa chúng chỉ cần một commit, không phải sửa tay trên VPS. Máy chủ
-      # tự chọn dùng file phủ nào, qua `COMPOSE_FILE` trong `.env` của nó.
+      # Bốn file cấu hình sống trong repo nhưng chạy trên máy chủ. Chép cả bốn
+      # mỗi lượt để sửa chúng chỉ cần một commit, không phải sửa tay trên VPS.
       #
       # KHÔNG chép `.env`. File đó do bạn tạo một lần trên máy chủ và không bao
-      # giờ rời khỏi nó — docs/34 mục 3.1.
-      - name: Chép bộ file compose lên máy chủ
-        env:
-          # `sshpass -e` đọc mật khẩu từ biến môi trường này. Dùng `-e` chứ
-          # KHÔNG dùng `-p <mật khẩu>`: tham số dòng lệnh hiện trong `ps` của
-          # mọi tiến trình khác trên runner.
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
-        run: |
-          sshpass -e ssh $SSH_OPT -p "$CONG" "$DICH" "mkdir -p '$THU_MUC'"
-          sshpass -e scp $SSH_OPT -P "$CONG" \
-            deploy/compose.prod.yaml deploy/compose.ip.yaml \
-            deploy/compose.tenmien.yaml deploy/Caddyfile \
-            "$DICH:$THU_MUC/"
-
-      # Token registry đi qua stdin của ssh, không qua tham số dòng lệnh: tham
-      # số hiện trong `ps` của mọi tiến trình khác trên MÁY CHỦ.
+      # giờ rời khỏi nó — docs/34 mục 3.1. Thư mục đích vì thế đã tồn tại sẵn:
+      # `.env` phải nằm ở đó trước khi lượt triển khai đầu tiên chạy.
       #
-      # Token này chỉ sống trong lượt chạy này, nên máy chủ KHÔNG phải cất một
-      # PAT dài hạn để pull ảnh.
-      - name: Pull và up
-        env:
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | sshpass -e ssh $SSH_OPT -p "$CONG" "$DICH" \
-            "set -e
-             cd '$THU_MUC'
-             if [ ! -f .env ]; then
-               echo \"Khong co $THU_MUC/.env tren may chu.\" >&2
-               echo \"Tao no tu deploy/.env.prod.example roi chmod 600 — docs/34 muc 3.1.\" >&2
-               exit 1
-             fi
-             docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-             # TAG ghi đè giá trị trong .env: một dòng, chạy lại được.
-             sed -i '/^TAG=/d' .env && echo 'TAG=${{ github.sha }}' >> .env
-             grep -q '^COMPOSE_FILE=' .env || {
-               echo \"Thieu COMPOSE_FILE trong $THU_MUC/.env — khong biet chay hinh dang nao.\" >&2
-               echo \"Dat compose.prod.yaml:compose.ip.yaml khi chua co ten mien,\" >&2
-               echo \"hoac compose.prod.yaml:compose.tenmien.yaml khi da co.\" >&2
-               exit 1
-             }
-             # Khong truyen -f: compose tu doc COMPOSE_FILE trong .env, nen hinh
-             # dang chay la thuoc tinh cua MAY CHU chu khong cua pipeline.
-             docker compose pull
-             docker compose up -d --remove-orphans
-             docker logout ${{ env.REGISTRY }}
-             # Dọn ảnh cũ, giữ lại thứ đang dùng. Không có dòng này thì đĩa VPS
-             # đầy dần theo mỗi lần triển khai, và nó đầy vào lúc không ai nhìn.
-             docker image prune -af --filter 'until=168h'"
+      # `strip_components: 1` bỏ tiền tố `deploy/`, để file nằm thẳng trong
+      # /opt/travel chứ không thành /opt/travel/deploy.
+      - name: Chép bộ file compose lên máy chủ
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ vars.VPS_PORT || 22 }}
+          source: "deploy/compose.prod.yaml,deploy/compose.ip.yaml,deploy/compose.tenmien.yaml,deploy/Caddyfile"
+          target: ${{ vars.VPS_DIR || '/opt/travel' }}
+          strip_components: 1
 
-      - name: Đang chạy commit nào
+      # Token registry đi qua `envs:` chứ không nhúng vào chuỗi script: nhúng
+      # thẳng là nó hiện trong `ps` của mọi tiến trình khác trên máy chủ.
+      #
+      # Token chỉ sống trong lượt chạy này, nên máy chủ KHÔNG phải cất một PAT
+      # dài hạn để pull ảnh.
+      - name: Pull và up
+        uses: appleboy/ssh-action@v1
         env:
-          SSHPASS: ${{ secrets.VPS_PASSWORD }}
-        run: |
-          sshpass -e ssh $SSH_OPT -p "$CONG" "$DICH" \
-            "cd '$THU_MUC' && docker compose ps"
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANH_TAG: ${{ github.sha }}
+          THU_MUC: ${{ vars.VPS_DIR || '/opt/travel' }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ vars.VPS_PORT || 22 }}
+          envs: GHCR_USER,GHCR_TOKEN,ANH_TAG,THU_MUC
+          script: |
+            set -e
+            cd "$THU_MUC"
+
+            if [ ! -f .env ]; then
+              echo "Khong co $THU_MUC/.env tren may chu." >&2
+              echo "Tao no tu deploy/.env.prod.example roi chmod 600 — docs/34 muc 3.1." >&2
+              exit 1
+            fi
+
+            if ! grep -q '^COMPOSE_FILE=' .env; then
+              echo "Thieu COMPOSE_FILE trong $THU_MUC/.env — khong biet chay hinh dang nao." >&2
+              echo "Dat compose.prod.yaml:compose.ip.yaml khi chua co ten mien," >&2
+              echo "hoac compose.prod.yaml:compose.tenmien.yaml khi da co." >&2
+              exit 1
+            fi
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            # Thẻ ảnh = commit SHA, không bao giờ `latest`: nhìn vào máy chủ
+            # phải biết chính xác commit nào đang chạy — docs/34 mục 7.
+            sed -i '/^TAG=/d' .env
+            echo "TAG=$ANH_TAG" >> .env
+
+            # Không truyền -f: compose tự đọc COMPOSE_FILE trong .env, nên hình
+            # dạng chạy là thuộc tính của MÁY CHỦ chứ không của pipeline.
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker logout ghcr.io
+
+            # Dọn ảnh cũ, giữ lại thứ đang dùng. Không có dòng này thì đĩa VPS
+            # đầy dần theo mỗi lần triển khai, và nó đầy vào lúc không ai nhìn.
+            docker image prune -af --filter 'until=168h'
+
+            docker compose ps
