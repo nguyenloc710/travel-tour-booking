@@ -1,0 +1,51 @@
+# Phiên bản tập trung một chỗ. Đổi ở đây, không đổi rải rác trong module.
+# Không thêm dependency mới mà chưa hỏi — CLAUDE.md quy tắc 8.
+
+[versions]
+mapstruct = "1.6.3"
+shedlock = "6.10.0"
+java = "21"
+springBoot = "4.1.1"
+postgresql = "42.7.7"
+testcontainers = "1.21.4"
+openapiGenerator = "7.14.0"
+
+[libraries]
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc" }
+# Ba dependency của đợt 2 — docs/15 mục 4. Không cái nào là lựa chọn tự do:
+#   · data-jpa   — docs/10 mục 6 chốt JPA cho CRUD quản trị
+#   · security   — docs/13 mục 10 chốt phiên đăng nhập cho nhân viên
+#   · mapstruct  — docs/15 mục 2, mượn khuôn của dự án trước: entity sang DTO
+#                  luôn qua mapper sinh ra, không map tay trong service
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+# Jackson dùng trực tiếp để băm vân tay thân yêu cầu (docs/13 mục 7). Có sẵn lúc
+# chạy qua starter-web; khai ở đây vì code gọi thẳng ObjectMapper.
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind" }
+jackson-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
+mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstruct" }
+mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstruct" }
+# Khoá job nền, dùng chính Postgres — docs/14 mục 6.4 đòi khoá ngay từ job đầu tiên.
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
+shedlock-jdbc = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
+
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+# Spring Boot 4 tách autoconfiguration của Flyway ra module riêng: chỉ có
+# flyway-core trên classpath thì migration KHÔNG chạy và cũng không báo gì.
+# Phiên bản để BOM của Spring Boot quản, không tự ghim.
+spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
+flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
+
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapiGenerator" }

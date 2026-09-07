@@ -1,0 +1,122 @@
+# Pipeline phía frontend.
+#
+# Kích hoạt khi sửa `web/` HOẶC `contracts/`. Sửa `api/` KHÔNG kích hoạt pipeline
+# này — và ngược lại, xem `api.yml` (docs/10 mục 2).
+#
+# GitHub Actions không hỗ trợ neo YAML (&/*), nên danh sách đường dẫn phải viết
+# lặp hai lần. Sửa một chỗ thì nhớ sửa chỗ kia.
+name: web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'contracts/**'
+      - '.github/workflows/web.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'contracts/**'
+      - '.github/workflows/web.yml'
+
+concurrency:
+  group: web-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Bộ kiểm tương thích ngược đọc `openapi.yaml` của nhánh gốc bằng
+          # `git show`, nên cần lịch sử chứ không chỉ một commit.
+          fetch-depth: 0
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # Không ghi số phiên bản ở đây — lấy từ trường `packageManager`
+          # trong web/package.json, để chỉ có một nguồn sự thật.
+          package_json_file: web/package.json
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # openapi-generator-cli là công cụ Java — thiếu JDK thì bước sinh TS client
+      # chết, dù đây là pipeline frontend. Cùng phiên bản với phía api để hai bên
+      # diễn giải spec giống hệt nhau.
+      - name: JDK 21 — cho openapi-generator
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Cài đặt
+        run: pnpm install --frozen-lockfile
+
+      # Chạy trước typecheck: sinh ra sai thì lỗi hiện ở đây, không hiện thành
+      # một đống lỗi kiểu khó hiểu ở bước sau.
+      - name: Sinh TS client từ contracts/openapi.yaml
+        run: pnpm run contracts:generate:ts
+
+      - name: Kiểm kiểu
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      # Thiếu khoá dịch là LỖI, không phải cảnh báo (docs/02 mục 4.3).
+      - name: Độ phủ chuỗi giao diện
+        run: pnpm i18n:check
+
+      - name: Build
+        run: pnpm build
+
+  # Việc riêng, không gộp vào job trên: đây là câu hỏi về HỢP ĐỒNG, không phải
+  # về frontend. Chỉ chạy trên pull request vì nó so với nhánh đích.
+  hop-dong:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Cài đặt
+        run: pnpm install --frozen-lockfile
+
+      - name: Tương thích ngược so với nhánh đích
+        run: pnpm contracts:check "origin/${{ github.base_ref }}"

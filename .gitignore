@@ -12,6 +12,9 @@
 
 # Package Files #
 *.jar
+# ...trừ wrapper: thiếu file này thì ./gradlew không chạy được ở máy khác
+!gradle/wrapper/gradle-wrapper.jar
+!api/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear
@@ -22,3 +25,28 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code — cài đặt riêng của từng máy
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Code sinh ra từ contracts/openapi.yaml — không commit (ADR-002).
+# Phần sinh ra của api-client do web/packages/api-client/.gitignore lo (src/, dist/);
+# package.json và tsconfig của nó vẫn phải commit.
+**/build/generated/
+
+# Node
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Gradle
+.gradle/
+build/

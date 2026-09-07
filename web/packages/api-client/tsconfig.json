@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Code sinh ra không chịu được noUncheckedIndexedAccess — và sửa nó là sửa
+    // file sinh ra, điều bị cấm. Nới đúng ở đây, không nới ở tsconfig.base.
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false
+  },
+  "include": ["src/**/*.ts"]
+}

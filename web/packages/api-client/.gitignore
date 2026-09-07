@@ -1,0 +1,10 @@
+# Toàn bộ client SINH RA từ contracts/openapi.yaml lúc build — không commit.
+#
+# Cần thêm trường thì sửa contracts/openapi.yaml rồi chạy
+#     pnpm contracts:generate
+# Sửa tay ở đây là vô nghĩa: lần sinh kế tiếp ghi đè, và hook
+# .claude/hooks/chan-file-sinh-ra.py sẽ chặn.
+src/
+dist/
+.openapi-generator/
+.openapi-generator-ignore

@@ -1,0 +1,725 @@
+/*
+ * Giao diện quản trị: MỘT tệp CSS, không design system, không thư viện.
+ *
+ * Bố cục theo quy ước chung của bảng quản trị — thanh dọc bên trái, vùng nội
+ * dung bên phải, mỗi khối là một mặt phẳng có viền. AdminLTE, Tabler, shadcn
+ * Admin và TailAdmin đều dùng khuôn này, và lý do không phải thẩm mỹ: menu dọc
+ * mở rộng được khi thêm màn hình, menu ngang thì hết chỗ.
+ *
+ * Không thư viện không có nghĩa là không thiết kế. Đây là màn hình mười mấy
+ * người nhìn cả ngày, nên nó cần nhịp khoảng trắng, mặt phẳng phân tầng và trạng
+ * thái tương tác rõ — chỉ là không cần 200KB JavaScript để có mấy thứ đó.
+ *
+ * Trang khách (docs/21) là chỗ đầu tư nhận diện thương hiệu. Chỗ này đầu tư vào
+ * việc đọc nhanh và bấm không sai.
+ *
+ * Phông chữ phải hiện đủ `æ ø å` lẫn dấu tiếng Việt: màn hình dịch song song đặt
+ * hai thứ cạnh nhau trên cùng một dòng (docs/21 mục 3.1). Ngăn xếp phông hệ
+ * thống dưới đây đã dựng sẵn cả hai trên mọi hệ điều hành.
+ */
+
+:root {
+  --muc: #101917;
+  --mo: #5b6a64;
+  --nhat: #8b9791;
+  --vien: #e3e9e6;
+  --vien-dam: #cfd8d4;
+
+  --nen: #fff;
+  --trang: #f5f7f6;
+  --phu: #eef2f0;
+
+  --chinh: #0d6b49;
+  --chinh-dam: #095037;
+  --chinh-nhat: #e8f3ee;
+
+  --toi: #0e2c22;
+  --toi-2: #143a2d;
+  --toi-chu: #a9c2b7;
+
+  --loi: #a4211c;
+  --loi-nen: #fdeceb;
+  --loi-vien: #f2c4c1;
+
+  --canh-bao: #8a5a00;
+  --canh-bao-nen: #fdf5e5;
+  --canh-bao-vien: #ecd7ac;
+
+  --r: 8px;
+  --r-nho: 6px;
+  --bong: 0 1px 2px rgb(16 25 23 / 5%), 0 1px 3px rgb(16 25 23 / 5%);
+  --bong-noi: 0 2px 4px rgb(16 25 23 / 5%), 0 8px 24px rgb(16 25 23 / 8%);
+  --canh-rong: 232px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--muc);
+  background: var(--trang);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--chinh);
+  text-decoration-color: rgb(13 107 73 / 30%);
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* ============================================================ vỏ */
+
+.vo {
+  display: grid;
+  grid-template-columns: var(--canh-rong) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.vung {
+  min-width: 0;
+}
+
+/*
+ * KHÔNG giới hạn bề rộng. Đây là bề mặt vận hành, không phải trang đọc: danh
+ * sách đơn có tám cột, và cái cap 1180px trước đây bỏ trống hơn 500px bên phải
+ * ở màn 1920 trong khi chính cái bảng vẫn phải cuộn ngang.
+ *
+ * Câu văn thì vẫn cần giới hạn — một dòng chữ dài 1600px không đọc nổi. Nên
+ * chặn ở CHỖ CÓ CHỮ (quy tắc ngay dưới), không chặn ở khung.
+ */
+main {
+  padding: 1.75rem 2rem 5rem;
+}
+
+/*
+ * Dòng giải thích và trạng thái rỗng giữ độ dài đọc được, dù khung đã trải hết.
+ * Khách của trang quản trị là nhân viên đọc cả ngày — docs/22 mục 7.
+ */
+main > .phu,
+section > .phu,
+.dau-trang .phu,
+.trong {
+  max-width: 78ch;
+}
+
+/* ============================================================ thanh dọc */
+
+.canh {
+  background: var(--toi);
+  color: var(--toi-chu);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.canh-hieu {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1.1rem 1.1rem 1rem;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+}
+
+.canh-dau {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-nho);
+  background: var(--chinh);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+
+.canh-hieu strong,
+.canh-nguoi strong {
+  display: block;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.canh-hieu em,
+.canh-nguoi em {
+  display: block;
+  font-style: normal;
+  font-size: 0.75rem;
+  color: var(--toi-chu);
+  opacity: 0.75;
+}
+
+.canh-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.75rem 0.6rem;
+  flex: 1;
+}
+
+.canh-menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--r-nho);
+  color: var(--toi-chu);
+  text-decoration: none;
+  font-size: 0.88rem;
+  transition: background 0.12s, color 0.12s;
+}
+
+.canh-menu a svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
+.canh-menu a:hover {
+  background: var(--toi-2);
+  color: #fff;
+}
+
+.canh-menu a[aria-current='page'] {
+  background: var(--chinh);
+  color: #fff;
+  font-weight: 500;
+}
+
+.canh-menu a[aria-current='page'] svg {
+  opacity: 1;
+}
+
+.canh-duoi {
+  padding: 0.85rem 0.9rem 1rem;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.canh-nguoi {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.canh-chu-cai {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--toi-2);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  flex: none;
+}
+
+.canh-thoat {
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 15%);
+  color: var(--toi-chu);
+  font-size: 0.82rem;
+  min-height: 32px;
+  padding: 0.3rem;
+}
+
+.canh-thoat:hover:not(:disabled) {
+  background: var(--toi-2);
+  border-color: rgb(255 255 255 / 25%);
+  color: #fff;
+}
+
+@media (max-width: 860px) {
+  .vo {
+    grid-template-columns: 1fr;
+  }
+
+  .canh {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 0.9rem;
+  }
+
+  .canh-hieu {
+    border: none;
+  }
+
+  .canh-menu {
+    flex-direction: row;
+    padding: 0;
+    flex: 1;
+  }
+
+  .canh-duoi {
+    border: none;
+    padding: 0;
+  }
+
+  .canh-nguoi {
+    display: none;
+  }
+
+  main {
+    padding: 1.25rem 1rem 4rem;
+  }
+}
+
+/* ============================================================ chữ */
+
+h1 {
+  font-size: 1.45rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  margin: 2rem 0 0.75rem;
+}
+
+.phu {
+  color: var(--mo);
+  font-size: 0.86rem;
+  margin: 0 0 1rem;
+}
+
+/* Đầu trang: tiêu đề, dòng phụ, và chỗ cho nút hành động bên phải. */
+.dau-trang {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.dau-trang .phu {
+  margin: 0;
+}
+
+/* ============================================================ mặt phẳng */
+
+.the {
+  background: var(--nen);
+  border: 1px solid var(--vien);
+  border-radius: var(--r);
+  box-shadow: var(--bong);
+  padding: 1.25rem 1.35rem;
+}
+
+/* Dải thẻ số của bảng điều khiển. */
+.dai-so {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.75rem;
+}
+
+.the-so {
+  background: var(--nen);
+  border: 1px solid var(--vien);
+  border-radius: var(--r);
+  box-shadow: var(--bong);
+  padding: 0.9rem 1rem;
+}
+
+.the-so span {
+  display: block;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nhat);
+  font-weight: 600;
+}
+
+.the-so strong {
+  display: block;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  margin-top: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.the-so em {
+  display: block;
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--mo);
+}
+
+/* ============================================================ bảng */
+
+/*
+ * Full width đúng cho bảng NHIỀU CỘT (danh sách đơn có tám), sai cho bảng
+ * khoá/giá trị: trải 1600px thì nhãn cách giá trị bảy trăm pixel, mắt phải chạy
+ * hết chiều ngang màn hình để ghép một cặp. Bảng hai cột vì thế tự chặn.
+ */
+.bang-doi {
+  max-width: 46rem;
+}
+
+.bang-doi th {
+  width: 14rem;
+}
+
+/*
+ * Cột tiền căn PHẢI. Hàng nghìn thẳng cột hàng nghìn thì so hai số là liếc mắt,
+ * còn căn trái thì phải đọc từng chữ số — quy ước kế toán, không phải thẩm mỹ.
+ */
+.so {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 0.88rem;
+  background: var(--nen);
+  border: 1px solid var(--vien);
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: var(--bong);
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--vien);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+th {
+  font-weight: 600;
+  color: var(--nhat);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--phu);
+  white-space: nowrap;
+}
+
+tbody tr:hover {
+  background: var(--trang);
+}
+
+td a {
+  font-weight: 500;
+}
+
+/* ============================================================ nhãn */
+
+.nhan {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.55;
+  border: 1px solid var(--vien-dam);
+  background: var(--phu);
+  color: var(--mo);
+  white-space: nowrap;
+}
+
+.nhan.xanh {
+  background: var(--chinh-nhat);
+  border-color: #b9dbc9;
+  color: var(--chinh-dam);
+}
+
+.nhan.vang {
+  background: var(--canh-bao-nen);
+  border-color: var(--canh-bao-vien);
+  color: var(--canh-bao);
+}
+
+.nhan.xam {
+  background: var(--phu);
+  color: var(--nhat);
+}
+
+/* ============================================================ biểu mẫu */
+
+label {
+  display: block;
+  margin: 1rem 0 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mo);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--vien-dam);
+  border-radius: var(--r-nho);
+  width: 100%;
+  max-width: 32rem;
+  background: var(--nen);
+  color: var(--muc);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--chinh);
+  box-shadow: 0 0 0 3px rgb(13 107 73 / 14%);
+}
+
+input:read-only,
+.chi-doc {
+  background: var(--phu);
+  color: var(--mo);
+  border-color: var(--vien);
+}
+
+textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+input[type='checkbox'] {
+  width: auto;
+  accent-color: var(--chinh);
+}
+
+select {
+  cursor: pointer;
+}
+
+button {
+  font: inherit;
+  font-weight: 500;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--chinh);
+  border-radius: var(--r-nho);
+  background: var(--chinh);
+  color: #fff;
+  cursor: pointer;
+  /* Vùng chạm đủ lớn — cùng lý do với trang khách (web/CLAUDE.md mục 6). */
+  min-height: 36px;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+button:hover:not(:disabled) {
+  background: var(--chinh-dam);
+  border-color: var(--chinh-dam);
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(13 107 73 / 25%);
+}
+
+button.phu {
+  background: var(--nen);
+  color: var(--muc);
+  border-color: var(--vien-dam);
+  margin: 0;
+}
+
+button.phu:hover:not(:disabled) {
+  background: var(--phu);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hang {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.hang > *,
+.hang label {
+  margin-top: 0;
+}
+
+/* Khối bộ lọc trên danh sách. */
+.loc {
+  background: var(--nen);
+  border: 1px solid var(--vien);
+  border-radius: var(--r);
+  box-shadow: var(--bong);
+  padding: 0.9rem 1.1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* ============================================================ thông báo */
+
+.loi,
+.xong,
+.trong {
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--r-nho);
+  margin: 1rem 0;
+  font-size: 0.88rem;
+  border: 1px solid;
+}
+
+.loi {
+  background: var(--loi-nen);
+  border-color: var(--loi-vien);
+  color: var(--loi);
+}
+
+.xong {
+  background: var(--chinh-nhat);
+  border-color: #b9dbc9;
+  color: var(--chinh-dam);
+}
+
+.trong {
+  background: var(--nen);
+  border: 1px dashed var(--vien-dam);
+  color: var(--mo);
+  text-align: center;
+  padding: 1.75rem 1rem;
+}
+
+/* Khung xương lúc đang tải — KHÔNG dùng vòng xoay (web/CLAUDE.md mục 5.3). */
+.dang-tai {
+  height: 0.95rem;
+  background: linear-gradient(90deg, var(--phu) 25%, var(--trang) 50%, var(--phu) 75%);
+  background-size: 200% 100%;
+  animation: truot 1.4s ease-in-out infinite;
+  border-radius: var(--r-nho);
+  margin: 0.5rem 0;
+}
+
+@keyframes truot {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dang-tai {
+    animation: none;
+  }
+}
+
+/* ============================================================ đăng nhập */
+
+.dang-nhap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--toi);
+}
+
+.dang-nhap .the {
+  width: 100%;
+  max-width: 23rem;
+  padding: 1.9rem;
+  box-shadow: var(--bong-noi);
+  border-color: transparent;
+}
+
+.dang-nhap h1 {
+  font-size: 1.2rem;
+}
+
+/* ============================================================ tab */
+
+.tab {
+  display: flex;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--vien);
+  margin: 1.5rem 0 1.25rem;
+  overflow-x: auto;
+}
+
+.tab button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--mo);
+  padding: 0.55rem 0.9rem;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.tab button:hover:not(:disabled) {
+  background: var(--phu);
+  color: var(--muc);
+}
+
+.tab button[aria-current='true'] {
+  color: var(--chinh-dam);
+  border-bottom-color: var(--chinh);
+  font-weight: 600;
+}
+
+/* ============================================================ dịch song song */
+
+.song-song {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1.5rem;
+  max-width: none;
+  background: var(--nen);
+  border: 1px solid var(--vien);
+  border-radius: var(--r);
+  box-shadow: var(--bong);
+  padding: 0.25rem 1.35rem 1.35rem;
+}
+
+.song-song input,
+.song-song textarea {
+  max-width: none;
+}
+
+@media (max-width: 800px) {
+  .song-song {
+    grid-template-columns: 1fr;
+  }
+}
