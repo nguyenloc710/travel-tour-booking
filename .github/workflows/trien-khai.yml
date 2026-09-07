@@ -161,21 +161,46 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: sshpass và dấu vân tay máy chủ
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq sshpass
           mkdir -p ~/.ssh
-          # Lấy giá trị này MỘT LẦN trên máy bạn, ở một mạng bạn tin được:
-          #     ssh-keyscan -p <cổng> <host>
+          # Lấy giá trị này MỘT LẦN trên máy chủ, đọc thẳng từ đĩa:
+          #     for f in /etc/ssh/ssh_host_*_key.pub; do
+          #       echo "<VPS_HOST> $(cut -d' ' -f1,2 $f)"
+          #     done
           # rồi cất nguyên văn thành bí mật VPS_KNOWN_HOSTS. Đừng chạy
           # ssh-keyscan bên trong pipeline: làm thế là tin bất cứ ai trả lời.
           printf '%s\n' "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
-          test -s ~/.ssh/known_hosts || {
-            echo "VPS_KNOWN_HOSTS rỗng. Với đăng nhập bằng mật khẩu thì đây là" >&2
-            echo "thứ duy nhất ngăn pipeline gửi mật khẩu cho một máy chủ giả." >&2
+
+          # KHÔNG dùng `test -s`. Secret chưa khai thì printf vẫn ghi ra một dòng
+          # trắng, tức 1 byte, và `test -s` cho qua — guard im lặng đúng ở ca nó
+          # sinh ra để bắt. Lỗi khi đó hiện thành "Host key verification failed"
+          # ở bước sau, một câu không nhắc gì tới secret nào cả.
+          if ! grep -q '[^[:space:]]' ~/.ssh/known_hosts; then
+            echo "Thiếu secret VPS_KNOWN_HOSTS." >&2
+            echo "Chạy TRÊN MÁY CHỦ để lấy giá trị:" >&2
+            echo '  for f in /etc/ssh/ssh_host_*_key.pub; do echo "<VPS_HOST> $(cut -d" " -f1,2 $f)"; done' >&2
+            echo "Với đăng nhập bằng mật khẩu, đây là thứ duy nhất ngăn pipeline" >&2
+            echo "gửi mật khẩu cho một máy chủ giả — docs/34 mục 3.1." >&2
             exit 1
-          }
+          fi
+
+          # Có nội dung vẫn chưa đủ: nội dung phải khớp ĐÚNG host sắp gọi. Cột
+          # đầu của known_hosts là chuỗi ssh tra cứu, và nó so từng ký tự —
+          # "Megahost" không khớp "160.30.113.40" dù cùng là một máy.
+          if [ "$CONG" = "22" ]; then khoa="$VPS_HOST"; else khoa="[$VPS_HOST]:$CONG"; fi
+          if ! ssh-keygen -F "$khoa" -f ~/.ssh/known_hosts > /dev/null; then
+            echo "VPS_KNOWN_HOSTS có nội dung, nhưng không dòng nào khớp host đang gọi." >&2
+            echo "Cột đầu mỗi dòng phải khớp TỪNG KÝ TỰ với secret VPS_HOST," >&2
+            echo "và ở dạng [host]:port nếu VPS_PORT khác 22." >&2
+            echo "Cột đầu đang có: $(cut -d' ' -f1 ~/.ssh/known_hosts | sort -u | tr '\n' ' ')" >&2
+            exit 1
+          fi
+          echo "known_hosts: $(grep -c '[^[:space:]]' ~/.ssh/known_hosts) dòng, khớp host đang gọi."
 
       # Bốn file cấu hình sống trong repo nhưng chạy trên máy chủ. Chép cả bốn mỗi
       # lượt để sửa chúng chỉ cần một commit, không phải sửa tay trên VPS. Máy chủ
