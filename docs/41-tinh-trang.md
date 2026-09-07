@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Đã duyệt
-Cập nhật: 05/09/2026
+Cập nhật: 07/09/2026
 Phiên bản: 1.2
 Chủ sở hữu: Chủ sản phẩm
 Người duyệt: Chủ sản phẩm
@@ -26,7 +26,7 @@ Không nói về: định nghĩa giai đoạn và tiêu chí ra (40),
 | **Phần code của G3** | **Xong.** Tiêu chí ra 2–8 của `40` mục G3 đều đã có code; tiêu chí 1 chỉ chờ nội dung thật |
 | **Việc chặn G3 qua cổng** | Nội dung thật của 3 tour đủ hai ngôn ngữ — chặn ở **Q-1**; và `20`, `21`, `05` còn ở `Nháp` |
 | **Tài liệu** | 23/26 file. Xong tầng 0, 1, 2, 4 và `30`, `31`, `34` — còn lại `32`, `33`, `35` |
-| **Nhánh** | `dung-khung-va-loi-danh-muc` — 44 commit trước `main`, cây làm việc sạch. `main` chưa nhận gì |
+| **Nhánh** | `dung-khung-va-loi-danh-muc` — **75 commit** trước `main`, đã đẩy lên origin, cây làm việc sạch. `main` vẫn chỉ có commit khởi tạo: merge được bằng fast-forward, nhưng **đi qua PR** để lượt CI đầu tiên xảy ra ở đúng chỗ nó phải xảy ra |
 
 ---
 
@@ -132,6 +132,12 @@ Cộng `docs/tham-chieu/phan-tich-website.md` — chép nguyên từ demo, chưa
 | Chạy thật đầu-cuối: API + site, hai locale, hai market | ✔ |
 | `.github/workflows/`: `api.yml`, `web.yml`, `tai-lieu.yml` | ✔ đã dựng |
 | CI chạy trên một PR thật | ✗ **chưa mở PR nào** — điều kiện treo số 1 của G2 |
+| `Dockerfile` cho `api/`, `site`, `admin` — hai giai đoạn | ✔ có mã, ✗ **chưa build thật lần nào**: VM Docker trên máy đang làm không ra được registry |
+| `deploy/` — compose nền + hai file phủ (`ip`, `tenmien`), `Caddyfile`, `.env.prod.example` | ✔ có mã. `compose config` xanh **ở cả hai chế độ**; chưa chạy trên máy chủ nào |
+| Chế độ chạy đầu tiên | **IP + mở cổng, không HTTPS** — chưa có tên miền. `34` mục 5.0 ghi rõ đánh đổi: mật khẩu quản trị đi qua mạng dạng chữ thường |
+| `.github/workflows/trien-khai.yml` — build → GHCR → SSH → up | ✔ có mã, ✗ chưa chạy lượt nào, chưa điền bí mật nào |
+| Branch protection trên `main` (ba check bắt buộc) | ✗ **chưa bật** — thiếu nó thì `trien-khai.yml` sẽ triển khai cả commit đỏ |
+| VPS: tên miền, `.env`, sao lưu | ✗ máy chủ đã có, **chưa cấu hình gì** — `34` mục 8 |
 | API đọc: `GET /{market}/products` và `/products/{slug}` | ✔ 20 test tích hợp xanh |
 | Site khách: trang danh sách + trang chi tiết, ba trạng thái, bộ lọc trong URL | ✔ chạy thật đầu-cuối |
 | Tiêu chí ra **2–8** của G3 (`40` mục G3) đã có code | ✔ rà 04/09: không-fallback bằng `INNER JOIN`; `ORDER BY … COLLATE "da-DK-x-icu"` lấy tên collation từ bảng `locale`; `f_unaccent` ở **cả hai vế** khi tìm; sitemap `da` 12 URL / `vi` 9 URL. Tiêu chí **1** chờ nội dung thật — Q-1 |
@@ -219,6 +225,11 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
    kích hoạt **cả hai**, sửa `docs/` chỉ kích hoạt `tai-lieu.yml`.
    Nhánh đã đẩy; `gh` chưa cài trên máy này nên PR phải mở bằng tay.
 
+   PR gộp nhánh vào `main` sẽ chạm cả bốn vùng nên kích hoạt **trọn ba
+   workflow** một lượt — đúng thứ cần để xác nhận. Nhưng nó **không** chứng minh
+   được bộ lọc *loại trừ*: muốn thấy "sửa `web/` không kích hoạt `api.yml`" thì
+   cần một PR nhỏ thứ hai chỉ động vào `web/`.
+
    Đi kèm việc này: **dựng lại bộ công cụ kiểm trên máy đang làm** (mục 6.1) rồi
    chạy lại `./gradlew test` và `pnpm build`. Mọi con số xanh trong file này
    hiện là **ghi chép lịch sử**, chưa tái kiểm được ở máy hiện tại — và mở PR mà
@@ -255,6 +266,28 @@ Ba điều kiện treo của cổng G2 (mục 7) đi trước, rồi tới phầ
     - **M9 yêu cầu tư vấn** — cần bảng `lead`, chưa có trong lược đồ
     - **Huỷ hàng loạt** theo ngày khởi hành (`14` mục 6.6)
     - Trang chi tiết theo **tab** như `05` mục 4 mô tả; nay là một trang cuộn phẳng
+14. **Đưa bản chạy thật lên máy chủ.** Phần code đã xong — ba `Dockerfile`,
+    `deploy/`, `trien-khai.yml`. Năm việc còn lại đều cần **quyền trên GitHub
+    hoặc trên VPS**, không phải cần viết thêm code:
+    - Bật **branch protection** trên `main`, đặt `api`, `web`, `tai-lieu` là
+      check bắt buộc. Làm trước tiên: thiếu nó thì pipeline triển khai sẵn sàng
+      đẩy một commit đỏ lên máy chủ
+    - Điền bốn **Secrets**: `VPS_HOST`, `VPS_USER`, `VPS_PASSWORD`,
+      `VPS_KNOWN_HOSTS`. Máy chủ đăng nhập bằng mật khẩu nên pipeline dùng
+      `sshpass`; `VPS_KNOWN_HOSTS` vì thế là **bắt buộc**, không phải tuỳ chọn
+      (`34` mục 3.1)
+    - Điền năm **Variables**: `PUBLIC_SITE_URL`, `PUBLIC_API_URL`,
+      `MEDIA_PROTOCOL`, `MEDIA_HOST`, `MEDIA_PORT` — biến chứ không phải bí
+      mật, và chúng bị **nướng vào ảnh lúc build** nên phải khớp với `.env`
+      trên máy chủ (`34` mục 5.3). Là địa chỉ đầy đủ chứ không phải tên miền,
+      nên cùng một pipeline dùng được cho cả `http://<IP>:3000` lẫn
+      `https://vidu.com`. Không có gì cho trang quản trị: nó không có biến
+      `NEXT_PUBLIC_*` nào
+    - Trỏ bốn bản ghi A về máy chủ, tạo `.env` từ `deploy/.env.prod.example`,
+      `chmod 600`
+    - Chạy `trien-khai.yml` lần đầu và xem nó hỏng ở đâu. Ba `Dockerfile` chưa
+      từng build thật, nên lượt đầu hỏng là chuyện bình thường chứ không phải
+      dấu hiệu thiết kế sai
 
 ---
 
@@ -647,4 +680,5 @@ Ghi ngắn: làm gì, để lại gì dở dang.
 | 04/09/2026 | **Đường ghi của M7.** Spec v0.12, `POST /admin/bookings/{reference}/status`, khoá bi quan, trả chỗ về kho, khối thao tác có ô xác nhận nói rõ hậu quả. 8 test mới, tổng **228** | Lộ ra hai lỗi có sẵn: thân JSON sai kiểu trả 500 ở **mọi** endpoint (đã sửa), và `seats_booked` cộng/trừ theo hai nguồn khác nhau (chưa sửa — mục 6.2). Còn thiếu huỷ hàng loạt theo chuyến (`14` mục 6.6) |
 | 06/09/2026 | **Q-6 chốt — ADR-011: MinIO tự dựng cho cả dev và prod**, thay thế đề xuất "kho có quản" của ADR-008. Cập nhật `10` mục 10 và 11 | Chưa viết dòng code nào. Bảy hệ quả ở ADR-011 mục 6 chưa làm; nặng nhất là **sao lưu ảnh** (`35` chưa viết) |
 | 06/09/2026 | **Bộ ảnh — đường ĐỌC end-to-end.** MinIO vào `compose.yaml`; spec v0.15.0 thêm `gallery` và `layout`; `V7` thêm `product.layout`; 29 `media_asset` + 61 `product_image` vào dữ liệu mồi; khối bộ ảnh ở trang chi tiết. 4 test mới, tổng **290** | Đường GHI chưa có: chưa xin được dependency S3, nên biên tập viên chưa tự thêm ảnh — ảnh do `scripts/nap-anh-len-kho.py` nạp. Ô chọn template ở trang quản trị và các template chưa dựng |
+| 07/09/2026 | **Đóng gói và triển khai.** Ba `Dockerfile` hai giai đoạn; `output: 'standalone'` + `outputFileTracingRoot` cho hai app Next; `deploy/compose.prod.yaml`, `Caddyfile`, `.env.prod.example`; `.github/workflows/trien-khai.yml`. Cookie `Secure` và HTTPS sau proxy hoá ra chỉ là bốn thuộc tính Spring, không phải sửa code | **Chưa build ảnh nào**: VM Docker trên máy không ra được registry. Chưa chạy pipeline, chưa điền bí mật. PR gộp vào `main` **vẫn chưa mở** — thử gọi API GitHub bằng credential đã lưu thì bị chặn, `gh` thì chưa cài |
 | 06/09/2026 | **Ảnh minh hoạ cho điểm đến.** Spec v0.16.0 thêm `Destination.image`; `V8` thêm bảng `destination_image` cùng khuôn với `product_image`; 10 điểm đến có ảnh. Đọc bằng `LEFT JOIN LATERAL` để không sinh N+1. 3 test mới, tổng **293** | Không thêm cột ảnh dạng chữ như `hotel.image` — `12` mục 10 đã ghi khuôn đó vào danh sách nợ. Trang chi tiết điểm đến chưa dùng ảnh; màn quản lý ảnh vẫn chờ dependency S3 |

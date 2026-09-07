@@ -1,0 +1,28 @@
+# Bối cảnh build của CẢ BA ảnh là gốc repo, không phải thư mục của từng ảnh:
+# api/ cần `../contracts/openapi.yaml` để sinh interface, web/ cũng cần chính
+# file đó để sinh TS client (ADR-002). Nên file này lọc cho cả ba.
+
+.git
+.github
+.claude
+docs
+compose.yaml
+deploy
+
+# Bí mật không bao giờ đi vào bối cảnh build — docs/34 mục 7.
+**/.env
+**/.env.*
+
+# Kết quả build của máy cá nhân. Để lọt vào ảnh thì ảnh mang theo thứ biên dịch
+# trên máy khác, và cái đó phá mất tính tái lập của lần build trong CI.
+**/node_modules
+**/.next
+**/build
+**/.gradle
+**/*.tsbuildinfo
+
+# Code sinh từ openapi.yaml — sinh lại BÊN TRONG ảnh, không chép bản của máy cá
+# nhân vào. Bản trên máy có thể cũ hơn spec mà không có gì báo.
+web/packages/api-client/src
+web/packages/api-client/dist
+

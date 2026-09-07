@@ -1,0 +1,39 @@
+# Caddy đứng trước tất cả — docs/34 mục 5.2, hai gạch đầu dòng "HTTPS" và
+# "HTTP chuyển hướng sang HTTPS".
+#
+# Caddy tự xin và tự gia hạn chứng chỉ Let's Encrypt, và tự chuyển hướng 80 →
+# 443. Không có dòng nào phải viết cho hai việc đó; đó là lý do chọn nó thay
+# nginx cho lần dựng đầu. Muốn đổi sang nginx thì chỗ phải viết tay là ba thứ:
+# chứng chỉ, gia hạn, chuyển hướng.
+#
+# ĐIỀU KIỆN: bốn tên miền dưới đây phải có bản ghi A trỏ về IP máy chủ TRƯỚC
+# khi `up -d`. Chưa trỏ mà đã chạy thì Let's Encrypt từ chối, và Caddy sẽ thử
+# lại theo cấp số nhân — trông như treo chứ không như lỗi.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# Website khách.
+{$SITE_DOMAIN} {
+	reverse_proxy site:3000
+}
+
+# Trang quản trị. Trình duyệt của nhân viên chỉ nói chuyện với chính máy chủ
+# Next; `/api/*` được Next chuyển tiếp sang api:8080 trong mạng nội bộ, nên
+# cookie phiên giữ được `SameSite=Lax` — docs/22 mục 9.
+{$ADMIN_DOMAIN} {
+	reverse_proxy admin:3001
+}
+
+# API công khai. Cần thật: `bookingApi()` chạy trong trình duyệt của khách
+# (web/apps/site/src/lib/api.ts), không phải trên máy chủ Next.
+{$API_DOMAIN} {
+	reverse_proxy api:8080
+}
+
+# Kho ảnh. Bucket mở quyền đọc ẩn danh nên đường đọc không cần ký.
+{$MEDIA_DOMAIN} {
+	# Ảnh gốc có thể lớn; MinIO trả theo luồng nên không đặt giới hạn thân.
+	reverse_proxy minio:9000
+}

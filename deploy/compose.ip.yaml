@@ -1,0 +1,46 @@
+# Phủ cho chế độ **chưa có tên miền**: chạy bằng IP, mở cổng thẳng.
+#
+#     COMPOSE_FILE=compose.prod.yaml:compose.ip.yaml
+#
+# Không có proxy, không có HTTPS. Mỗi service một cổng, và địa chỉ khách gõ vào
+# trình duyệt là `http://<IP>:<cổng>`.
+#
+# MỌI CỔNG ĐỀU LẤY TỪ `.env`, không đặt cứng ở đây. Máy chủ này đang chạy nhiều
+# dự án khác — cổng 8080, 9000, 9001, 8091, 5173, 3309, 5179, 16379 và 5432 đã
+# có chủ. Kiểm trước khi chọn:
+#
+#     ss -tlnp | grep -E ':(4000|4001|4002|4003|4004)\s'
+#
+# Không ra dòng nào là dải còn trống. Trùng cổng thì container không khởi động
+# được và `docker compose up` báo "address already in use".
+#
+# ĐỌC KỸ MỘT LẦN: ở chế độ này **mọi thứ đi qua mạng dưới dạng chữ thường**, kể
+# cả mật khẩu đăng nhập trang quản trị và cookie phiên. Ai xem được đường mạng
+# giữa trình duyệt và VPS thì đọc được chúng. Chấp nhận được khi đang dựng và
+# thử; không chấp nhận được khi đã có khách và nhân viên thật đăng nhập.
+
+services:
+
+  api:
+    ports:
+      - "${API_PORT:?thieu API_PORT}:8080"
+
+  site:
+    ports:
+      - "${SITE_PORT:?thieu SITE_PORT}:3000"
+
+  admin:
+    ports:
+      - "${ADMIN_PORT:?thieu ADMIN_PORT}:3001"
+
+  minio:
+    ports:
+      # Endpoint S3 — BẮT BUỘC mở ra 0.0.0.0, vì trình duyệt của KHÁCH tải ảnh
+      # trực tiếp từ đây (`media_asset.path` ghép với MEDIA_PUBLIC_URL). Đây là
+      # lý do không bind vào 127.0.0.1 như comic-minio đang làm với cổng 9001.
+      - "${MINIO_PORT:?thieu MINIO_PORT}:9000"
+      # Bảng điều khiển, chỉ để bạn nhìn bằng mắt. Bind vào loopback: nó không
+      # cần cho ứng dụng, và mở ra ngoài là thêm một bề mặt đăng nhập không
+      # HTTPS. Cần xem thì đi qua SSH tunnel:
+      #     ssh -L 4004:127.0.0.1:4004 <user>@<vps>
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:?thieu MINIO_CONSOLE_PORT}:9001"
