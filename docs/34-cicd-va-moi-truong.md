@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 02/09/2026
+Cập nhật: 07/09/2026
 Nguồn sự thật về: các môi trường chạy được, ba pipeline và điều kiện kích hoạt,
                   biến môi trường và bí mật, cách đóng gói và triển khai, thứ tự
                   chạy migration lúc triển khai, cách lùi một lần phát hành.
@@ -14,10 +14,14 @@ Không nói về: quy ước viết file migration và quy tắc đổi phá v�
 Tài liệu này trả lời: **code đi từ máy lập trình viên tới khách bằng đường nào,
 và khi có sự cố thì lùi lại bằng cách nào.**
 
-> **Cảnh báo trạng thái.** Mục 2, 3 và 4 mô tả thứ **đã dựng và chạy được**.
-> Mục 5, 6 và 7 mô tả thứ **đã thiết kế nhưng chưa dựng** — chưa có `Dockerfile`,
-> chưa có máy chủ. Mỗi bảng ghi rõ cột trạng thái; đừng đọc tài liệu này như thể
-> hệ thống đã triển khai.
+> **Cảnh báo trạng thái.** Mục 2, 3, 4 và 5 mô tả thứ **đã có mã**: ba pipeline
+> kiểm, ba `Dockerfile`, ba file compose trong `deploy/`, `deploy/Caddyfile` và
+> `trien-khai.yml`.
+>
+> Cái **chưa xảy ra** là bất cứ lần chạy nào: chưa ảnh nào được build thật, chưa
+> có lượt `trien-khai.yml` nào, chưa có bí mật nào được điền, chưa có tên miền
+> nào trỏ về đâu. Mục 6 vì thế vẫn là lý thuyết — kịch bản lùi chưa từng chạy,
+> và chính mục 6 nói: một kịch bản chưa chạy bao giờ thì lúc cần cũng hỏng.
 
 ---
 
@@ -102,7 +106,7 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 
 ## 3. Biến môi trường
 
-Ứng dụng đọc bốn biến, tất cả đều có giá trị mặc định dùng được cho `dev`:
+Ứng dụng đọc sáu biến, tất cả đều có giá trị mặc định dùng được cho `dev`:
 
 | Biến | Mặc định | Bí mật |
 |---|---|---|
@@ -110,13 +114,29 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 | `DB_USER` | `travel` | Không |
 | `DB_PASSWORD` | `travel` | **Có** ở `prod` |
 | `PORT` | `8080` | Không |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Không |
+| `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/travel-media` | Không |
+
+Thêm bốn thuộc tính chuẩn của Spring mà **chỉ `prod` mới đặt**, và cả bốn đều là
+cấu hình chứ không phải sửa code:
+
+| Biến | Giá trị ở `prod` | Vì sao |
+|---|---|---|
+| `LOGGING_LEVEL_VN_TRAVEL_BOOKING` | `INFO` | Hạ từ `DEBUG` — mục 5.2 |
+| `SERVER_FORWARD_HEADERS_STRATEGY` | `framework` | Bảo Spring tin `X-Forwarded-*` của proxy. Thiếu nó thì `request.isSecure()` trả `false` vì chặng cuối là HTTP trong mạng nội bộ, và cookie CSRF không được đánh dấu `Secure` dù khách đang dùng HTTPS |
+| `SERVER_SERVLET_SESSION_COOKIE_SECURE` | `true` | Chính là ô "cookie phiên đặt `Secure`" của mục 5.2. Phiên là `JSESSIONID` của servlet, nên cờ này là thuộc tính, không phải mã |
+| `SERVER_SERVLET_SESSION_COOKIE_SAME_SITE` | `lax` | Giữ nguyên điều `22` mục 9 đã chốt, nhưng nói ra thay vì dựa vào mặc định |
 
 Phía `web/` có thêm hai biến:
 
 | Biến | Mặc định | Dùng ở |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | Site khách gọi API từ phía máy chủ |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | Site khách gọi API. **Cả từ trình duyệt**: `bookingApi()` chạy phía khách, nên đây phải là tên miền công khai và nó phải có trong `CORS_ALLOWED_ORIGINS` |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Sitemap và `robots.txt` — **URL tuyệt đối** |
+| `NEXT_PUBLIC_STORAGE_PROTOCOL` · `_HOST` · `_PORT` | `http` · `localhost` · `9000` | `remotePatterns` của `next/image` — `20` |
+| `API_URL` | `http://localhost:8080` | **Chỉ trang quản trị.** Đích của `rewrites()`; là địa chỉ NỘI BỘ giữa hai container, không phải tên miền công khai |
+
+Cả năm biến này **bị nướng vào mã lúc build**, không đọc lúc chạy. Hệ quả ở mục 5.3.
 
 Mặc định dùng được là có chủ ý: người mới `git clone` rồi `docker compose up -d`
 rồi `./gradlew bootRun` là chạy. Bắt phải có file `.env` trước khi khởi động
@@ -127,13 +147,46 @@ rồi `./gradlew bootRun` là chạy. Bắt phải có file `.env` trước khi 
 
 ### 3.1. Bí mật
 
-| Bí mật | Dùng ở đâu | Trạng thái |
+| Bí mật | Cất ở đâu | Trạng thái |
 |---|---|---|
-| `DB_PASSWORD` | `prod` | ✗ chưa có máy chủ |
-| Khoá đăng nhập registry ảnh | Pipeline triển khai | ✗ chưa dựng |
-| Khoá SSH triển khai | Pipeline triển khai | ✗ chưa dựng |
+| `DB_PASSWORD` | `.env` trên máy chủ, `chmod 600` | ✔ có chỗ, chờ giá trị thật |
+| `MINIO_ROOT_PASSWORD` | `.env` trên máy chủ | ✔ có chỗ, chờ giá trị thật |
+| Khoá đăng nhập registry | **Không tồn tại** — xem dưới | ✔ không cần |
+| `VPS_HOST` · `VPS_USER` · `VPS_PASSWORD` · `VPS_KNOWN_HOSTS` | GitHub Secrets | ✔ pipeline đã đọc, chờ điền |
 | Khoá cổng thanh toán | `30` | ✗ **Q-3** chưa trả lời |
-| Khoá lưu trữ ảnh | ADR-008 | ✗ **Q-6** chưa trả lời |
+
+**Ba chỗ lệch với khuôn thường gặp, cả ba đều có lý do.**
+
+*Mật khẩu CSDL không nằm trong GitHub Secrets.* Nó nằm trong `.env` trên chính
+máy chủ, và pipeline không bao giờ nhìn thấy nó. Đưa nó vào GitHub Secrets nghĩa
+là mọi người có quyền sửa workflow đều có đường đọc được mật khẩu `prod` bằng
+một dòng `echo` — mà quyền sửa workflow thì rộng hơn quyền vào máy chủ nhiều.
+Pipeline không cần biết mật khẩu để triển khai; nó chỉ cần bảo compose khởi động
+lại.
+
+*Không có khoá đăng nhập registry.* Pipeline đẩy ảnh bằng `GITHUB_TOKEN` của
+chính lượt chạy, và lúc triển khai nó chuyển token đó qua `stdin` của SSH để máy
+chủ `docker login` rồi `docker logout` ngay trong cùng lượt. Token hết hạn khi
+lượt chạy kết thúc, nên **máy chủ không cất khoá dài hạn nào của registry**. Đây
+là thứ tốt hơn thiết kế cũ, không phải thứ bị bỏ sót.
+
+*Đăng nhập máy chủ bằng mật khẩu, không bằng khoá.* Máy chủ của dự án chỉ mở
+user/password, nên pipeline dùng `sshpass -e` và đọc bí mật `VPS_PASSWORD`. Đây
+là chỗ lệch **yếu hơn** khuôn thường gặp, không mạnh hơn, và nó kéo theo ba hệ
+quả:
+
+- `VPS_KNOWN_HOSTS` chuyển từ "nên có" thành **bắt buộc**, và pipeline dừng nếu
+  nó rỗng. Với khoá thì gặp máy chủ giả chỉ hỏng một lượt triển khai; với mật
+  khẩu thì ta **gửi luôn mật khẩu** cho máy giả đó. Không bao giờ thay bằng
+  `StrictHostKeyChecking=no`, kể cả để "thử cho nhanh".
+- Lấy giá trị đó bằng `ssh-keyscan -p <cổng> <host>` **một lần, trên máy mình, ở
+  một mạng tin được**. Chạy `ssh-keyscan` bên trong pipeline là tin bất cứ ai
+  trả lời — tức là không kiểm gì cả.
+- Mật khẩu này dùng được ở **mọi nơi** chứ không riêng việc triển khai, và ai
+  sửa được workflow là có đường đọc nó. Ngày muốn siết: sinh một cặp khoá riêng
+  cho triển khai, thêm khoá công khai vào `authorized_keys`, đổi hai bước SSH về
+  `ssh -i`. Mật khẩu của người vẫn giữ nguyên — hai đường đăng nhập không loại
+  trừ nhau, nên đây là việc thêm vào, không phải việc thay thế.
 
 Quy tắc, áp ngay từ bí mật đầu tiên:
 
@@ -181,16 +234,76 @@ instance, không giải bài toán migration. Hai thứ khác nhau, đừng lẫ
 
 ## 5. Đóng gói và triển khai
 
-> **Chưa dựng.** Mục này là thiết kế, kế thừa khuôn đã chạy thật của
-> `comic-social-network-be` (`15` mục 2, dòng cuối).
+> **Đã có mã, chưa build lần nào.** Sáu file dưới đây tồn tại và đọc được, nhưng
+> **chưa ảnh nào được build thật**: VM của Docker trên máy đang làm không ra
+> được registry, nên lượt build đầu tiên sẽ xảy ra trên runner. Coi ba
+> `Dockerfile` là bản nháp có căn cứ, không phải bản đã chứng minh.
+
+| File | Vai trò |
+|---|---|
+| `api/Dockerfile` | Ảnh backend — JDK biên dịch, JRE chạy |
+| `web/apps/site/Dockerfile` | Ảnh website khách |
+| `web/apps/admin/Dockerfile` | Ảnh trang quản trị |
+| `deploy/compose.prod.yaml` | Phần dùng chung: sáu service, không publish cổng nào, không proxy. **Tự nó không chạy được** |
+| `deploy/compose.ip.yaml` | Phủ cho chế độ **chưa có tên miền**: mở cổng thẳng, không HTTPS |
+| `deploy/compose.tenmien.yaml` | Phủ cho chế độ **đã có tên miền**: thêm Caddy, chỉ mở 80 và 443 |
+| `deploy/Caddyfile` | HTTPS và bốn tên miền. Chỉ dùng ở chế độ thứ hai |
+
+### 5.0. Hai hình dạng chạy, một dòng quyết định
+
+Máy chủ chạy theo hình dạng nào là **thuộc tính của máy chủ**, không phải của
+pipeline. Nó nằm ở đúng một dòng trong `.env` cạnh các file compose:
+
+```
+COMPOSE_FILE=compose.prod.yaml:compose.ip.yaml       ← chưa có tên miền
+COMPOSE_FILE=compose.prod.yaml:compose.tenmien.yaml  ← đã có tên miền
+```
+
+Compose tự đọc biến này từ `.env`, nên pipeline chạy `docker compose pull` trần,
+không truyền `-f`. Đổi hình dạng là sửa một dòng rồi chạy lại workflow.
+
+| | Chế độ IP | Chế độ tên miền |
+|---|---|---|
+| Định tuyến theo | **Cổng** — `:4000` site, `:4001` quản trị, `:4002` API, `:4003` ảnh | **Host header**, qua Caddy |
+| HTTPS | Không có | Let's Encrypt, tự gia hạn |
+| Cổng mở ra ngoài | 4000–4003; bảng điều khiển MinIO ở 4004 chỉ nghe loopback | 80, 443 |
+| `COOKIE_SECURE` | `false` | `true` |
+| `FORWARD_HEADERS` | `none` | `framework` |
+
+Hai dòng cuối là chỗ hai chế độ **không được nhầm**. Đặt `COOKIE_SECURE=true`
+khi chưa có HTTPS thì trình duyệt lặng lẽ vứt cookie phiên: đăng nhập trang quản
+trị trả 204 thành công, rồi màn hình kế tiếp vẫn đá ngược về trang đăng nhập, và
+không có lỗi nào ở bất cứ đâu — không ở log API, không ở console trình duyệt.
+
+**Chế độ IP không có mã hoá đường truyền.** Mật khẩu đăng nhập trang quản trị và
+cookie phiên đi qua mạng dưới dạng chữ thường. Chấp nhận được khi đang dựng và
+thử; không chấp nhận được khi đã có khách thật và nhân viên thật đăng nhập.
+
+### 5.0.1. Máy chủ này không trống
+
+VPS đang chạy ba dự án khác. Hai hệ quả đã đi vào cấu hình, và cả hai đều là
+loại lỗi chỉ lộ ra sau khi đã hỏng:
+
+- **Cổng.** 8080, 9000, 9001, 8091, 5173, 5179, 3309, 16379 và 5432 đã có chủ.
+  Dải 4000–4004 chọn vì nó trống. Mọi cổng đều lấy từ `.env`, không đặt cứng —
+  kiểm bằng `ss -tlnp` trước khi chạy lần đầu.
+- **Tên compose project là `travel-booking`, không phải `travel`.** Máy chủ đã
+  có sẵn một container tên `travel-web` của dự án khác. Trùng tên project thì
+  `docker compose up -d --remove-orphans` coi container đó là orphan và **xoá
+  nó** — mất một dịch vụ đang chạy, do một lệnh triển khai của dự án khác.
+
+Postgres và Redis của các dự án kia bind vào `127.0.0.1`, và Postgres của dự án
+này không publish cổng nào, nên hai CSDL không đụng nhau dù cùng cổng 5432 bên
+trong container.
+| `.github/workflows/trien-khai.yml` | Pipeline: build → đẩy → SSH → up |
 
 ### 5.1. Đường đi
 
 ```
 đẩy lên main
-  → api.yml và web.yml xanh
-  → build ảnh Docker hai giai đoạn
-  → đẩy lên registry
+  → branch protection đã bắt api.yml và web.yml phải xanh mới vào được main
+  → trien-khai.yml: build ba ảnh Docker hai giai đoạn, song song
+  → đẩy lên GHCR, thẻ = commit SHA
   → SSH vào VPS: docker compose pull && docker compose up -d
   → container mới khởi động, Flyway chạy, nhận traffic
 ```
@@ -199,23 +312,65 @@ Hai giai đoạn trong `Dockerfile` vì ảnh cuối **không được chứa Gr
 đủ, mã nguồn hay bí mật build**: giai đoạn một biên dịch, giai đoạn hai chỉ chép
 file `jar` sang một ảnh JRE.
 
+`trien-khai.yml` **không chạy lại test**. Câu "không bỏ qua CI" của mục 7 được
+giữ bởi **branch protection**, không bởi pipeline: ba check `api`, `web`,
+`tai-lieu` phải được đặt bắt buộc trên nhánh `main`. Chưa bật cài đặt đó thì
+pipeline vẫn chạy đúng, nhưng nó sẽ vui vẻ triển khai một commit đỏ.
+
+**Bối cảnh build của cả ba ảnh là gốc repo**, không phải thư mục của từng ảnh.
+Cả ba đều cần `contracts/openapi.yaml` để sinh code (ADR-002), mà file đó nằm
+ngoài `api/` lẫn `web/`. Lấy thư mục con làm bối cảnh thì build chết ở bước sinh
+code với một thông báo không nhắc gì tới bối cảnh.
+
+### 5.3. Biến bị nướng vào ảnh lúc build
+
+Đây là chỗ dễ mất buổi chiều nhất của cả tài liệu này.
+
+Next.js thay `process.env.NEXT_PUBLIC_*` bằng **giá trị chuỗi** lúc build, và
+bản `output: 'standalone'` còn đóng băng cả `next.config.ts` đã giải trị vào
+`.next/required-server-files.json` — `rewrites()` của trang quản trị nằm trong
+đó. Hệ quả:
+
+- Đặt `NEXT_PUBLIC_API_URL` hay `API_URL` trong `compose.prod.yaml` là **vô tác
+  dụng**. Chúng phải là `--build-arg` của `docker build`, và `trien-khai.yml`
+  truyền chúng từ **GitHub Variables** — biến, không phải bí mật: địa chỉ công
+  khai thì không bí mật gì. Năm biến: `PUBLIC_SITE_URL`, `PUBLIC_API_URL`,
+  `MEDIA_PROTOCOL`, `MEDIA_HOST`, `MEDIA_PORT`. Chúng là **địa chỉ đầy đủ** chứ
+  không phải tên miền, để cùng một pipeline phục vụ được cả `http://<IP>:3000`
+  lẫn `https://vidu.com`.
+- **Ảnh gắn liền với một môi trường.** Không build một ảnh rồi đem cùng ảnh đó
+  chạy ở staging và prod. Ngày trả lời **Q-9** mà câu trả lời là "có staging"
+  thì phải build hai lượt, hai bộ thẻ.
+- Tên miền vì thế xuất hiện **hai chỗ**: GitHub Variables (lúc build) và `.env`
+  trên máy chủ (lúc chạy). Lệch nhau thì site gọi sang API sai địa chỉ và trình
+  duyệt báo lỗi CORS. Đổi tên miền là đổi **cả hai chỗ**.
+
 ### 5.2. Bắt buộc trước lần triển khai `prod` đầu tiên
 
 Danh sách này là **điều kiện chặn**, không phải gợi ý:
 
-- [ ] `DB_PASSWORD` thật, không phải `travel`
-- [ ] `logging.level.vn.travel.booking` hạ từ `DEBUG` xuống `INFO`
-- [ ] `NEXT_PUBLIC_SITE_URL` trỏ tên miền thật. Sitemap và `robots.txt` dùng URL
-      tuyệt đối; để nguyên `localhost` thì công cụ tìm kiếm bỏ qua **toàn bộ**,
-      và không có lỗi nào nổ
-- [ ] Cookie phiên đặt `Secure` — hiện mới có `HttpOnly` + `SameSite=Lax`
-      (`22` mục 9)
-- [ ] HTTPS, và HTTP chuyển hướng sang HTTPS
-- [ ] Sao lưu CSDL có lịch và **đã thử phục hồi một lần** (`35`)
-- [ ] `30`, `31`, `32` ở trạng thái `Đã duyệt` — cổng G5 (`40`)
+Bốn ô đầu nay **đã có chỗ để làm** — cột bên phải nói chỗ đó ở đâu. Chúng vẫn là
+ô chưa tích, vì có chỗ điền không phải là đã điền.
 
-Dòng thứ năm là dòng hay bị bỏ qua nhất: bản sao lưu chưa từng phục hồi thử thì
-chưa phải là bản sao lưu, nó chỉ là một file.
+| | Việc | Làm ở đâu |
+|---|---|---|
+| [ ] | `DB_PASSWORD` thật, không phải `travel` | `.env` trên máy chủ, `openssl rand -base64 32` |
+| [ ] | `MINIO_ROOT_PASSWORD` thật | cùng file |
+| [ ] | `logging.level.vn.travel.booking` hạ xuống `INFO` | `LOGGING_LEVEL_VN_TRAVEL_BOOKING` — đã đặt sẵn trong `compose.prod.yaml` |
+| [ ] | `NEXT_PUBLIC_SITE_URL` trỏ địa chỉ thật | GitHub Variable `PUBLIC_SITE_URL` — **lúc build**, xem mục 5.3 |
+| [ ] | Cookie phiên đặt `Secure` | `SERVER_SERVLET_SESSION_COOKIE_SECURE` + `SERVER_FORWARD_HEADERS_STRATEGY`, cả hai đã đặt sẵn trong `compose.prod.yaml`. Không phải sửa code |
+| [ ] | HTTPS, và HTTP chuyển hướng sang HTTPS | `deploy/Caddyfile` — nhưng **chỉ ở chế độ tên miền**. Chế độ IP hiện tại không có HTTPS, và không thể có: Let's Encrypt không cấp chứng chỉ cho địa chỉ IP |
+| [ ] | Sao lưu CSDL có lịch và **đã thử phục hồi một lần** (`35`) | **Chưa có gì cả** |
+| [ ] | `30`, `31`, `32` ở trạng thái `Đã duyệt` — cổng G5 (`40`) | **Chưa có gì cả** |
+
+Hai dòng cuối là hai dòng chưa có chỗ nào để tích, và dòng sao lưu là dòng hay
+bị bỏ qua nhất: bản sao lưu chưa từng phục hồi thử thì chưa phải là bản sao lưu,
+nó chỉ là một file.
+
+`NEXT_PUBLIC_SITE_URL` cũng đáng dừng lại một nhịp. Nó sai thì **không có lỗi
+nào nổ ra**: site chạy bình thường, chỉ có sitemap và `robots.txt` mang địa chỉ
+`localhost`, và công cụ tìm kiếm bỏ qua toàn bộ site. Không ai phát hiện ra
+trong nhiều tuần.
 
 ---
 
@@ -261,12 +416,16 @@ triển khai sau mới bỏ cột cũ.
 
 ## 8. Việc còn thiếu để tài liệu này thành sự thật
 
-| # | Việc | Chặn ai |
+| # | Việc | Trạng thái |
 |---|---|---|
-| 1 | Đẩy repo lên GitHub, mở một PR thật, xác nhận bộ lọc đường dẫn chạy đúng trên runner | Điều kiện treo số 1 của cổng G2 (`41` mục 7) |
-| 2 | Viết `Dockerfile` hai giai đoạn cho `api/` và cho hai app Next.js | Mục 5 |
-| 3 | Dựng VPS, cài Docker, tạo CSDL `prod` | Mục 1, mục 5 |
-| 4 | Workflow triển khai và ba bí mật của nó | Mục 3.1 |
+| 1 | Mở một PR thật, xác nhận bộ lọc đường dẫn chạy đúng trên runner | **Còn lại** — điều kiện treo số 1 của cổng G2 (`41` mục 7) |
+| 2 | `Dockerfile` hai giai đoạn cho `api/` và hai app Next.js | ✔ có mã — nhưng **chưa build thật lần nào**, xem cảnh báo đầu mục 5 |
+| 3 | Workflow triển khai | ✔ xong — `trien-khai.yml` |
+| 4 | Bật branch protection trên `main`, đặt ba check là bắt buộc | **Còn lại** — không có nó thì mục 7 "không bỏ qua CI đỏ" chỉ là lời hứa |
+| 5 | Điền bốn bí mật SSH và ba biến tên miền vào GitHub | **Còn lại** — mục 3.1 và 5.3 |
+| 6 | Trỏ bốn bản ghi A về máy chủ, tạo `.env` từ `deploy/.env.prod.example` | **Còn lại** — của bạn, không của pipeline |
+| 7 | Chạy `trien-khai.yml` lần đầu và xem nó hỏng ở đâu | **Còn lại** — nó sẽ hỏng ở đâu đó, mọi pipeline đều thế |
+| 8 | Sao lưu CSDL có lịch, và thử phục hồi một lần (`35`) | **Còn lại** — chưa bắt đầu |
 
 ---
 
@@ -276,6 +435,6 @@ triển khai sau mới bỏ cột cũ.
 |---|---|---|
 | **Có môi trường `staging` không** — không có thì lần chạy thật đầu tiên của mọi migration là trên dữ liệu khách | Mục 1 | **Q-9**, đề nghị thêm vào `41` mục 4 |
 | Một hay nhiều instance | Mục 4.1 | **Q-5** ở `41` mục 4 |
-| Registry ảnh: GHCR hay registry riêng trên VPS | Mục 5.1 | Kiến trúc sư |
+| Registry ảnh — pipeline **đang dùng GHCR** làm mặc định, vì nó không phải dựng thêm gì và không phải cất khoá dài hạn nào trên máy chủ. Đổi sang registry riêng là đổi một biến `REGISTRY` | Mục 5.1 | Kiến trúc sư — quyết định vẫn mở, nhưng không còn chặn việc gì |
 | Triển khai không gián đoạn, hay chấp nhận vài giây tắt | Mục 5.1 — quyết định này ràng buộc mục 4.1 | **Q-4** (quy mô) |
 | Cổng thanh toán cần webhook, tức là cần URL công khai ổn định từ trước | `30` | **Q-3** |
