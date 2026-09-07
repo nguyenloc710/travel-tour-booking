@@ -1,10 +1,26 @@
 import type { NextConfig } from 'next';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Gốc của workspace pnpm: web/. Hai cấp lên từ web/apps/site/.
+const GOC_WORKSPACE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const config: NextConfig = {
   // Ba package trong workspace là TypeScript nguồn, không build sẵn.
   transpilePackages: ['@travel/api-client', '@travel/i18n', '@travel/ui'],
 
   typedRoutes: true,
+
+  // Ảnh Docker chạy `node apps/site/server.js`, không chạy `next start`: bản
+  // standalone gói sẵn đúng phần `node_modules` cần tới, nên ảnh cuối không phải
+  // mang theo cả workspace pnpm và toàn bộ devDependencies (docs/34 mục 5.1).
+  output: 'standalone',
+
+  // Bắt buộc trong workspace pnpm. Mặc định Next lấy thư mục của app làm gốc
+  // truy vết tệp, mà ba package `@travel/*` nằm NGOÀI thư mục đó nên bị bỏ sót.
+  // Thiếu dòng này thì ảnh vẫn build xanh rồi chết lúc khởi động vì thiếu
+  // module — hỏng ở nơi cách xa nguyên nhân nhất có thể.
+  outputFileTracingRoot: GOC_WORKSPACE,
 
   images: {
     // Ảnh bộ đến từ kho đối tượng (ADR-011), không từ `public/`. Địa chỉ đầy đủ
