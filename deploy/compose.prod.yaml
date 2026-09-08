@@ -21,70 +21,14 @@
 name: travel-booking
 
 services:
-
-  postgres:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_NAME:?thieu DB_NAME}
-      POSTGRES_USER: ${DB_USER:?thieu DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?thieu DB_PASSWORD}
-      # Giống dev: không đặt collation mặc định cho cả CSDL — docs/12 mục 1.
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    # KHÔNG publish 5432, kể cả ở chế độ IP. Mở cổng CSDL ra Internet là mời cả
-    # thế giới thử mật khẩu. Cần `psql` thì đi qua SSH tunnel:
-    #   ssh -L 5432:localhost:5432 <user>@<vps>
-
-  minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?thieu MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?thieu MINIO_ROOT_PASSWORD}
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD-SHELL", "mc ready local || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  # Tạo bucket và mở quyền đọc ẩn danh rồi thoát — chạy lại được, giống dev.
-  # `next/image` cần tải ảnh mà không ký; chỉ đường GHI mới cần presigned URL.
-  minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set kho http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
-      mc mb --ignore-existing kho/$${MINIO_BUCKET} &&
-      mc anonymous set download kho/$${MINIO_BUCKET}
-      "
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
-      MINIO_BUCKET: ${MINIO_BUCKET:?thieu MINIO_BUCKET}
-    restart: "no"
-
   api:
     image: ${REGISTRY:?thieu REGISTRY}/travel-api:${TAG:?thieu TAG}
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      # `postgres` là tên service, phân giải trong mạng của compose.
-      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      # Kết nối tới Postgres có sẵn trên host VPS thông qua host.docker.internal
+      DB_URL: jdbc:postgresql://host.docker.internal:5432/${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PORT: 8080

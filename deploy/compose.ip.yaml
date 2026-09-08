@@ -32,15 +32,3 @@ services:
   admin:
     ports:
       - "${ADMIN_PORT:?thieu ADMIN_PORT}:3001"
-
-  minio:
-    ports:
-      # Endpoint S3 — BẮT BUỘC mở ra 0.0.0.0, vì trình duyệt của KHÁCH tải ảnh
-      # trực tiếp từ đây (`media_asset.path` ghép với MEDIA_PUBLIC_URL). Đây là
-      # lý do không bind vào 127.0.0.1 như comic-minio đang làm với cổng 9001.
-      - "${MINIO_PORT:?thieu MINIO_PORT}:9000"
-      # Bảng điều khiển, chỉ để bạn nhìn bằng mắt. Bind vào loopback: nó không
-      # cần cho ứng dụng, và mở ra ngoài là thêm một bề mặt đăng nhập không
-      # HTTPS. Cần xem thì đi qua SSH tunnel:
-      #     ssh -L 4004:127.0.0.1:4004 <user>@<vps>
-      - "127.0.0.1:${MINIO_CONSOLE_PORT:?thieu MINIO_CONSOLE_PORT}:9001"
