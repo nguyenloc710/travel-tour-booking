@@ -24,13 +24,28 @@ services:
   api:
     image: ${REGISTRY:?thieu REGISTRY}/travel-api:${TAG:?thieu TAG}
     restart: unless-stopped
+    # Giữ lại: không còn dùng cho CSDL, nhưng `.env` có thể trỏ MEDIA_PUBLIC_URL
+    # hoặc một endpoint khác vào host.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # `default` phải giữ: site và admin gọi `http://api:8080` qua mạng này.
+    # `csdl` là mạng CÓ SẴN của Postgres dùng chung, khai `external` vì compose
+    # project này không tạo nó và không được phép xoá nó.
+    networks:
+      - default
+      - csdl
     environment:
-      # Kết nối tới Postgres có sẵn trên host VPS thông qua host.docker.internal
-      DB_URL: jdbc:postgresql://${DB_URL}:5432/${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      # Postgres là container `shared-postgres` nằm ở mạng dùng chung, KHÔNG
+      # phải tiến trình trên host — nên host ở đây là tên container, và api
+      # phải được nối vào mạng đó thì DNS nội bộ của Docker mới phân giải được.
+      # Nối thiếu mạng thì lỗi là `UnknownHostException` lúc Flyway khởi động.
+      #
+      # `DB_HOST` chứ không phải `DB_URL`: biến dưới đây tên `DB_URL` và ứng
+      # dụng đọc nó như URL JDBC ĐẦY ĐỦ (api/src/main/resources/application.yml).
+      # Dùng chung một tên cho hai thứ khác nhau là chỗ đã gây nhầm một lần.
+      DB_URL: jdbc:postgresql://${DB_HOST:?thieu DB_HOST}:5432/${DB_NAME:?thieu DB_NAME}
+      DB_USER: ${DB_USER:?thieu DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD:?thieu DB_PASSWORD}
       PORT: 8080
 
       # Địa chỉ site như TRÌNH DUYỆT KHÁCH nhìn thấy. Trình duyệt gọi thẳng API
@@ -85,3 +100,17 @@ services:
 volumes:
   pgdata:
   miniodata:
+
+# Mạng của Postgres dùng chung, do dự án khác trên VPS tạo ra. `external: true`
+# nghĩa là compose CHỈ NỐI VÀO, không tạo và không xoá — `docker compose down`
+# ở đây sẽ không đụng tới nó.
+#
+# Tên mạng lấy từ:
+#     docker inspect shared-postgres --format '{{json .NetworkSettings.Networks}}'
+#
+# Để ở `.env` chứ không đặt cứng, vì tên mạng do dự án kia đặt và có thể đổi khi
+# dựng lại máy chủ.
+networks:
+  csdl:
+    external: true
+    name: ${DB_NETWORK:?thieu DB_NETWORK}
