@@ -9,7 +9,7 @@
 # dự án khác — cổng 8080, 9000, 9001, 8091, 5173, 3309, 5179, 16379 và 5432 đã
 # có chủ. Kiểm trước khi chọn:
 #
-#     ss -tlnp | grep -E ':(4000|4001|4002|4003|4004)\s'
+#     ss -tlnp | grep -E ':(4000|4001|4002)\s'
 #
 # Không ra dòng nào là dải còn trống. Trùng cổng thì container không khởi động
 # được và `docker compose up` báo "address already in use".
