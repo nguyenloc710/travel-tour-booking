@@ -66,7 +66,7 @@ class KiemNhatQuanIT {
     @Autowired
     JdbcTemplate jdbc;
 
-    private static boolean daNapMoi;
+    private static boolean seeded;
 
     /**
      * Nạp dữ liệu mồi hai lần, bằng {@code psql} trong container.
@@ -78,14 +78,14 @@ class KiemNhatQuanIT {
      * {@code psql} thì đây đúng là lệnh mà người ta gõ.
      */
     @BeforeEach
-    void napDuLieuMoi() throws IOException, InterruptedException {
+    void loadSeedData() throws IOException, InterruptedException {
         // `@BeforeEach` chứ không `@BeforeAll`: Flyway chạy lúc Spring dựng
         // context, mà context chỉ dựng sau các callback lớp của JUnit. Nạp mồi
         // ở `@BeforeAll` là nạp vào một CSDL chưa có bảng nào.
-        if (daNapMoi) {
+        if (seeded) {
             return;
         }
-        Path moi = tim("scripts/seed-dev.sql");
+        Path moi = find("scripts/seed-dev.sql");
         POSTGRES.copyFileToContainer(MountableFile.forHostPath(moi), "/tmp/seed-dev.sql");
 
         for (int lan = 1; lan <= 2; lan++) {
@@ -95,20 +95,20 @@ class KiemNhatQuanIT {
             assertEquals(0, kq.getExitCode(),
                     "seed-dev.sql đứt ở lần chạy thứ " + lan + ":\n" + kq.getStderr());
         }
-        daNapMoi = true;
+        seeded = true;
     }
 
     @Test
     @DisplayName("dữ liệu mồi không vi phạm quy tắc nào ở mức LOI")
-    void duLieuMoiSach() {
-        assertTrue(daNapMoi, "chưa nạp được dữ liệu mồi");
+    void seedDataHasNoErrors() {
+        assertTrue(seeded, "chưa nạp được dữ liệu mồi");
 
-        List<Map<String, Object>> viPham = chay();
-        List<Map<String, Object>> loi = viPham.stream()
+        List<Map<String, Object>> violation = run();
+        List<Map<String, Object>> loi = violation.stream()
                 .filter(v -> "LOI".equals(v.get("muc_do")))
                 .toList();
 
-        assertTrue(loi.isEmpty(), () -> "vi phạm mức LOI:\n" + moTa(loi));
+        assertTrue(loi.isEmpty(), () -> "vi phạm mức LOI:\n" + description(loi));
     }
 
     /**
@@ -121,13 +121,13 @@ class KiemNhatQuanIT {
      */
     @Test
     @DisplayName("quy tắc 13 vẫn cảnh báo — nó đỏ có chủ ý cho tới khi Q-2 xong")
-    void quyTac13ConCanhBao() {
-        long so = chay().stream()
+    void rule13StillWarns() {
+        long count = run().stream()
                 .filter(v -> Integer.valueOf(13).equals(v.get("quy_tac")))
                 .filter(v -> "CANH_BAO".equals(v.get("muc_do")))
                 .count();
 
-        assertTrue(so > 0,
+        assertTrue(count > 0,
                 "quy tắc 13 không còn cảnh báo nào: hoặc Q-2 đã xong và phải nâng nó "
                         + "lên LOI, hoặc truy vấn của nó đã hỏng");
     }
@@ -140,7 +140,7 @@ class KiemNhatQuanIT {
      */
     @Test
     @DisplayName("quy tắc 23 bắt được ngày khởi hành mất giá phòng đơn")
-    void quyTac23BatDuocLoi() {
+    void rule23CatchesMissingSingleRoomPrice() {
         String ngay = jdbc.queryForObject("""
                 SELECT d.id::text
                 FROM departure d
@@ -153,13 +153,13 @@ class KiemNhatQuanIT {
         jdbc.update("DELETE FROM departure_price WHERE departure_id = ?::uuid "
                 + "AND occupancy = 'SINGLE'", ngay);
         try {
-            List<Map<String, Object>> bat = chay().stream()
+            List<Map<String, Object>> bat = run().stream()
                     .filter(v -> Integer.valueOf(23).equals(v.get("quy_tac")))
                     .filter(v -> String.valueOf(v.get("doi_tuong")).contains(ngay))
                     .toList();
 
             assertEquals(1, bat.size(),
-                    "quy tắc 23 phải bắt đúng ngày vừa gỡ giá, nhận: " + moTa(bat));
+                    "quy tắc 23 phải bắt đúng ngày vừa gỡ giá, nhận: " + description(bat));
         } finally {
             // Trả dữ liệu về như cũ để hai bài test kia không phụ thuộc thứ tự chạy.
             napLaiGiaPhongDon();
@@ -177,15 +177,15 @@ class KiemNhatQuanIT {
         }
     }
 
-    private List<Map<String, Object>> chay() {
+    private List<Map<String, Object>> run() {
         try {
-            return jdbc.queryForList(Files.readString(tim("scripts/kiem-nhat-quan.sql")));
+            return jdbc.queryForList(Files.readString(find("scripts/kiem-nhat-quan.sql")));
         } catch (IOException ex) {
             throw new IllegalStateException("không đọc được bộ kiểm", ex);
         }
     }
 
-    private static String moTa(List<Map<String, Object>> v) {
+    private static String description(List<Map<String, Object>> v) {
         return v.stream()
                 .map(d -> "  [%s] quy tắc %s · %s — %s"
                         .formatted(d.get("muc_do"), d.get("quy_tac"),
@@ -197,14 +197,14 @@ class KiemNhatQuanIT {
      * Gradle chạy test với thư mục làm việc là {@code api/}, còn IDE thì hay đặt
      * ở gốc repo. Thử cả hai thay vì bắt người chạy phải nhớ.
      */
-    private static Path tim(String duongDan) {
-        for (Path goc : List.of(Path.of(""), Path.of("api"), Path.of(".."))) {
-            Path p = goc.resolve(duongDan);
+    private static Path find(String path) {
+        for (Path origin : List.of(Path.of(""), Path.of("api"), Path.of(".."))) {
+            Path p = origin.resolve(path);
             if (Files.exists(p)) {
                 return p.toAbsolutePath().normalize();
             }
         }
-        throw new IllegalStateException("không tìm thấy " + duongDan
+        throw new IllegalStateException("không tìm thấy " + path
                 + " từ " + Path.of("").toAbsolutePath());
     }
 }

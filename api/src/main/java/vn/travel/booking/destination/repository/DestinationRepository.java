@@ -37,10 +37,10 @@ public class DestinationRepository {
                    dt.summary,
                    rt.slug AS region_slug,
                    rt.name AS region_name,
-                   anh.path AS anh_path,
-                   anh.alt  AS anh_alt,
-                   anh.width  AS anh_width,
-                   anh.height AS anh_height,
+                   image.path AS anh_path,
+                   image.alt  AS anh_alt,
+                   image.width  AS anh_width,
+                   image.height AS anh_height,
                    (SELECT count(*)
                       FROM product p
                       JOIN product_market pm
@@ -86,7 +86,7 @@ public class DestinationRepository {
               WHERE di.destination_id = d.id
               ORDER BY di.sort_order
               LIMIT 1
-            ) anh ON TRUE
+            ) image ON TRUE
             WHERE NOT d.soft_delete
             """;
 
@@ -100,42 +100,42 @@ public class DestinationRepository {
     public List<DestinationSummary> findDestinations(String market, String locale, String regionSlug) {
         // Năm tham số của NGUON, đúng thứ tự dấu ? xuất hiện: market và locale của
         // truy vấn đếm, rồi locale của ba phép JOIN dịch — điểm đến, miền, ảnh.
-        List<Object> thamSo = new ArrayList<>(List.of(market, locale, locale, locale, locale));
+        List<Object> params = new ArrayList<>(List.of(market, locale, locale, locale, locale));
         String loc = "";
 
         if (regionSlug != null && !regionSlug.isBlank()) {
             loc = " AND rt.slug = ?";
-            thamSo.add(regionSlug);
+            params.add(regionSlug);
         }
 
         // Sắp theo miền rồi tới thứ tự trong miền: danh sách đọc được như một
         // hành trình từ Bắc vào Nam, không phải một mớ theo bảng chữ cái.
         return jdbc.query(
                 NGUON + loc + " ORDER BY r.sort_order, d.sort_order, dt.slug",
-                (rs, i) -> doc(rs),
-                thamSo.toArray());
+                (rs, i) -> mapRow(rs),
+                params.toArray());
     }
     public Optional<DestinationSummary> findDestination(String market, String locale, String slug) {
         return jdbc.query(
                         NGUON + " AND dt.slug = ?",
-                        (rs, i) -> doc(rs),
+                        (rs, i) -> mapRow(rs),
                         market, locale, locale, locale, locale, slug)
                 .stream()
                 .findFirst();
     }
 
-    private DestinationSummary doc(ResultSet rs) throws SQLException {
+    private DestinationSummary mapRow(ResultSet rs) throws SQLException {
         return new DestinationSummary(
                 rs.getString("slug"),
                 rs.getString("name"),
                 rs.getString("summary"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
-                anh(rs),
+                image(rs),
                 rs.getInt("product_count"));
     }
 
     /** Không có ảnh thì LATERAL trả toàn NULL, và cả khối thành null. */
-    private GalleryImage anh(ResultSet rs) throws SQLException {
+    private GalleryImage image(ResultSet rs) throws SQLException {
         String path = rs.getString("anh_path");
         if (path == null) {
             return null;

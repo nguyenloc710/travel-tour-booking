@@ -84,7 +84,7 @@ public class DepartureEntity extends BaseEntity {
      * setter riêng cho phép tồn tại một khoảnh khắc mà ba cột không khớp nhau —
      * và nếu ai đó quên gọi cái thứ ba thì khoảnh khắc đó thành vĩnh viễn.
      */
-    public void datLich(LocalDate departDate, Short days) {
+    public void setSchedule(LocalDate departDate, Short days) {
         this.departDate = departDate;
         this.days = days;
         this.returnDate = departDate.plusDays(days - 1L);

@@ -61,7 +61,7 @@ class AdminAuthIT {
     }
 
     private static final String SAN_PHAM = "aa000000-0000-4000-8000-000000000001";
-    private static final String MAT_KHAU = "mat-khau-rat-dai";
+    private static final String PASSWORD = "mat-khau-rat-dai";
 
     @LocalServerPort
     int cong;
@@ -70,8 +70,8 @@ class AdminAuthIT {
     JdbcTemplate jdbc;
 
     @BeforeEach
-    void chuanBiDuLieu() {
-        String bam = new BCryptPasswordEncoder().encode(MAT_KHAU);
+    void prepareData() {
+        String hash = new BCryptPasswordEncoder().encode(PASSWORD);
 
         jdbc.execute("""
                 DELETE FROM staff_user_role;
@@ -83,6 +83,7 @@ class AdminAuthIT {
                 DELETE FROM destination;
                 DELETE FROM region_translation;
                 DELETE FROM region;
+                DELETE FROM slug_history;
                 DELETE FROM staff_user;
 
                 INSERT INTO region (id, code, sort_order) VALUES
@@ -108,10 +109,10 @@ class AdminAuthIT {
                         'Rismarker','PUBLISHED');
                 """);
 
-        themNhanVien("aa100000-0000-4000-8000-000000000001", "editor@travel.test", "Biên tập", bam, "EDITOR");
-        themNhanVien("aa100000-0000-4000-8000-000000000002", "dich@travel.test", "Biên dịch", bam, "TRANSLATOR");
-        themNhanVien("aa100000-0000-4000-8000-000000000003", "admin@travel.test", "Quản trị", bam, "ADMIN");
-        themNhanVien("aa100000-0000-4000-8000-000000000004", "danghi@travel.test", "Đã nghỉ", bam, "ADMIN");
+        addStaff("aa100000-0000-4000-8000-000000000001", "editor@travel.test", "Biên tập", hash, "EDITOR");
+        addStaff("aa100000-0000-4000-8000-000000000002", "dich@travel.test", "Biên dịch", hash, "TRANSLATOR");
+        addStaff("aa100000-0000-4000-8000-000000000003", "admin@travel.test", "Quản trị", hash, "ADMIN");
+        addStaff("aa100000-0000-4000-8000-000000000004", "danghi@travel.test", "Đã nghỉ", hash, "ADMIN");
         jdbc.update("UPDATE staff_user SET is_active = FALSE WHERE email = 'danghi@travel.test'");
     }
 
@@ -119,14 +120,14 @@ class AdminAuthIT {
 
     @Test
     @DisplayName("Đăng nhập đúng: 204, không có token trong thân phản hồi, cookie là HttpOnly")
-    void dangNhapDung() {
-        Phien phien = new Phien();
-        ResponseEntity<String> phanHoi = phien.dangNhap("editor@travel.test", MAT_KHAU);
+    void loginSucceedsWithHttpOnlyCookie() {
+        Phien session = new Phien();
+        ResponseEntity<String> response = session.login("editor@travel.test", PASSWORD);
 
-        assertEquals(HttpStatus.NO_CONTENT, phanHoi.getStatusCode());
-        assertNull(phanHoi.getBody(), "Phiên nằm trong cookie, không nằm trong thân phản hồi");
+        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+        assertNull(response.getBody(), "Phiên nằm trong cookie, không nằm trong thân phản hồi");
 
-        String cookie = String.join(" ", phanHoi.getHeaders()
+        String cookie = String.join(" ", response.getHeaders()
                 .getOrDefault(HttpHeaders.SET_COOKIE, List.of()));
         assertTrue(cookie.contains("HttpOnly"),
                 "Thiếu HttpOnly là mã chèn vào trang đọc được phiên — docs/22 mục 9");
@@ -134,102 +135,102 @@ class AdminAuthIT {
 
     @Test
     @DisplayName("Sai mật khẩu và không có tài khoản trả CÙNG một câu trả lời")
-    void saiThongTinDangNhap() {
+    void wrongPasswordAndUnknownUserAnswerAlike() {
         assertEquals(HttpStatus.UNAUTHORIZED,
-                new Phien().dangNhap("editor@travel.test", "sai-mat-khau").getStatusCode());
+                new Phien().login("editor@travel.test", "sai-mat-khau").getStatusCode());
         assertEquals(HttpStatus.UNAUTHORIZED,
-                new Phien().dangNhap("khong-ton-tai@travel.test", MAT_KHAU).getStatusCode(),
+                new Phien().login("khong-ton-tai@travel.test", PASSWORD).getStatusCode(),
                 "Phân biệt hai câu này là cho phép dò email nào có trong hệ thống");
     }
 
     @Test
     @DisplayName("Tài khoản đã tắt không đăng nhập được")
-    void taiKhoanDaTat() {
+    void disabledAccountCannotLogIn() {
         assertEquals(HttpStatus.UNAUTHORIZED,
-                new Phien().dangNhap("danghi@travel.test", MAT_KHAU).getStatusCode());
+                new Phien().login("danghi@travel.test", PASSWORD).getStatusCode());
     }
 
     @Test
     @DisplayName("Chưa đăng nhập thì 401 kèm mã, không chuyển hướng tới trang đăng nhập")
-    void chuaDangNhap() {
-        ResponseEntity<ErrorResponse> phanHoi = new Phien()
-                .goi(HttpMethod.GET, "/api/v1/admin/me", null, ErrorResponse.class);
+    void notLoggedInReturns401() {
+        ResponseEntity<ErrorResponse> response = new Phien()
+                .call(HttpMethod.GET, "/api/v1/admin/me", null, ErrorResponse.class);
 
-        assertEquals(HttpStatus.UNAUTHORIZED, phanHoi.getStatusCode());
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     }
 
     @Test
     @DisplayName("Hồ sơ trả về vai trò; đăng xuất rồi thì không vào được nữa")
-    void hoSoVaDangXuat() {
-        Phien phien = dangNhap("admin@travel.test");
+    void profileThenLogout() {
+        Phien session = login("admin@travel.test");
 
-        StaffProfile ho_so = phien.goi(HttpMethod.GET, "/api/v1/admin/me", null, StaffProfile.class).getBody();
+        StaffProfile ho_so = session.call(HttpMethod.GET, "/api/v1/admin/me", null, StaffProfile.class).getBody();
         assertEquals("admin@travel.test", ho_so.getEmail());
         assertEquals(List.of(StaffProfile.RolesEnum.ADMIN), ho_so.getRoles());
 
         assertEquals(HttpStatus.NO_CONTENT,
-                phien.goi(HttpMethod.DELETE, "/api/v1/admin/session", null, Void.class).getStatusCode());
+                session.call(HttpMethod.DELETE, "/api/v1/admin/session", null, Void.class).getStatusCode());
         assertEquals(HttpStatus.UNAUTHORIZED,
-                phien.goi(HttpMethod.GET, "/api/v1/admin/me", null, ErrorResponse.class).getStatusCode());
+                session.call(HttpMethod.GET, "/api/v1/admin/me", null, ErrorResponse.class).getStatusCode());
     }
 
     // ------------------------------------------------------------ ma trận quyền
 
     @Test
     @DisplayName("TIÊU CHÍ RA: người dịch sửa được bản vi, bị TỪ CHỐI ở bản da")
-    void nguoiDichKhongSuaDuocBanNguon() {
-        Phien phien = dangNhap("dich@travel.test");
+    void translatorCannotEditSourceLocale() {
+        Phien session = login("dich@travel.test");
 
-        assertEquals(HttpStatus.OK, phien.luu("vi", than("viet-nam-tu-bac-vao-nam")).getStatusCode());
+        assertEquals(HttpStatus.OK, session.save("vi", body("viet-nam-tu-bac-vao-nam")).getStatusCode());
 
-        ResponseEntity<ErrorResponse> banNguon = phien.luuLoi("da", than("nord-til-syd-2"));
-        assertEquals(HttpStatus.FORBIDDEN, banNguon.getStatusCode());
-        assertEquals("FORBIDDEN", banNguon.getBody().getCode());
+        ResponseEntity<ErrorResponse> sourceTranslation = session.saveExpectingError("da", body("nord-til-syd-2"));
+        assertEquals(HttpStatus.FORBIDDEN, sourceTranslation.getStatusCode());
+        assertEquals("FORBIDDEN", sourceTranslation.getBody().getCode());
     }
 
     @Test
     @DisplayName("Người viết thì ngược lại: sửa được bản da, bị từ chối ở bản vi")
-    void nguoiVietKhongSuaDuocBanDich() {
-        Phien phien = dangNhap("editor@travel.test");
+    void editorCannotEditTranslatedLocale() {
+        Phien session = login("editor@travel.test");
 
-        assertEquals(HttpStatus.OK, phien.luu("da", than("nord-til-syd")).getStatusCode());
-        assertEquals(HttpStatus.FORBIDDEN, phien.luuLoi("vi", than("bac-vao-nam")).getStatusCode(),
+        assertEquals(HttpStatus.OK, session.save("da", body("nord-til-syd")).getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, session.saveExpectingError("vi", body("bac-vao-nam")).getStatusCode(),
                 "Người viết sửa bản dịch là làm hai bản lệch nhau mà không ai biết bản nào đúng");
     }
 
     @Test
     @DisplayName("ADMIN sửa được cả hai bản")
-    void quanTriSuaDuocCaHai() {
-        Phien phien = dangNhap("admin@travel.test");
+    void adminCanEditBothLocales() {
+        Phien session = login("admin@travel.test");
 
-        assertEquals(HttpStatus.OK, phien.luu("da", than("nord-til-syd")).getStatusCode());
-        assertEquals(HttpStatus.OK, phien.luu("vi", than("bac-vao-nam")).getStatusCode());
+        assertEquals(HttpStatus.OK, session.save("da", body("nord-til-syd")).getStatusCode());
+        assertEquals(HttpStatus.OK, session.save("vi", body("bac-vao-nam")).getStatusCode());
     }
 
     // ------------------------------------------------------------ ghi và kiểm toán
 
     @Test
     @DisplayName("Lưu bản dịch điền created_by và last_modified_by từ người đăng nhập")
-    void cotKiemToanDuocDien() {
-        dangNhap("dich@travel.test").luu("vi", than("bac-vao-nam"));
+    void auditColumnsFilledFromLoggedInUser() {
+        login("dich@travel.test").save("vi", body("bac-vao-nam"));
 
-        Map<String, Object> dong = jdbc.queryForMap("""
+        Map<String, Object> row = jdbc.queryForMap("""
                 SELECT created_by, last_modified_by, created_at, last_modified_at
                 FROM product_translation
                 WHERE product_id = CAST(? AS uuid) AND locale = 'vi'
                 """, SAN_PHAM);
 
-        assertEquals(UUID.fromString("aa100000-0000-4000-8000-000000000002"), dong.get("created_by"),
+        assertEquals(UUID.fromString("aa100000-0000-4000-8000-000000000002"), row.get("created_by"),
                 "Không service nào tự gán cột này — AuditorAware lo");
-        assertEquals(UUID.fromString("aa100000-0000-4000-8000-000000000002"), dong.get("last_modified_by"));
-        assertNotNull(dong.get("last_modified_at"));
+        assertEquals(UUID.fromString("aa100000-0000-4000-8000-000000000002"), row.get("last_modified_by"));
+        assertNotNull(row.get("last_modified_at"));
     }
 
     @Test
     @DisplayName("last_modified_at do TRIGGER đặt, không do ứng dụng")
-    void triggerDatThoiDiemSua() {
-        Phien phien = dangNhap("admin@travel.test");
-        phien.luu("da", than("nord-til-syd"));
+    void triggerSetsLastModifiedAt() {
+        Phien session = login("admin@travel.test");
+        session.save("da", body("nord-til-syd"));
 
         // Đẩy lùi mốc thời gian bằng SQL trần rồi lưu lại: nếu ứng dụng tự ghi
         // cột này thì giá trị mới do Java quyết. Trigger thì luôn đặt now().
@@ -238,7 +239,7 @@ class AdminAuthIT {
                 WHERE product_id = CAST(? AS uuid) AND locale = 'da'
                 """, SAN_PHAM);
 
-        phien.luu("da", than("nord-til-syd-moi"));
+        session.save("da", body("nord-til-syd-moi"));
 
         Boolean moi = jdbc.queryForObject("""
                 SELECT last_modified_at > now() - interval '1 minute'
@@ -250,11 +251,11 @@ class AdminAuthIT {
 
     @Test
     @DisplayName("Danh sách bản dịch trả MỌI locale, ngôn ngữ nguồn trước, kèm cờ quá hạn")
-    void danhSachBanDich() {
-        dangNhap("admin@travel.test").luu("vi", than("bac-vao-nam"));
+    void listsAllLocalesSourceFirst() {
+        login("admin@travel.test").save("vi", body("bac-vao-nam"));
 
-        AdminProductTranslation[] ds = dangNhap("editor@travel.test")
-                .goi(HttpMethod.GET, "/api/v1/admin/products/" + SAN_PHAM + "/translations", null,
+        AdminProductTranslation[] ds = login("editor@travel.test")
+                .call(HttpMethod.GET, "/api/v1/admin/products/" + SAN_PHAM + "/translations", null,
                         AdminProductTranslation[].class)
                 .getBody();
 
@@ -268,9 +269,9 @@ class AdminAuthIT {
 
     @Test
     @DisplayName("Mọi phản hồi quản trị là no-store")
-    void quanTriKhongCache() {
-        String cache = dangNhap("admin@travel.test")
-                .goi(HttpMethod.GET, "/api/v1/admin/me", null, StaffProfile.class)
+    void adminResponsesAreNoStore() {
+        String cache = login("admin@travel.test")
+                .call(HttpMethod.GET, "/api/v1/admin/me", null, StaffProfile.class)
                 .getHeaders().getCacheControl();
 
         assertNotNull(cache);
@@ -280,24 +281,24 @@ class AdminAuthIT {
 
     // ------------------------------------------------------------ tiện ích
 
-    private void themNhanVien(String id, String email, String ten, String bam, String vaiTro) {
+    private void addStaff(String id, String email, String name, String hash, String roles) {
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash)
                 VALUES (CAST(? AS uuid), ?, ?, ?)
-                """, id, email, ten, bam);
+                """, id, email, name, hash);
         jdbc.update("""
                 INSERT INTO staff_user_role (id, staff_user_id, role_code)
                 VALUES (gen_random_uuid(), CAST(? AS uuid), ?)
-                """, id, vaiTro);
+                """, id, roles);
     }
 
-    private Phien dangNhap(String email) {
-        Phien phien = new Phien();
-        assertEquals(HttpStatus.NO_CONTENT, phien.dangNhap(email, MAT_KHAU).getStatusCode());
-        return phien;
+    private Phien login(String email) {
+        Phien session = new Phien();
+        assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
+        return session;
     }
 
-    private static String than(String slug) {
+    private static String body(String slug) {
         return ("{\"slug\":\"%s\",\"title\":\"Tiêu đề\",\"shortDescription\":\"Mô tả ngắn.\","
                 + "\"longDescription\":[\"Đoạn một.\",\"Đoạn hai.\"],"
                 + "\"whyChooseThis\":[\"A\",\"B\",\"C\"],"
@@ -315,60 +316,60 @@ class AdminAuthIT {
 
         private final List<String> cookies = new ArrayList<>();
 
-        ResponseEntity<String> dangNhap(String email, String matKhau) {
-            return goi(HttpMethod.POST, "/api/v1/admin/session",
-                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, matKhau),
+        ResponseEntity<String> login(String email, String password) {
+            return call(HttpMethod.POST, "/api/v1/admin/session",
+                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password),
                     String.class);
         }
 
-        ResponseEntity<AdminProductTranslation> luu(String locale, String than) {
-            return goi(HttpMethod.PUT, duongDanLuu(locale), than, AdminProductTranslation.class);
+        ResponseEntity<AdminProductTranslation> save(String locale, String body) {
+            return call(HttpMethod.PUT, savePath(locale), body, AdminProductTranslation.class);
         }
 
-        ResponseEntity<ErrorResponse> luuLoi(String locale, String than) {
-            return goi(HttpMethod.PUT, duongDanLuu(locale), than, ErrorResponse.class);
+        ResponseEntity<ErrorResponse> saveExpectingError(String locale, String body) {
+            return call(HttpMethod.PUT, savePath(locale), body, ErrorResponse.class);
         }
 
-        private String duongDanLuu(String locale) {
+        private String savePath(String locale) {
             return "/api/v1/admin/products/" + SAN_PHAM + "/translations/" + locale;
         }
 
-        <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan, String than, Class<T> kieu) {
-            RestClient.RequestBodySpec yeuCau = RestClient.builder()
+        <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
+            RestClient.RequestBodySpec request = RestClient.builder()
                     .baseUrl("http://localhost:" + cong)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
-                    .method(phuongThuc)
-                    .uri(duongDan);
+                    .method(httpMethod)
+                    .uri(path);
 
             for (String c : cookies) {
-                yeuCau.header(HttpHeaders.COOKIE, c);
+                request.header(HttpHeaders.COOKIE, c);
             }
-            thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
+            csrfToken().ifPresent(t -> request.header("X-XSRF-TOKEN", t));
 
-            if (than != null) {
-                yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);
+            if (body != null) {
+                request.contentType(MediaType.APPLICATION_JSON).body(body);
             }
 
-            ResponseEntity<T> phanHoi = yeuCau.retrieve().toEntity(kieu);
-            nhoCookie(phanHoi);
-            return phanHoi;
+            ResponseEntity<T> response = request.retrieve().toEntity(type);
+            nhoCookie(response);
+            return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> phanHoi) {
-            List<String> moi = phanHoi.getHeaders().get(HttpHeaders.SET_COOKIE);
+        private void nhoCookie(ResponseEntity<?> response) {
+            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
             if (moi == null) {
                 return;
             }
             for (String c : moi) {
-                String rutGon = c.split(";", 2)[0];
-                String ten = rutGon.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(ten + "="));
-                cookies.add(rutGon);
+                String summary = c.split(";", 2)[0];
+                String name = summary.split("=", 2)[0];
+                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.add(summary);
             }
         }
 
-        private Optional<String> thecCsrf() {
+        private Optional<String> csrfToken() {
             return cookies.stream()
                     .filter(c -> c.startsWith("XSRF-TOKEN="))
                     .map(c -> c.substring("XSRF-TOKEN=".length()))

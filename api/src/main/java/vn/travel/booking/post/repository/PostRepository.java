@@ -46,8 +46,8 @@ public class PostRepository {
      * nói đúng ý định: "bài này có ít nhất một trong các thẻ đó".
      */
     public PagedResult<PostSummary> findPosts(String locale, List<String> tagSlugs, int page, int size) {
-        List<Object> thamSo = new ArrayList<>();
-        thamSo.add(locale);
+        List<Object> params = new ArrayList<>();
+        params.add(locale);
         String loc = "";
 
         if (tagSlugs != null && !tagSlugs.isEmpty()) {
@@ -61,11 +61,11 @@ public class PostRepository {
                                   WHERE ptg.post_id = p.id
                                     AND tt.slug IN (%s))
                     """.formatted(dauHoi);
-            thamSo.add(locale);
-            thamSo.addAll(tagSlugs);
+            params.add(locale);
+            params.addAll(tagSlugs);
         }
 
-        Long tong = jdbc.queryForObject("SELECT count(*) " + NGUON + loc, Long.class, thamSo.toArray());
+        Long tong = jdbc.queryForObject("SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
         long totalItems = tong == null ? 0L : tong;
 
         int offset = page * size;
@@ -73,11 +73,11 @@ public class PostRepository {
             return new PagedResult<>(List.of(), page, size, totalItems);
         }
 
-        List<Object> thamSoTrang = new ArrayList<>(thamSo);
+        List<Object> thamSoTrang = new ArrayList<>(params);
         thamSoTrang.add(size);
         thamSoTrang.add(offset);
 
-        List<Object[]> dong = jdbc.query("""
+        List<Object[]> row = jdbc.query("""
                 SELECT p.id, pt.slug, pt.title, pt.excerpt, p.hero_image, p.published_at
                 """ + NGUON + loc + """
                  ORDER BY p.published_at DESC, pt.slug
@@ -92,19 +92,19 @@ public class PostRepository {
                         rs.getObject("published_at", OffsetDateTime.class)},
                 thamSoTrang.toArray());
 
-        Map<UUID, List<NamedRef>> the = docThe(locale, dong.stream().map(d -> (UUID) d[0]).toList());
+        Map<UUID, List<NamedRef>> tag = readTag(locale, row.stream().map(d -> (UUID) d[0]).toList());
 
-        List<PostSummary> items = dong.stream()
+        List<PostSummary> items = row.stream()
                 .map(d -> new PostSummary(
                         (String) d[1], (String) d[2], (String) d[3], (String) d[4],
                         (OffsetDateTime) d[5],
-                        the.getOrDefault((UUID) d[0], List.of())))
+                        tag.getOrDefault((UUID) d[0], List.of())))
                 .toList();
 
         return new PagedResult<>(items, page, size, totalItems);
     }
     public Optional<PostDetail> findPost(String locale, String slug) {
-        List<Object[]> dong = jdbc.query("""
+        List<Object[]> row = jdbc.query("""
                 SELECT p.id, pt.slug, pt.title, pt.excerpt, pt.body, p.hero_image, p.published_at
                 """ + NGUON + " AND pt.slug = ?",
                 (rs, i) -> new Object[]{
@@ -112,23 +112,23 @@ public class PostRepository {
                         rs.getString("slug"),
                         rs.getString("title"),
                         rs.getString("excerpt"),
-                        mang(rs, "body"),
+                        array(rs, "body"),
                         rs.getString("hero_image"),
                         rs.getObject("published_at", OffsetDateTime.class)},
                 locale, slug);
 
-        if (dong.isEmpty()) {
+        if (row.isEmpty()) {
             return Optional.empty();
         }
 
-        Object[] d = dong.get(0);
+        Object[] d = row.get(0);
         UUID id = (UUID) d[0];
 
         return Optional.of(new PostDetail(
                 (String) d[1], (String) d[2], (String) d[3],
-                castDanhSach(d[4]),
+                castList(d[4]),
                 (String) d[5], (OffsetDateTime) d[6],
-                docThe(locale, List.of(id)).getOrDefault(id, List.of())));
+                readTag(locale, List.of(id)).getOrDefault(id, List.of())));
     }
 
     /**
@@ -136,15 +136,15 @@ public class PostRepository {
      * bài — bài toán N+1 ở một danh sách 12 bài là 13 lần đi lại cơ sở dữ liệu
      * thay vì 2.
      */
-    private Map<UUID, List<NamedRef>> docThe(String locale, List<UUID> postIds) {
+    private Map<UUID, List<NamedRef>> readTag(String locale, List<UUID> postIds) {
         if (postIds.isEmpty()) {
             return Map.of();
         }
         String dauHoi = String.join(",", java.util.Collections.nCopies(postIds.size(), "?"));
 
-        List<Object> thamSo = new ArrayList<>();
-        thamSo.add(locale);
-        thamSo.addAll(postIds);
+        List<Object> params = new ArrayList<>();
+        params.add(locale);
+        params.addAll(postIds);
 
         Map<UUID, List<NamedRef>> ket_qua = new LinkedHashMap<>();
         jdbc.query("""
@@ -160,18 +160,18 @@ public class PostRepository {
                     ket_qua.computeIfAbsent(rs.getObject("post_id", UUID.class), k -> new ArrayList<>())
                             .add(new NamedRef(rs.getString("slug"), rs.getString("name")));
                 },
-                thamSo.toArray());
+                params.toArray());
 
         return ket_qua;
     }
 
-    private static List<String> mang(ResultSet rs, String cot) throws SQLException {
-        java.sql.Array mang = rs.getArray(cot);
-        return mang == null ? List.of() : List.of((String[]) mang.getArray());
+    private static List<String> array(ResultSet rs, String column) throws SQLException {
+        java.sql.Array array = rs.getArray(column);
+        return array == null ? List.of() : List.of((String[]) array.getArray());
     }
 
     @SuppressWarnings("unchecked")
-    private static List<String> castDanhSach(Object gia_tri) {
+    private static List<String> castList(Object gia_tri) {
         return (List<String>) gia_tri;
     }
 }

@@ -22,13 +22,13 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public PagedResult<ProductSummary> danhSach(ProductQuery query) {
+    public PagedResult<ProductSummary> list(ProductQuery query) {
         markets.requireActive(query.market());
         return products.findProducts(query);
     }
 
     @Transactional(readOnly = true)
-    public ProductDetail chiTiet(String market, String locale, String slug) {
+    public ProductDetail detail(String market, String locale, String slug) {
         markets.requireActive(market);
         return products.findProduct(market, locale, slug)
                 .orElseThrow(() -> new NotFoundException(

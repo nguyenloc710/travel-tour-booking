@@ -63,7 +63,7 @@ class RegionEndpointIT {
      * lên production.
      */
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         // Trả trạng thái thị trường về đúng dữ liệu tra cứu: DK bật, VN tắt.
         // Thiếu dòng này thì một test bật VN lên sẽ làm test sau đó xanh nhầm.
         jdbc.update("UPDATE market SET is_active = (code = 'DK')");
@@ -86,17 +86,17 @@ class RegionEndpointIT {
 
     @Test
     @DisplayName("Migration V1 chạy được trên Postgres thật")
-    void migrationChayDuoc() {
-        Integer soBang = jdbc.queryForObject(
+    void migrationRunsOnRealPostgres() {
+        Integer tableCount = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'",
                 Integer.class);
-        assertNotNull(soBang);
-        assertTrue(soBang > 20, "Lược đồ của docs/12 phải dựng xong, đang có " + soBang + " bảng");
+        assertNotNull(tableCount);
+        assertTrue(tableCount > 20, "Lược đồ của docs/12 phải dựng xong, đang có " + tableCount + " bảng");
     }
 
     @Test
     @DisplayName("f_unaccent index được và bỏ dấu đúng cho cả tiếng Việt lẫn tiếng Đan")
-    void fUnaccentHoatDong() {
+    void fUnaccentIndexesAndStripsAccents() {
         assertEquals("Hoi An", jdbc.queryForObject(
                 "SELECT f_unaccent('Hội An')", String.class));
         assertEquals("Halong-bugten", jdbc.queryForObject(
@@ -105,94 +105,94 @@ class RegionEndpointIT {
 
     @Test
     @DisplayName("Collation Đan Mạch xếp æ ø å sau z, không theo thứ tự Unicode")
-    void collationDanMachDungThuTu() {
-        List<String> theoDan = jdbc.queryForList(
+    void danishCollationOrdersSpecialLettersAfterZ() {
+        List<String> danishOrder = jdbc.queryForList(
                 "SELECT v FROM (VALUES ('øst'),('zoo'),('abe')) AS t(v) "
                         + "ORDER BY v COLLATE \"da-DK-x-icu\"",
                 String.class);
-        assertEquals(List.of("abe", "zoo", "øst"), theoDan,
+        assertEquals(List.of("abe", "zoo", "øst"), danishOrder,
                 "String.compareTo() của Java sẽ xếp sai chỗ này");
     }
 
     @Test
     @DisplayName("Locale da trả đủ ba miền, kèm Content-Language và Vary")
-    void locale_da_traDuBaMien() {
-        ResponseEntity<Region[]> phanHoi = goi("dk", "da");
+    void localeDaReturnsAllThreeRegions() {
+        ResponseEntity<Region[]> response = call("dk", "da");
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        assertEquals(3, phanHoi.getBody().length);
-        assertEquals("Nordvietnam", phanHoi.getBody()[0].getName());
-        assertEquals(0, phanHoi.getBody()[0].getProductCount());
-        assertEquals("da", phanHoi.getHeaders().getFirst(HttpHeaders.CONTENT_LANGUAGE));
-        assertTrue(phanHoi.getHeaders().getVary().contains(HttpHeaders.ACCEPT_LANGUAGE),
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(3, response.getBody().length);
+        assertEquals("Nordvietnam", response.getBody()[0].getName());
+        assertEquals(0, response.getBody()[0].getProductCount());
+        assertEquals("da", response.getHeaders().getFirst(HttpHeaders.CONTENT_LANGUAGE));
+        assertTrue(response.getHeaders().getVary().contains(HttpHeaders.ACCEPT_LANGUAGE),
                 "Thiếu Vary là CDN phục vụ bản tiếng Đan cho khách Việt");
     }
 
     @Test
     @DisplayName("Miền thiếu bản dịch vi BIẾN MẤT khỏi locale vi — không fallback về da")
-    void locale_vi_anMienChuaDich() {
-        ResponseEntity<Region[]> phanHoi = goi("dk", "vi");
+    void localeViHidesUntranslatedRegion() {
+        ResponseEntity<Region[]> response = call("dk", "vi");
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        assertEquals(2, phanHoi.getBody().length,
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(2, response.getBody().length,
                 "Miền SOUTH chỉ có bản da nên phải biến mất khỏi locale vi");
 
-        List<String> ten = List.of(phanHoi.getBody()[0].getName(), phanHoi.getBody()[1].getName());
-        assertEquals(List.of("Miền Bắc", "Miền Trung"), ten);
-        assertTrue(ten.stream().noneMatch(t -> t.contains("Sydvietnam")),
+        List<String> name = List.of(response.getBody()[0].getName(), response.getBody()[1].getName());
+        assertEquals(List.of("Miền Bắc", "Miền Trung"), name);
+        assertTrue(name.stream().noneMatch(t -> t.contains("Sydvietnam")),
                 "Không được hiện bản tiếng Đan thay thế — docs/02 mục 4");
     }
 
     @Test
     @DisplayName("Market và locale độc lập: mua ở dk nhưng đọc vi vẫn hợp lệ")
-    void marketVaLocaleDocLap() {
+    void marketAndLocaleAreIndependent() {
         // Thị trường VN đang tắt trong dữ liệu tra cứu vì sáu con số nghiệp vụ
         // của nó chưa ai quyết (docs/41 mục 4, Q-2). Bật lên để kiểm đúng điều
         // cần kiểm ở đây: hai tham số độc lập với nhau.
         jdbc.update("UPDATE market SET is_active = TRUE WHERE code = 'VN'");
 
-        assertEquals(HttpStatus.OK, goi("dk", "vi").getStatusCode());
-        assertEquals(HttpStatus.OK, goi("vn", "da").getStatusCode());
+        assertEquals(HttpStatus.OK, call("dk", "vi").getStatusCode());
+        assertEquals(HttpStatus.OK, call("vn", "da").getStatusCode());
     }
 
     @Test
     @DisplayName("Thị trường đang tắt trả 404, không trả danh sách rỗng")
-    void thiTruongDangTat() {
+    void disabledMarketReturns404() {
         // Rỗng và "không tồn tại" là hai câu trả lời khác nhau: rỗng nói với
         // khách rằng thị trường này có tồn tại nhưng chưa có gì để bán.
-        ResponseEntity<ErrorResponse> phanHoi = goiLoi("vn", "vi");
+        ResponseEntity<ErrorResponse> response = callExpectingError("vn", "vi");
 
-        assertEquals(HttpStatus.NOT_FOUND, phanHoi.getStatusCode());
-        assertEquals("NOT_FOUND", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("NOT_FOUND", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Ngôn ngữ không hỗ trợ thì trả 400 kèm mã, không tự đoán giùm khách")
-    void ngonNguKhongHoTro() {
-        ResponseEntity<ErrorResponse> phanHoi = goiLoi("dk", "de");
+    void unsupportedLanguageReturns400() {
+        ResponseEntity<ErrorResponse> response = callExpectingError("dk", "de");
 
-        assertEquals(HttpStatus.BAD_REQUEST, phanHoi.getStatusCode());
-        assertEquals("UNSUPPORTED_LOCALE", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("UNSUPPORTED_LOCALE", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Bản ghi xoá mềm biến mất khỏi kết quả, không hiện ra khách")
-    void xoaMemBienMatKhoiKetQua() {
+    void softDeletedRowsDisappearFromResults() {
         jdbc.update("UPDATE region_translation SET soft_delete = TRUE, last_modified_by = NULL "
                 + "WHERE region_id = 'd0000000-0000-4000-8000-000000000001' AND locale = 'da'");
 
-        ResponseEntity<Region[]> phanHoi = goi("dk", "da");
+        ResponseEntity<Region[]> response = call("dk", "da");
 
-        assertEquals(2, phanHoi.getBody().length,
+        assertEquals(2, response.getBody().length,
                 "Miền có bản dịch da đã xoá mềm phải rơi khỏi kết quả");
-        assertTrue(java.util.Arrays.stream(phanHoi.getBody())
+        assertTrue(java.util.Arrays.stream(response.getBody())
                         .noneMatch(r -> "Nordvietnam".equals(r.getName())),
                 "Xoá mềm hoạt động âm thầm — quên lọc là rò dữ liệu đã xoá ra khách");
     }
 
     @Test
     @DisplayName("Slug của bản ghi đã xoá mềm dùng lại được — index duy nhất phải bộ phận")
-    void slugDungLaiDuocSauKhiXoaMem() {
+    void slugReusableAfterSoftDelete() {
         jdbc.update("UPDATE region_translation SET soft_delete = TRUE "
                 + "WHERE region_id = 'd0000000-0000-4000-8000-000000000001' AND locale = 'da'");
 
@@ -204,38 +204,38 @@ class RegionEndpointIT {
         jdbc.update("INSERT INTO region_translation (region_id, locale, slug, name) VALUES "
                 + "('d0000000-0000-4000-8000-000000000004','da','nordvietnam','Nordvietnam ny')");
 
-        assertEquals(3, goi("dk", "da").getBody().length);
+        assertEquals(3, call("dk", "da").getBody().length);
     }
 
     @Test
     @DisplayName("Trigger tự đặt last_modified_at, ứng dụng không phải nhớ")
-    void triggerDatLastModifiedAt() {
+    void triggerSetsLastModifiedAt() {
         jdbc.update("UPDATE region SET sort_order = 9 "
                 + "WHERE id = 'd0000000-0000-4000-8000-000000000001'");
 
-        Boolean daDoi = jdbc.queryForObject(
+        Boolean changed = jdbc.queryForObject(
                 "SELECT last_modified_at > created_at FROM region "
                         + "WHERE id = 'd0000000-0000-4000-8000-000000000001'",
                 Boolean.class);
 
-        assertEquals(Boolean.TRUE, daDoi,
+        assertEquals(Boolean.TRUE, changed,
                 "Thiếu trigger thì cột \"sửa lần cuối\" đứng yên vĩnh viễn");
     }
 
     @Test
     @DisplayName("Bảng nhật ký booking_event cố tình KHÔNG có soft_delete")
-    void nhatKyKhongCoXoaMem() {
-        Integer soCot = jdbc.queryForObject(
+    void auditLogHasNoSoftDelete() {
+        Integer columnCount = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'booking_event' "
                         + "AND column_name IN ('soft_delete','last_modified_by')",
                 Integer.class);
 
-        assertEquals(0, soCot,
+        assertEquals(0, columnCount,
                 "Thêm soft_delete vào nhật ký kiểm toán là cho phép giấu lịch sử");
     }
 
-    private ResponseEntity<ErrorResponse> goiLoi(String market, String locale) {
+    private ResponseEntity<ErrorResponse> callExpectingError(String market, String locale) {
         return client().get()
                 .uri("/api/v1/{market}/regions", market)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
@@ -243,7 +243,7 @@ class RegionEndpointIT {
                 .toEntity(ErrorResponse.class);
     }
 
-    private ResponseEntity<Region[]> goi(String market, String locale) {
+    private ResponseEntity<Region[]> call(String market, String locale) {
         return client().get()
                 .uri("/api/v1/{market}/regions", market)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)

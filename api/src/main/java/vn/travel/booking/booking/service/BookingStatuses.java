@@ -44,12 +44,12 @@ public final class BookingStatuses {
     private BookingStatuses() {
     }
 
-    public static boolean diDuoc(BookingStatus tu, BookingStatus sang) {
+    public static boolean canTransitionTo(BookingStatus tu, BookingStatus sang) {
         return DUOC_PHEP.getOrDefault(tu, EnumSet.noneOf(BookingStatus.class)).contains(sang);
     }
 
-    public static void phaiDiDuoc(BookingStatus tu, BookingStatus sang) {
-        if (!diDuoc(tu, sang)) {
+    public static void requireTransition(BookingStatus tu, BookingStatus sang) {
+        if (!canTransitionTo(tu, sang)) {
             throw new IllegalBookingTransitionException(tu, sang);
         }
     }
@@ -59,8 +59,8 @@ public final class BookingStatuses {
      *
      * <p>Dùng để biết đơn nào còn phải theo dõi trên bảng điều khiển quản trị.
      */
-    public static boolean daChot(BookingStatus trangThai) {
-        return DUOC_PHEP.getOrDefault(trangThai, EnumSet.noneOf(BookingStatus.class)).isEmpty();
+    public static boolean isClosed(BookingStatus status) {
+        return DUOC_PHEP.getOrDefault(status, EnumSet.noneOf(BookingStatus.class)).isEmpty();
     }
 
     /**
@@ -70,11 +70,11 @@ public final class BookingStatuses {
      * hoàn tiền và trả chỗ là hai việc độc lập, và giữ chỗ trống trong lúc chờ
      * ngân hàng là mất doanh thu vô ích.
      */
-    public static boolean dangChiemCho(BookingStatus trangThai) {
+    public static boolean dangChiemCho(BookingStatus status) {
         return EnumSet.of(
                 BookingStatus.PENDING_PAYMENT,
                 BookingStatus.PENDING_CONFIRMATION,
                 BookingStatus.CONFIRMED,
-                BookingStatus.COMPLETED).contains(trangThai);
+                BookingStatus.COMPLETED).contains(status);
     }
 }

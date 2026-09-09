@@ -115,24 +115,24 @@ public class ProductRepository {
         this.diaChiKho = diaChiKho;
     }
     public PagedResult<ProductSummary> findProducts(ProductQuery query) {
-        List<Object> thamSo = new ArrayList<>();
-        String loc = dungMenhDeLoc(query, thamSo);
+        List<Object> params = new ArrayList<>();
+        String loc = buildFilterClause(query, params);
 
         Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, thamSo.toArray());
+                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
 
         long totalItems = tong == null ? 0L : tong;
         if (totalItems == 0 || query.offset() >= totalItems) {
             return new PagedResult<>(List.of(), query.page(), query.size(), totalItems);
         }
 
-        List<Object> thamSoTrang = new ArrayList<>(thamSo);
+        List<Object> thamSoTrang = new ArrayList<>(params);
         thamSoTrang.add(query.size());
         thamSoTrang.add(query.offset());
 
         List<ProductSummary> items = jdbc.query(
                 CHON + NGUON + loc + sapXep(query) + " LIMIT ? OFFSET ?",
-                (rs, i) -> docTomTat(rs),
+                (rs, i) -> readSummary(rs),
                 thamSoTrang.toArray());
 
         return new PagedResult<>(items, query.page(), query.size(), totalItems);
@@ -148,7 +148,7 @@ public class ProductRepository {
 
         List<ProductDetail> ket_qua = jdbc.query(
                 sql,
-                (RowMapper<ProductDetail>) (rs, i) -> docChiTiet(rs, locale),
+                (RowMapper<ProductDetail>) (rs, i) -> readDetail(rs, locale),
                 market, locale, locale, locale, slug);
 
         return ket_qua.stream().findFirst();
@@ -156,24 +156,24 @@ public class ProductRepository {
 
     // ------------------------------------------------------------------ lọc
 
-    private String dungMenhDeLoc(ProductQuery query, List<Object> thamSo) {
+    private String buildFilterClause(ProductQuery query, List<Object> params) {
         // Bốn tham số của NGUON, đúng thứ tự dấu ? xuất hiện.
-        thamSo.add(query.market());
-        thamSo.add(query.locale());
-        thamSo.add(query.locale());
-        thamSo.add(query.locale());
+        params.add(query.market());
+        params.add(query.locale());
+        params.add(query.locale());
+        params.add(query.locale());
 
         StringBuilder loc = new StringBuilder();
 
         if (query.regionSlug() != null && !query.regionSlug().isBlank()) {
             loc.append(" AND rt.slug = ?");
-            thamSo.add(query.regionSlug());
+            params.add(query.regionSlug());
         }
         if (query.destinationSlug() != null && !query.destinationSlug().isBlank()) {
             // Lọc theo điểm đến CHÍNH của sản phẩm. Một tour xuyên Việt thuộc về
             // một điểm đến khởi hành, không thuộc về mọi điểm đến nó ghé qua.
             loc.append(" AND dt.slug = ?");
-            thamSo.add(query.destinationSlug());
+            params.add(query.destinationSlug());
         }
         if (query.themeSlugs() != null && !query.themeSlugs().isEmpty()) {
             // EXISTS chứ không JOIN: với JOIN thì sản phẩm mang hai chủ đề đang
@@ -184,18 +184,18 @@ public class ProductRepository {
                .append(" JOIN theme_translation tt ON tt.theme_id = pth.theme_id")
                .append(" AND tt.locale = ? AND NOT tt.soft_delete")
                .append(" WHERE pth.product_id = p.id AND tt.slug IN (").append(dauHoi).append("))");
-            thamSo.add(query.locale());
-            thamSo.addAll(query.themeSlugs());
+            params.add(query.locale());
+            params.addAll(query.themeSlugs());
         }
         if (query.productType() != null) {
             loc.append(" AND p.product_type = ?");
-            thamSo.add(query.productType().name());
+            params.add(query.productType().name());
         }
         if (query.q() != null && !query.q().isBlank()) {
             // f_unaccent ở CẢ HAI VẾ: gõ "hoi an" phải ra "Hội An", mà gõ
             // "Hội An" cũng phải ra. ILIKE lo phần chữ hoa chữ thường.
             loc.append(" AND f_unaccent(pt.title) ILIKE '%' || f_unaccent(?) || '%'");
-            thamSo.add(query.q().trim());
+            params.add(query.q().trim());
         }
         return loc.toString();
     }
@@ -213,7 +213,7 @@ public class ProductRepository {
             default -> "ASC";
         };
 
-        String cot = switch (query.sort()) {
+        String column = switch (query.sort()) {
             case TITLE_ASC, TITLE_DESC -> "pt.title COLLATE \"" + collationCua(query.locale()) + "\"";
             case PRICE_FROM_ASC, PRICE_FROM_DESC -> "pm.price_from";
             case DURATION_DAYS_ASC, DURATION_DAYS_DESC -> "p.duration_days";
@@ -222,7 +222,7 @@ public class ProductRepository {
         // NULLS LAST: sản phẩm chưa có giá xuống cuối chứ không lên đầu.
         // Tiêu chí phụ theo slug để hai lần gọi cùng một trang ra cùng thứ tự —
         // thiếu nó thì phân trang offset lặp hoặc bỏ sót bản ghi.
-        return " ORDER BY " + cot + " " + chieu + " NULLS LAST, pt.slug ASC";
+        return " ORDER BY " + column + " " + chieu + " NULLS LAST, pt.slug ASC";
     }
 
     private String collationCua(String locale) {
@@ -236,7 +236,7 @@ public class ProductRepository {
 
     // ------------------------------------------------------------------ đọc
 
-    private ProductSummary docTomTat(ResultSet rs) throws SQLException {
+    private ProductSummary readSummary(ResultSet rs) throws SQLException {
         return new ProductSummary(
                 rs.getString("slug"),
                 rs.getString("title"),
@@ -244,38 +244,38 @@ public class ProductRepository {
                 rs.getString("short_description"),
                 rs.getString("hero_image"),
                 rs.getString("hero_image_alt"),
-                soNguyenHoacNull(rs, "duration_days"),
+                intOrNull(rs, "duration_days"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
                 new NamedRef(rs.getString("destination_slug"), rs.getString("destination_name")),
                 tien(rs),
                 rs.getBoolean("is_new"),
-                soThucHoacNull(rs, "rating"),
+                decimalOrNull(rs, "rating"),
                 rs.getInt("review_count"));
     }
 
-    private ProductDetail docChiTiet(ResultSet rs, String locale) throws SQLException {
-        ProductType loai = ProductType.valueOf(rs.getString("product_type"));
+    private ProductDetail readDetail(ResultSet rs, String locale) throws SQLException {
+        ProductType type = ProductType.valueOf(rs.getString("product_type"));
         java.util.UUID productId = (java.util.UUID) rs.getObject("product_id");
         return new ProductDetail(
                 rs.getString("slug"),
                 rs.getString("title"),
-                loai,
+                type,
                 rs.getString("short_description"),
-                mang(rs, "long_description"),
-                mang(rs, "why_choose_this"),
+                array(rs, "long_description"),
+                array(rs, "why_choose_this"),
                 rs.getString("hero_image"),
                 rs.getString("hero_image_alt"),
                 rs.getString("map_image"),
-                boAnh(productId, locale),
+                imageSet(productId, locale),
                 rs.getString("layout"),
-                soNguyenHoacNull(rs, "duration_days"),
+                intOrNull(rs, "duration_days"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
                 new NamedRef(rs.getString("destination_slug"), rs.getString("destination_name")),
                 tien(rs),
                 rs.getBoolean("is_new"),
-                soThucHoacNull(rs, "rating"),
+                decimalOrNull(rs, "rating"),
                 rs.getInt("review_count"),
-                bienThe(loai, productId));
+                variant(type, productId));
     }
 
     /**
@@ -293,7 +293,7 @@ public class ProductRepository {
      * URL trực tiếp — chỗ duy nhất quyết định nó còn hiện hay không là truy vấn
      * này.
      */
-    private List<GalleryImage> boAnh(java.util.UUID productId, String locale) {
+    private List<GalleryImage> imageSet(java.util.UUID productId, String locale) {
         return jdbc.query("""
                 SELECT a.path, a.width, a.height, t.alt
                 FROM product_image pi
@@ -322,8 +322,8 @@ public class ProductRepository {
      * được</b> — {@code switch} trên enum có đủ nhánh là điều kiện bắt buộc khi
      * dùng dạng biểu thức.
      */
-    private ProductVariant bienThe(ProductType loai, java.util.UUID productId) {
-        return switch (loai) {
+    private ProductVariant variant(ProductType type, java.util.UUID productId) {
+        return switch (type) {
             case GROUP_TOUR -> jdbc.queryForObject("""
                     SELECT min_pax, max_pax, guaranteed_threshold, tour_leader_language, fitness_level
                     FROM product_group_tour WHERE product_id = ?
@@ -384,28 +384,28 @@ public class ProductRepository {
      * mặt số học nhưng sai về mặt tiền tệ.
      */
     private Money tien(ResultSet rs) throws SQLException {
-        BigDecimal soTien = rs.getBigDecimal("price_from");
-        if (soTien == null) {
+        BigDecimal amount = rs.getBigDecimal("price_from");
+        if (amount == null) {
             return null;
         }
-        return new Money(soTien, rs.getString("currency")).round(rs.getInt("fraction_digits"));
+        return new Money(amount, rs.getString("currency")).round(rs.getInt("fraction_digits"));
     }
 
-    private static List<String> mang(ResultSet rs, String cot) throws SQLException {
-        java.sql.Array mang = rs.getArray(cot);
-        if (mang == null) {
+    private static List<String> array(ResultSet rs, String column) throws SQLException {
+        java.sql.Array array = rs.getArray(column);
+        if (array == null) {
             return List.of();
         }
-        return List.of((String[]) mang.getArray());
+        return List.of((String[]) array.getArray());
     }
 
-    private static Integer soNguyenHoacNull(ResultSet rs, String cot) throws SQLException {
-        int gia_tri = rs.getInt(cot);
+    private static Integer intOrNull(ResultSet rs, String column) throws SQLException {
+        int gia_tri = rs.getInt(column);
         return rs.wasNull() ? null : gia_tri;
     }
 
-    private static Double soThucHoacNull(ResultSet rs, String cot) throws SQLException {
-        double gia_tri = rs.getDouble(cot);
+    private static Double decimalOrNull(ResultSet rs, String column) throws SQLException {
+        double gia_tri = rs.getDouble(column);
         return rs.wasNull() ? null : gia_tri;
     }
 }

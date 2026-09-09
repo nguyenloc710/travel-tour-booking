@@ -258,21 +258,35 @@ rò dữ liệu đã xoá ra khách mà không có lỗi nào nổ.
 
 ## 8. Đổi API
 
-Spec-first. **Không sửa controller trước.**
+Spec-first vẫn là quy tắc, nhưng **cách bắt buộc nó đã đổi** — ADR-012.
 
 ```
 1. Sửa contracts/openapi.yaml
-2. pnpm contracts:generate
-3. Controller implements interface mới — quên là lỗi biên dịch
+2. pnpm contracts:generate          ← sinh MODEL, không còn sinh interface
+3. Sửa annotation trên controller cho khớp
 ```
 
-Interface sinh ra **không commit**, sinh lúc build — vào
+**Bước 3 không còn là lỗi biên dịch.** Controller thôi `implements` interface
+sinh ra; annotation định tuyến nằm thẳng trên controller. Quên bước 3 thì build
+vẫn xanh, và cái sai chỉ lộ ra lúc frontend gọi.
+
+Lưới còn lại là `SwaggerIT.springdocPathsMatchContract` — nó so **tập đường dẫn**
+springdoc đọc từ code với `contracts/openapi.yaml`. Thêm endpoint mà quên khai
+trong spec thì đỏ; **đổi kiểu tham số hay đổi tên trường thì không ai bắt.**
+
+Model sinh ra **không commit**, sinh lúc build — vào
 `api/build/generated/openapi`. Hook `.claude/hooks/chan-file-sinh-ra.py` chặn
 sửa tay chỗ đó.
 
-Ví dụ đang chạy: `RegionController implements RegionsApi`. Đổi
-`contracts/openapi.yaml` rồi chạy `./gradlew build` mà quên sửa controller thì
-build đỏ ngay ở bước biên dịch.
+### Swagger
+
+`http://localhost:8080/swagger-ui.html` — spec sinh từ code ở `/v3/api-docs`.
+
+Spec đó **không phải** `contracts/openapi.yaml`. Hai bản có thể lệch nhau; khi
+lệch thì bản trong `contracts/` đúng, vì frontend sinh client từ đó.
+
+**Tắt ở bản chạy thật**: `SPRINGDOC_API_DOCS_ENABLED=false` và
+`SPRINGDOC_SWAGGER_UI_ENABLED=false`. Trang này liệt kê đủ cả bề mặt quản trị.
 
 ---
 

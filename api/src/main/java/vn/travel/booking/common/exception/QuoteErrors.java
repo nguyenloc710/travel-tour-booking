@@ -24,8 +24,8 @@ public final class QuoteErrors {
      * giá". Hai mã riêng vì frontend dẫn khách đi hai hướng khác nhau.
      */
     public static class ProductNotQuotable extends RuntimeException {
-        public ProductNotQuotable(String chiTiet) {
-            super(chiTiet);
+        public ProductNotQuotable(String detail) {
+            super(detail);
         }
     }
 
@@ -59,15 +59,15 @@ public final class QuoteErrors {
      * sau, và dự án này <b>không có tỷ giá ở đâu cả</b> (CLAUDE.md điều 4).
      */
     public static class CurrencyMismatch extends RuntimeException {
-        public CurrencyMismatch(String chiTiet) {
-            super(chiTiet);
+        public CurrencyMismatch(String detail) {
+            super(detail);
         }
     }
 
     /** Báo giá đã quá {@code valid_until}. HTTP 409 — quy tắc 4, không tự gia hạn. */
     public static class QuoteExpired extends RuntimeException {
-        public QuoteExpired(String chiTiet) {
-            super(chiTiet);
+        public QuoteExpired(String detail) {
+            super(detail);
         }
     }
 

@@ -42,13 +42,13 @@ public interface ProductTranslationMapper {
     @Mapping(target = "translatedAt", ignore = true)
     @Mapping(target = "translatedBy", ignore = true)
     @Mapping(target = "softDelete", ignore = true)
-    void ghiVao(ProductTranslationInput input, @MappingTarget ProductTranslationEntity entity);
+    void writeTo(ProductTranslationInput input, @MappingTarget ProductTranslationEntity entity);
 
-    default String[] sangMang(List<String> danhSach) {
-        return danhSach == null ? null : danhSach.toArray(String[]::new);
+    default String[] sangMang(List<String> list) {
+        return list == null ? null : list.toArray(String[]::new);
     }
 
-    default List<String> sangDanhSach(String[] mang) {
-        return mang == null ? List.of() : List.of(mang);
+    default List<String> toViewList(String[] array) {
+        return array == null ? List.of() : List.of(array);
     }
 }

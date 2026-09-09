@@ -1,19 +1,24 @@
 package vn.travel.booking.theme.controller;
 
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import vn.travel.booking.common.util.RequestScope;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import vn.travel.booking.theme.service.ThemeService;
-import vn.travel.booking.web.generated.api.ThemesApi;
 import vn.travel.booking.web.generated.model.Theme;
 
 import java.time.Duration;
 import java.util.List;
 
 @RestController
-public class ThemeController implements ThemesApi {
+@Validated
+public class ThemeController {
 
     private final ThemeService listThemes;
 
@@ -21,8 +26,15 @@ public class ThemeController implements ThemesApi {
         this.listThemes = listThemes;
     }
 
-    @Override
-    public ResponseEntity<List<Theme>> listThemes(String market, String acceptLanguage) {
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/themes",
+        produces = { "application/json" }
+    )
+    public ResponseEntity<List<Theme>> listThemes(
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage
+    ) {
         String locale = RequestScope.locale(acceptLanguage);
 
         List<Theme> than = listThemes.execute(RequestScope.market(market), locale).stream()

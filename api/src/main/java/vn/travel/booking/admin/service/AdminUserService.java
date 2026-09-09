@@ -21,15 +21,15 @@ public class AdminUserService {
 
     private static final String ADMIN = "ADMIN";
 
-    private final AdminUserRepository nguoiDung;
+    private final AdminUserRepository user;
 
-    public AdminUserService(AdminUserRepository nguoiDung) {
-        this.nguoiDung = nguoiDung;
+    public AdminUserService(AdminUserRepository user) {
+        this.user = user;
     }
 
     @Transactional(readOnly = true)
-    public List<StaffUserView> danhSach() {
-        return nguoiDung.findAll();
+    public List<StaffUserView> list() {
+        return user.findAll();
     }
 
     /**
@@ -41,22 +41,22 @@ public class AdminUserService {
      * lý do M14 không có nút Xoá, kể cả xoá mềm.
      */
     @Transactional
-    public StaffUserView sua(UUID id, String displayName, Boolean isActive, UUID nhanVienId) {
-        StaffUserView hienTai = phaiCo(id);
+    public StaffUserView sua(UUID id, String displayName, Boolean isActive, UUID staffUserId) {
+        StaffUserView current = require(id);
 
         // Tắt người cuối cùng còn mang vai trò ADMIN và đang bật thì không còn
         // ai vào lại được màn hình này, và lối ra duy nhất là UPDATE tay trên
         // cơ sở dữ liệu lúc nửa đêm.
         if (Boolean.FALSE.equals(isActive)
-                && hienTai.isActive()
-                && hienTai.roles().contains(ADMIN)
-                && nguoiDung.demAdminKhac(id) == 0) {
+                && current.isActive()
+                && current.roles().contains(ADMIN)
+                && user.countOtherAdmins(id) == 0) {
 
             throw new AdminErrors.LastAdmin("không tắt được ADMIN đang bật cuối cùng");
         }
 
-        nguoiDung.patch(id, displayName, isActive, nhanVienId);
-        return phaiCo(id);
+        user.patch(id, displayName, isActive, staffUserId);
+        return require(id);
     }
 
     /**
@@ -68,19 +68,19 @@ public class AdminUserService {
      */
     @Transactional
     public StaffUserView datVaiTro(UUID id, List<String> roles) {
-        StaffUserView hienTai = phaiCo(id);
+        StaffUserView current = require(id);
 
-        boolean dangGoAdmin = hienTai.roles().contains(ADMIN) && !roles.contains(ADMIN);
-        if (dangGoAdmin && hienTai.isActive() && nguoiDung.demAdminKhac(id) == 0) {
+        boolean dangGoAdmin = current.roles().contains(ADMIN) && !roles.contains(ADMIN);
+        if (dangGoAdmin && current.isActive() && user.countOtherAdmins(id) == 0) {
             throw new AdminErrors.LastAdmin("không gỡ được vai trò của ADMIN cuối cùng");
         }
 
-        nguoiDung.datVaiTro(id, roles.stream().distinct().toList());
-        return phaiCo(id);
+        user.datVaiTro(id, roles.stream().distinct().toList());
+        return require(id);
     }
 
-    private StaffUserView phaiCo(UUID id) {
-        return nguoiDung.find(id)
+    private StaffUserView require(UUID id) {
+        return user.find(id)
                 .orElseThrow(() -> new NotFoundException("staff_user id=" + id));
     }
 }

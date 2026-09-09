@@ -19,17 +19,17 @@ import java.util.List;
 @Service
 public class TranslationWorkService {
 
-    private final TranslationWorkRepository congViec;
+    private final TranslationWorkRepository translationWorkRepository;
     private final LocaleRepository locale;
 
-    public TranslationWorkService(TranslationWorkRepository congViec, LocaleRepository locale) {
-        this.congViec = congViec;
+    public TranslationWorkService(TranslationWorkRepository translationWorkRepository, LocaleRepository locale) {
+        this.translationWorkRepository = translationWorkRepository;
         this.locale = locale;
     }
 
     @Transactional(readOnly = true)
-    public List<QueueItem> hangDoi(String entityType, int limit) {
-        return congViec.queue(locale.localeNguon(), entityType, limit);
+    public List<QueueItem> queue(String entityType, int limit) {
+        return translationWorkRepository.queue(locale.localeNguon(), entityType, limit);
     }
 
     /**
@@ -37,6 +37,6 @@ public class TranslationWorkService {
      */
     @Transactional(readOnly = true)
     public List<CoverageRow> doPhu(String locale) {
-        return congViec.coverage(this.locale.localeNguon(), locale);
+        return translationWorkRepository.coverage(this.locale.localeNguon(), locale);
     }
 }

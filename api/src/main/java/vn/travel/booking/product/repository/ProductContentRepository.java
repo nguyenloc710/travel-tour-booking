@@ -127,7 +127,7 @@ public class ProductContentRepository {
                 """,
                 (rs, i) -> new HotelStay(
                         rs.getString("name"),
-                        soNguyenHoacNull(rs.getInt("stars"), rs.wasNull()),
+                        intOrNull(rs.getInt("stars"), rs.wasNull()),
                         rs.getInt("nights"),
                         new NamedRef(rs.getString("destination_slug"), rs.getString("destination_name")),
                         rs.getString("description"),
@@ -187,7 +187,7 @@ public class ProductContentRepository {
                     int nguong = rs.getInt("guaranteed_threshold");
                     Integer guaranteed = rs.wasNull() ? null : nguong;
 
-                    BigDecimal gia = rs.getBigDecimal("price_from");
+                    BigDecimal price = rs.getBigDecimal("price_from");
 
                     return new DepartureView(
                             rs.getObject("id", UUID.class),
@@ -198,8 +198,8 @@ public class ProductContentRepository {
                                     BaseDepartureStatus.valueOf(rs.getString("base_status")),
                                     booked, conLai, guaranteed, fewSeatsThreshold),
                             conLai,
-                            gia == null ? null
-                                    : new Money(gia, rs.getString("currency"))
+                            price == null ? null
+                                    : new Money(price, rs.getString("currency"))
                                             .round(rs.getInt("fraction_digits")),
                             rs.getString("cabin_category"),
                             rs.getString("departure_city"));
@@ -207,7 +207,7 @@ public class ProductContentRepository {
                 productId, market);
     }
 
-    private static Integer soNguyenHoacNull(int gia_tri, boolean rong) {
+    private static Integer intOrNull(int gia_tri, boolean rong) {
         return rong ? null : gia_tri;
     }
 }

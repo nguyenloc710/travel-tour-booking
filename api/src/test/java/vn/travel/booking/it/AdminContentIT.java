@@ -45,14 +45,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Bốn bài đáng chú ý nhất:
  *
  * <ul>
- *   <li>{@code nguoiDichKhongSuaDuocBanNguon} — luật lệch nhau giữa hai vai trò
+ *   <li>{@code translatorCannotEditSourceLocale} — luật lệch nhau giữa hai vai trò
  *       là thứ duy nhất giữ cho bản nguồn và bản dịch không bị hai người sửa
  *       theo hai hướng.
- *   <li>{@code xoaDiemDenConSanPhamThiTuChoi} — cứ cho xoá thì không có gì nổ,
+ *   <li>{@code deletingDestinationWithProductsReturns409} — cứ cho xoá thì không có gì nổ,
  *       sản phẩm chỉ lặng lẽ biến mất khỏi listing.
- *   <li>{@code baiVietXuatBanViThiHienOBeMatKhach} — đi hết vòng: tạo ở quản
+ *   <li>{@code publishedViPostAppearsOnPublicSurface} — đi hết vòng: tạo ở quản
  *       trị, dịch, xuất bản, rồi kiểm bằng chính endpoint của khách.
- *   <li>{@code khongGoDuocVaiTroCuaAdminCuoiCung} — lưới an toàn giữ cho hệ
+ *   <li>{@code cannotRemoveRoleFromLastAdmin} — lưới an toàn giữ cho hệ
  *       thống còn mở được cửa.
  * </ul>
  */
@@ -75,7 +75,7 @@ class AdminContentIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    private static final String MAT_KHAU = "mat-khau-rat-dai";
+    private static final String PASSWORD = "mat-khau-rat-dai";
 
     /** Có sản phẩm trỏ tới — không xoá được. */
     private static final String DIEM_DEN_DANG_DUNG = "dd000000-0000-4000-8000-0000000000f2";
@@ -99,7 +99,7 @@ class AdminContentIT {
     JdbcTemplate jdbc;
 
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM staff_user_role;
                 DELETE FROM post_tag;
@@ -117,6 +117,7 @@ class AdminContentIT {
                 DELETE FROM destination;
                 DELETE FROM region_translation;
                 DELETE FROM region;
+                DELETE FROM slug_history;
                 DELETE FROM staff_user;
 
                 INSERT INTO region (id, code, sort_order) VALUES
@@ -181,11 +182,11 @@ class AdminContentIT {
                   ('dd300000-0000-4000-8000-000000000002','da','Mekong','Floden.');
                 """);
 
-        String bam = new BCryptPasswordEncoder().encode(MAT_KHAU);
-        themNhanVien(ADMIN_1, "admin1@travel.test", "Quản trị Một", bam, "ADMIN");
-        themNhanVien(ADMIN_2, "admin2@travel.test", "Quản trị Hai", bam, "ADMIN");
-        themNhanVien(BIEN_TAP, "bientap@travel.test", "Biên tập", bam, "EDITOR");
-        themNhanVien(NGUOI_DICH, "nguoidich@travel.test", "Người dịch", bam, "TRANSLATOR");
+        String hash = new BCryptPasswordEncoder().encode(PASSWORD);
+        addStaff(ADMIN_1, "admin1@travel.test", "Quản trị Một", hash, "ADMIN");
+        addStaff(ADMIN_2, "admin2@travel.test", "Quản trị Hai", hash, "ADMIN");
+        addStaff(BIEN_TAP, "bientap@travel.test", "Biên tập", hash, "EDITOR");
+        addStaff(NGUOI_DICH, "nguoidich@travel.test", "Người dịch", hash, "TRANSLATOR");
     }
 
     // ==================================================== M13
@@ -201,38 +202,38 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Người dịch KHÔNG sửa được bản ngôn ngữ nguồn — 403")
-        void nguoiDichKhongSuaDuocBanNguon() {
-            ResponseEntity<ErrorResponse> phanHoi = dangNhap("nguoidich@travel.test").goi(
+        void translatorCannotEditSourceLocale() {
+            ResponseEntity<ErrorResponse> response = login("nguoidich@travel.test").call(
                     HttpMethod.PUT,
                     "/api/v1/admin/destinations/" + DIEM_DEN_DANG_DUNG + "/translations/da",
                     "{\"slug\":\"hanoi-moi\",\"name\":\"Hanoi\"}", ErrorResponse.class);
 
-            assertEquals(HttpStatus.FORBIDDEN, phanHoi.getStatusCode());
-            assertEquals("FORBIDDEN", phanHoi.getBody().getCode());
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+            assertEquals("FORBIDDEN", response.getBody().getCode());
         }
 
         @Test
         @DisplayName("Biên tập KHÔNG sửa được bản dịch — 403")
-        void bienTapKhongSuaDuocBanDich() {
-            ResponseEntity<ErrorResponse> phanHoi = dangNhap("bientap@travel.test").goi(
+        void editorCannotEditTranslation() {
+            ResponseEntity<ErrorResponse> response = login("bientap@travel.test").call(
                     HttpMethod.PUT,
                     "/api/v1/admin/destinations/" + DIEM_DEN_DANG_DUNG + "/translations/vi",
                     "{\"slug\":\"ha-noi\",\"name\":\"Hà Nội\"}", ErrorResponse.class);
 
-            assertEquals(HttpStatus.FORBIDDEN, phanHoi.getStatusCode());
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         }
 
         @Test
         @DisplayName("Mỗi vai trò sửa đúng bản của mình")
-        void moiVaiTroSuaDungBanCuaMinh() {
-            ResponseEntity<AdminDestinationDetail> nguon = dangNhap("bientap@travel.test").goi(
+        void eachRoleEditsItsOwnLocale() {
+            ResponseEntity<AdminDestinationDetail> source = login("bientap@travel.test").call(
                     HttpMethod.PUT,
                     "/api/v1/admin/destinations/" + DIEM_DEN_DANG_DUNG + "/translations/da",
                     "{\"slug\":\"hanoi\",\"name\":\"Hanoi by\",\"summary\":\"Hovedstaden.\"}",
                     AdminDestinationDetail.class);
-            assertEquals(HttpStatus.OK, nguon.getStatusCode());
+            assertEquals(HttpStatus.OK, source.getStatusCode());
 
-            ResponseEntity<AdminDestinationDetail> dich = dangNhap("nguoidich@travel.test").goi(
+            ResponseEntity<AdminDestinationDetail> dich = login("nguoidich@travel.test").call(
                     HttpMethod.PUT,
                     "/api/v1/admin/destinations/" + DIEM_DEN_DANG_DUNG + "/translations/vi",
                     "{\"slug\":\"ha-noi\",\"name\":\"Hà Nội\"}",
@@ -258,14 +259,14 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Xoá điểm đến còn sản phẩm trỏ tới: 409, kèm số sản phẩm")
-        void xoaDiemDenConSanPhamThiTuChoi() {
-            ResponseEntity<ErrorResponse> phanHoi = dangNhap("admin1@travel.test").goi(
+        void deletingDestinationWithProductsReturns409() {
+            ResponseEntity<ErrorResponse> response = login("admin1@travel.test").call(
                     HttpMethod.DELETE, "/api/v1/admin/destinations/" + DIEM_DEN_DANG_DUNG,
                     null, ErrorResponse.class);
 
-            assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-            assertEquals("DESTINATION_IN_USE", phanHoi.getBody().getCode());
-            assertEquals(1, ((Number) phanHoi.getBody().getParams().get("productCount")).intValue());
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("DESTINATION_IN_USE", response.getBody().getCode());
+            assertEquals(1, ((Number) response.getBody().getParams().get("productCount")).intValue());
         }
 
         /**
@@ -276,26 +277,26 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Xoá điểm đến rảnh: xoá mềm cả bản dịch của nó")
-        void xoaDiemDenRanhThiXoaCaChum() {
-            ResponseEntity<String> phanHoi = dangNhap("admin1@travel.test").goi(
+        void deletingFreeDestinationSoftDeletesTranslations() {
+            ResponseEntity<String> response = login("admin1@travel.test").call(
                     HttpMethod.DELETE, "/api/v1/admin/destinations/" + DIEM_DEN_RANH,
                     null, String.class);
 
-            assertEquals(HttpStatus.NO_CONTENT, phanHoi.getStatusCode());
-            assertEquals(1, dem("SELECT count(*) FROM destination WHERE id = '"
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
+            assertEquals(1, count("SELECT count(*) FROM destination WHERE id = '"
                     + DIEM_DEN_RANH + "' AND soft_delete"));
-            assertEquals(1, dem("SELECT count(*) FROM destination_translation"
+            assertEquals(1, count("SELECT count(*) FROM destination_translation"
                     + " WHERE destination_id = '" + DIEM_DEN_RANH + "' AND soft_delete"));
         }
 
         @Test
         @DisplayName("Biên tập không xoá được điểm đến — chỉ ADMIN")
-        void bienTapKhongXoaDuocDiemDen() {
-            ResponseEntity<ErrorResponse> phanHoi = dangNhap("bientap@travel.test").goi(
+        void editorCannotDeleteDestination() {
+            ResponseEntity<ErrorResponse> response = login("bientap@travel.test").call(
                     HttpMethod.DELETE, "/api/v1/admin/destinations/" + DIEM_DEN_RANH,
                     null, ErrorResponse.class);
 
-            assertEquals(HttpStatus.FORBIDDEN, phanHoi.getStatusCode());
+            assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         }
 
         /**
@@ -304,24 +305,24 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Danh sách bài viết nói rõ locale nào còn thiếu")
-        void danhSachBaiVietNoiRoLocaleThieu() {
-            AdminPostPage trang = dangNhap("bientap@travel.test")
-                    .lay("/api/v1/admin/posts", AdminPostPage.class).getBody();
+        void postListNamesMissingLocales() {
+            AdminPostPage trang = login("bientap@travel.test")
+                    .get("/api/v1/admin/posts", AdminPostPage.class).getBody();
 
             assertNotNull(trang);
             assertEquals(1L, trang.getTotalItems());
 
-            var bai = trang.getItems().getFirst();
-            assertEquals("Morgenmad i Hanoi", bai.getTitle());
-            assertEquals(AdminContentLocaleState.PUBLISHED, bai.getLocales().get("da"));
-            assertEquals(AdminContentLocaleState.MISSING, bai.getLocales().get("vi"));
-            assertEquals(1, bai.getTags().size());
+            var post = trang.getItems().getFirst();
+            assertEquals("Morgenmad i Hanoi", post.getTitle());
+            assertEquals(AdminContentLocaleState.PUBLISHED, post.getLocales().get("da"));
+            assertEquals(AdminContentLocaleState.MISSING, post.getLocales().get("vi"));
+            assertEquals(1, post.getTags().size());
         }
 
         @Test
         @DisplayName("Tạo bài viết kèm luôn bản nguồn")
-        void taoBaiVietKemBanNguon() {
-            ResponseEntity<AdminPostDetail> phanHoi = dangNhap("bientap@travel.test").goi(
+        void createPostWithSourceTranslation() {
+            ResponseEntity<AdminPostDetail> response = login("bientap@travel.test").call(
                     HttpMethod.POST, "/api/v1/admin/posts",
                     """
                     {"heroImage":"/img/moi.jpg",
@@ -331,8 +332,8 @@ class AdminContentIT {
                     """.formatted(THE_VAN_HOA),
                     AdminPostDetail.class);
 
-            assertEquals(HttpStatus.CREATED, phanHoi.getStatusCode());
-            AdminPostDetail moi = phanHoi.getBody();
+            assertEquals(HttpStatus.CREATED, response.getStatusCode());
+            AdminPostDetail moi = response.getBody();
             assertNotNull(moi);
             assertEquals(1, moi.getTranslations().size());
             assertEquals("Nyt indlæg", moi.getTranslations().getFirst().getTitle());
@@ -351,28 +352,28 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Sửa ảnh bìa KHÔNG đụng tới thẻ; endpoint thẻ thì thay sạch")
-        void suaAnhBiaKhongDungToiThe() {
-            Phien phien = dangNhap("bientap@travel.test");
+        void editingCoverImageDoesNotTouchTags() {
+            Phien session = login("bientap@travel.test");
 
-            AdminPostDetail sauKhiDoiAnh = phien.goi(HttpMethod.PATCH,
+            AdminPostDetail afterImageChange = session.call(HttpMethod.PATCH,
                     "/api/v1/admin/posts/" + BAI_VIET,
                     "{\"heroImage\":\"/img/khac.jpg\"}", AdminPostDetail.class).getBody();
-            assertNotNull(sauKhiDoiAnh);
-            assertEquals("/img/khac.jpg", sauKhiDoiAnh.getHeroImage());
-            assertEquals(1, sauKhiDoiAnh.getTags().size(), "PATCH không được đụng tới thẻ");
+            assertNotNull(afterImageChange);
+            assertEquals("/img/khac.jpg", afterImageChange.getHeroImage());
+            assertEquals(1, afterImageChange.getTags().size(), "PATCH không được đụng tới thẻ");
 
-            AdminPostDetail sauKhiGan = phien.goi(HttpMethod.PUT,
+            AdminPostDetail afterAssign = session.call(HttpMethod.PUT,
                     "/api/v1/admin/posts/" + BAI_VIET + "/tags",
                     "{\"tagIds\":[\"%s\",\"%s\"]}".formatted(THE_AM_THUC, THE_VAN_HOA),
                     AdminPostDetail.class).getBody();
-            assertNotNull(sauKhiGan);
-            assertEquals(2, sauKhiGan.getTags().size());
+            assertNotNull(afterAssign);
+            assertEquals(2, afterAssign.getTags().size());
 
-            AdminPostDetail sauKhiGo = phien.goi(HttpMethod.PUT,
+            AdminPostDetail afterRemove = session.call(HttpMethod.PUT,
                     "/api/v1/admin/posts/" + BAI_VIET + "/tags",
                     "{\"tagIds\":[]}", AdminPostDetail.class).getBody();
-            assertNotNull(sauKhiGo);
-            assertTrue(sauKhiGo.getTags().isEmpty(), "mảng rỗng thì gỡ hết");
+            assertNotNull(afterRemove);
+            assertTrue(afterRemove.getTags().isEmpty(), "mảng rỗng thì gỡ hết");
         }
 
         /**
@@ -381,10 +382,10 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Dịch rồi xuất bản `vi` thì bài hiện ở bề mặt khách")
-        void baiVietXuatBanViThiHienOBeMatKhach() {
-            assertEquals(0, soBaiVietCuaKhach("vi"), "trước khi dịch thì locale vi rỗng");
+        void publishedViPostAppearsOnPublicSurface() {
+            assertEquals(0, publicPostCount("vi"), "trước khi dịch thì locale vi rỗng");
 
-            ResponseEntity<AdminPostDetail> daDich = dangNhap("nguoidich@travel.test").goi(
+            ResponseEntity<AdminPostDetail> translated = login("nguoidich@travel.test").call(
                     HttpMethod.PUT, "/api/v1/admin/posts/" + BAI_VIET + "/translations/vi",
                     """
                     {"slug":"bua-sang-o-ha-noi","title":"Bữa sáng ở Hà Nội",
@@ -392,10 +393,10 @@ class AdminContentIT {
                      "status":"PUBLISHED"}
                     """, AdminPostDetail.class);
 
-            assertEquals(HttpStatus.OK, daDich.getStatusCode());
-            assertEquals(2, daDich.getBody().getTranslations().size());
+            assertEquals(HttpStatus.OK, translated.getStatusCode());
+            assertEquals(2, translated.getBody().getTranslations().size());
 
-            assertEquals(1, soBaiVietCuaKhach("vi"), "dịch và xuất bản rồi thì khách đọc được");
+            assertEquals(1, publicPostCount("vi"), "dịch và xuất bản rồi thì khách đọc được");
         }
 
         /**
@@ -404,47 +405,47 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Bản dịch DRAFT không lên website")
-        void banDichDraftKhongLenWebsite() {
-            dangNhap("nguoidich@travel.test").goi(
+        void draftTranslationNotOnWebsite() {
+            login("nguoidich@travel.test").call(
                     HttpMethod.PUT, "/api/v1/admin/posts/" + BAI_VIET + "/translations/vi",
                     """
                     {"slug":"ban-nhap","title":"Bản nháp","excerpt":"Chưa xong.",
                      "body":["Đang viết."],"status":"DRAFT"}
                     """, AdminPostDetail.class);
 
-            assertEquals(0, soBaiVietCuaKhach("vi"));
+            assertEquals(0, publicPostCount("vi"));
         }
 
         @Test
         @DisplayName("Danh sách sự kiện quản trị có cả buổi đã qua, bề mặt khách thì không")
-        void quanTriThayCaBuoiDaQua() {
-            AdminLecturePage trang = dangNhap("bientap@travel.test")
-                    .lay("/api/v1/admin/lectures", AdminLecturePage.class).getBody();
+        void adminListIncludesPastLectures() {
+            AdminLecturePage trang = login("bientap@travel.test")
+                    .get("/api/v1/admin/lectures", AdminLecturePage.class).getBody();
 
             assertNotNull(trang);
             assertEquals(2L, trang.getTotalItems(), "nhân viên cần xem lại buổi cũ");
 
             // Bề mặt khách lọc `event_date >= hôm nay`: khách không đăng ký được
             // buổi hôm qua.
-            assertEquals(1, soSuKienCuaKhach());
+            assertEquals(1, publicLectureCount());
         }
 
         @Test
         @DisplayName("Hạ sức chứa xuống dưới số đã đăng ký: 409 CAPACITY_BELOW_BOOKED")
-        void haSucChuaDuoiSoDaDangKy() {
-            ResponseEntity<ErrorResponse> phanHoi = dangNhap("bientap@travel.test").goi(
+        void loweringCapacityBelowRegisteredReturns409() {
+            ResponseEntity<ErrorResponse> response = login("bientap@travel.test").call(
                     HttpMethod.PATCH, "/api/v1/admin/lectures/" + SU_KIEN_SAP_TOI,
                     "{\"seats\":40}", ErrorResponse.class);
 
-            assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-            assertEquals("CAPACITY_BELOW_BOOKED", phanHoi.getBody().getCode());
-            assertEquals(41, ((Number) phanHoi.getBody().getParams().get("seatsBooked")).intValue());
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("CAPACITY_BELOW_BOOKED", response.getBody().getCode());
+            assertEquals(41, ((Number) response.getBody().getParams().get("seatsBooked")).intValue());
         }
 
         @Test
         @DisplayName("Hạ sức chứa xuống đúng số đã đăng ký thì được")
-        void haSucChuaVeDungSoDaDangKy() {
-            AdminLectureDetail sau = dangNhap("bientap@travel.test").goi(
+        void loweringCapacityToRegisteredCountAllowed() {
+            AdminLectureDetail sau = login("bientap@travel.test").call(
                     HttpMethod.PATCH, "/api/v1/admin/lectures/" + SU_KIEN_SAP_TOI,
                     "{\"seats\":41,\"venue\":\"Ny sal\"}", AdminLectureDetail.class).getBody();
 
@@ -457,15 +458,15 @@ class AdminContentIT {
 
         @Test
         @DisplayName("Xoá mềm buổi thuyết trình thì nó biến khỏi danh sách")
-        void xoaSuKien() {
-            ResponseEntity<String> phanHoi = dangNhap("bientap@travel.test").goi(
+        void softDeletedLectureDisappearsFromList() {
+            ResponseEntity<String> response = login("bientap@travel.test").call(
                     HttpMethod.DELETE, "/api/v1/admin/lectures/" + SU_KIEN_DA_QUA,
                     null, String.class);
 
-            assertEquals(HttpStatus.NO_CONTENT, phanHoi.getStatusCode());
+            assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
 
-            AdminLecturePage trang = dangNhap("bientap@travel.test")
-                    .lay("/api/v1/admin/lectures", AdminLecturePage.class).getBody();
+            AdminLecturePage trang = login("bientap@travel.test")
+                    .get("/api/v1/admin/lectures", AdminLecturePage.class).getBody();
             assertNotNull(trang);
             assertEquals(1L, trang.getTotalItems());
         }
@@ -479,36 +480,36 @@ class AdminContentIT {
 
         @Test
         @DisplayName("Chỉ ADMIN thấy màn hình người dùng")
-        void chiAdminThayManHinh() {
+        void onlyAdminSeesUserScreen() {
             for (String email : List.of("bientap@travel.test", "nguoidich@travel.test")) {
                 assertEquals(HttpStatus.FORBIDDEN,
-                        dangNhap(email).lay("/api/v1/admin/users", String.class).getStatusCode(),
+                        login(email).get("/api/v1/admin/users", String.class).getStatusCode(),
                         email + " không được thấy danh sách người dùng");
             }
-            assertEquals(HttpStatus.OK, dangNhap("admin1@travel.test")
-                    .lay("/api/v1/admin/users", String.class).getStatusCode());
+            assertEquals(HttpStatus.OK, login("admin1@travel.test")
+                    .get("/api/v1/admin/users", String.class).getStatusCode());
         }
 
         @Test
         @DisplayName("Danh sách trả vai trò, không trả gì về mật khẩu")
-        void danhSachTraVaiTro() {
-            ResponseEntity<String> tho = dangNhap("admin1@travel.test")
-                    .lay("/api/v1/admin/users", String.class);
+        void listReturnsRolesNeverPasswords() {
+            ResponseEntity<String> tho = login("admin1@travel.test")
+                    .get("/api/v1/admin/users", String.class);
 
             assertEquals(HttpStatus.OK, tho.getStatusCode());
-            String than = tho.getBody();
-            assertNotNull(than);
+            String body = tho.getBody();
+            assertNotNull(body);
             // Đưa băm mật khẩu ra khỏi máy chủ là biến một lần rò rỉ log thành
             // một lần rò rỉ mật khẩu.
-            assertFalse(than.contains("password"), "phản hồi không được nhắc tới mật khẩu");
-            assertFalse(than.contains("$2a$"), "phản hồi không được chứa băm BCrypt");
-            assertTrue(than.contains("TRANSLATOR"));
+            assertFalse(body.contains("password"), "phản hồi không được nhắc tới mật khẩu");
+            assertFalse(body.contains("$2a$"), "phản hồi không được chứa băm BCrypt");
+            assertTrue(body.contains("TRANSLATOR"));
         }
 
         @Test
         @DisplayName("Gán vai trò thay SẠCH tập cũ")
-        void ganVaiTroThaySach() {
-            AdminStaffUser sau = dangNhap("admin1@travel.test").goi(
+        void assigningRolesReplacesWholeSet() {
+            AdminStaffUser sau = login("admin1@travel.test").call(
                     HttpMethod.PUT, "/api/v1/admin/users/" + BIEN_TAP + "/roles",
                     "{\"roles\":[\"TRANSLATOR\",\"CONSULTANT\"]}",
                     AdminStaffUser.class).getBody();
@@ -522,8 +523,8 @@ class AdminContentIT {
 
         @Test
         @DisplayName("Tập vai trò rỗng là hợp lệ — người mới chờ phân việc")
-        void tapVaiTroRongHopLe() {
-            AdminStaffUser sau = dangNhap("admin1@travel.test").goi(
+        void emptyRoleSetIsValid() {
+            AdminStaffUser sau = login("admin1@travel.test").call(
                     HttpMethod.PUT, "/api/v1/admin/users/" + NGUOI_DICH + "/roles",
                     "{\"roles\":[]}", AdminStaffUser.class).getBody();
 
@@ -538,44 +539,44 @@ class AdminContentIT {
          */
         @Test
         @DisplayName("Không gỡ được vai trò của ADMIN cuối cùng")
-        void khongGoDuocVaiTroCuaAdminCuoiCung() {
-            Phien phien = dangNhap("admin1@travel.test");
+        void cannotRemoveRoleFromLastAdmin() {
+            Phien session = login("admin1@travel.test");
 
             // Gỡ ADMIN thứ hai thì được — vẫn còn admin1.
-            assertEquals(HttpStatus.OK, phien.goi(HttpMethod.PUT,
+            assertEquals(HttpStatus.OK, session.call(HttpMethod.PUT,
                     "/api/v1/admin/users/" + ADMIN_2 + "/roles",
                     "{\"roles\":[\"EDITOR\"]}", AdminStaffUser.class).getStatusCode());
 
             // Giờ admin1 là người cuối cùng.
-            ResponseEntity<ErrorResponse> phanHoi = phien.goi(HttpMethod.PUT,
+            ResponseEntity<ErrorResponse> response = session.call(HttpMethod.PUT,
                     "/api/v1/admin/users/" + ADMIN_1 + "/roles",
                     "{\"roles\":[\"EDITOR\"]}", ErrorResponse.class);
 
-            assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-            assertEquals("LAST_ADMIN", phanHoi.getBody().getCode());
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("LAST_ADMIN", response.getBody().getCode());
         }
 
         @Test
         @DisplayName("Không tắt được ADMIN đang bật cuối cùng")
-        void khongTatDuocAdminCuoiCung() {
-            Phien phien = dangNhap("admin1@travel.test");
+        void cannotDisableLastActiveAdmin() {
+            Phien session = login("admin1@travel.test");
 
-            assertEquals(HttpStatus.OK, phien.goi(HttpMethod.PATCH,
+            assertEquals(HttpStatus.OK, session.call(HttpMethod.PATCH,
                     "/api/v1/admin/users/" + ADMIN_2,
                     "{\"isActive\":false}", AdminStaffUser.class).getStatusCode());
 
-            ResponseEntity<ErrorResponse> phanHoi = phien.goi(HttpMethod.PATCH,
+            ResponseEntity<ErrorResponse> response = session.call(HttpMethod.PATCH,
                     "/api/v1/admin/users/" + ADMIN_1,
                     "{\"isActive\":false}", ErrorResponse.class);
 
-            assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-            assertEquals("LAST_ADMIN", phanHoi.getBody().getCode());
+            assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+            assertEquals("LAST_ADMIN", response.getBody().getCode());
         }
 
         @Test
         @DisplayName("Đổi tên hiển thị không đụng tới vai trò")
-        void doiTenHienThi() {
-            AdminStaffUser sau = dangNhap("admin1@travel.test").goi(
+        void changingDisplayNameLeavesRolesAlone() {
+            AdminStaffUser sau = login("admin1@travel.test").call(
                     HttpMethod.PATCH, "/api/v1/admin/users/" + BIEN_TAP,
                     "{\"displayName\":\"Biên tập viên\"}", AdminStaffUser.class).getBody();
 
@@ -589,101 +590,101 @@ class AdminContentIT {
     // ------------------------------------------------------------ tiện ích
 
     /** Đếm qua chính endpoint của khách — thứ duy nhất chứng minh "khách đọc được". */
-    private int soBaiVietCuaKhach(String locale) {
-        PostPage trang = khach("/api/v1/dk/posts", locale, PostPage.class).getBody();
+    private int publicPostCount(String locale) {
+        PostPage trang = client("/api/v1/dk/posts", locale, PostPage.class).getBody();
         return trang == null ? 0 : trang.getItems().size();
     }
 
-    private int soSuKienCuaKhach() {
+    private int publicLectureCount() {
         @SuppressWarnings("unchecked")
-        List<Object> ds = khach("/api/v1/dk/lectures", "da", List.class).getBody();
+        List<Object> ds = client("/api/v1/dk/lectures", "da", List.class).getBody();
         return ds == null ? 0 : ds.size();
     }
 
-    private <T> ResponseEntity<T> khach(String duongDan, String locale, Class<T> kieu) {
+    private <T> ResponseEntity<T> client(String path, String locale, Class<T> type) {
         return RestClient.builder()
                 .baseUrl("http://localhost:" + cong)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build()
                 .get()
-                .uri(duongDan)
+                .uri(path)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
                 .retrieve()
-                .toEntity(kieu);
+                .toEntity(type);
     }
 
-    private int dem(String sql) {
-        Integer so = jdbc.queryForObject(sql, Integer.class);
-        return so == null ? 0 : so;
+    private int count(String sql) {
+        Integer count = jdbc.queryForObject(sql, Integer.class);
+        return count == null ? 0 : count;
     }
 
-    private void themNhanVien(String id, String email, String ten, String bam, String vaiTro) {
+    private void addStaff(String id, String email, String name, String hash, String roles) {
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash, is_active)
                 VALUES (CAST(? AS uuid), ?, ?, ?, TRUE)
-                """, id, email, ten, bam);
+                """, id, email, name, hash);
         jdbc.update("""
                 INSERT INTO staff_user_role (id, staff_user_id, role_code)
                 VALUES (gen_random_uuid(), CAST(? AS uuid), ?)
-                """, id, vaiTro);
+                """, id, roles);
     }
 
-    private Phien dangNhap(String email) {
-        Phien phien = new Phien();
-        assertEquals(HttpStatus.NO_CONTENT, phien.dangNhap(email, MAT_KHAU).getStatusCode());
-        return phien;
+    private Phien login(String email) {
+        Phien session = new Phien();
+        assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
+        return session;
     }
 
     private final class Phien {
 
         private final List<String> cookies = new ArrayList<>();
 
-        ResponseEntity<String> dangNhap(String email, String matKhau) {
-            return goi(HttpMethod.POST, "/api/v1/admin/session",
-                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, matKhau),
+        ResponseEntity<String> login(String email, String password) {
+            return call(HttpMethod.POST, "/api/v1/admin/session",
+                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password),
                     String.class);
         }
 
-        <T> ResponseEntity<T> lay(String duongDan, Class<T> kieu) {
-            return goi(HttpMethod.GET, duongDan, null, kieu);
+        <T> ResponseEntity<T> get(String path, Class<T> type) {
+            return call(HttpMethod.GET, path, null, type);
         }
 
-        <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan, String than, Class<T> kieu) {
-            RestClient.RequestBodySpec yeuCau = RestClient.builder()
+        <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
+            RestClient.RequestBodySpec request = RestClient.builder()
                     .baseUrl("http://localhost:" + cong)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
-                    .method(phuongThuc)
-                    .uri(duongDan);
+                    .method(httpMethod)
+                    .uri(path);
 
             for (String c : cookies) {
-                yeuCau.header(HttpHeaders.COOKIE, c);
+                request.header(HttpHeaders.COOKIE, c);
             }
-            thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
+            csrfToken().ifPresent(t -> request.header("X-XSRF-TOKEN", t));
 
-            if (than != null) {
-                yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);
+            if (body != null) {
+                request.contentType(MediaType.APPLICATION_JSON).body(body);
             }
 
-            ResponseEntity<T> phanHoi = yeuCau.retrieve().toEntity(kieu);
-            nhoCookie(phanHoi);
-            return phanHoi;
+            ResponseEntity<T> response = request.retrieve().toEntity(type);
+            nhoCookie(response);
+            return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> phanHoi) {
-            List<String> moi = phanHoi.getHeaders().get(HttpHeaders.SET_COOKIE);
+        private void nhoCookie(ResponseEntity<?> response) {
+            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
             if (moi == null) {
                 return;
             }
             for (String c : moi) {
-                String rutGon = c.split(";", 2)[0];
-                String ten = rutGon.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(ten + "="));
-                cookies.add(rutGon);
+                String summary = c.split(";", 2)[0];
+                String name = summary.split("=", 2)[0];
+                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.add(summary);
             }
         }
 
-        private Optional<String> thecCsrf() {
+        private Optional<String> csrfToken() {
             return cookies.stream()
                     .filter(c -> c.startsWith("XSRF-TOKEN="))
                     .map(c -> c.substring("XSRF-TOKEN=".length()))

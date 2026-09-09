@@ -37,23 +37,23 @@ public class SinglePriceMissingException extends RuntimeException {
 
     private final transient Map<String, Object> params;
 
-    public SinglePriceMissingException(String chiTiet, Map<String, Object> params) {
-        super(chiTiet);
+    public SinglePriceMissingException(String detail, Map<String, Object> params) {
+        super(detail);
         this.params = params;
     }
 
     /** Đường quản trị: cả một sản phẩm, nên kèm số ngày thiếu và ngày sớm nhất. */
-    public static SinglePriceMissingException cuaSanPham(
-            String market, int soNgay, String ngayDauTien) {
+    public static SinglePriceMissingException forProduct(
+            String market, int dayCount, String firstDate) {
         return new SinglePriceMissingException(
-                "thiếu giá phòng đơn ở " + soNgay + " ngày khởi hành của " + market,
+                "thiếu giá phòng đơn ở " + dayCount + " ngày khởi hành của " + market,
                 Map.of("market", market,
-                        "departureCount", soNgay,
-                        "firstDepartureDate", ngayDauTien));
+                        "departureCount", dayCount,
+                        "firstDepartureDate", firstDate));
     }
 
     /** Đường khách: đúng một ngày khởi hành, cái mà khách đang xem. */
-    public static SinglePriceMissingException cuaNgayKhoiHanh(String departureId) {
+    public static SinglePriceMissingException forDeparture(String departureId) {
         return new SinglePriceMissingException(
                 "ngày khởi hành " + departureId + " không có giá phòng đơn",
                 Map.of("departureId", departureId));

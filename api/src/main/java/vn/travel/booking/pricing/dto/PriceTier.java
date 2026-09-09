@@ -10,7 +10,7 @@ import vn.travel.booking.common.money.Money;
  */
 public record PriceTier(int minPax, Integer maxPax, Money pricePerPerson) {
 
-    public boolean chua(int soKhach) {
-        return soKhach >= minPax && (maxPax == null || soKhach <= maxPax);
+    public boolean fits(int paxCount) {
+        return paxCount >= minPax && (maxPax == null || paxCount <= maxPax);
     }
 }

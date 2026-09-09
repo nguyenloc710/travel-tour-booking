@@ -55,11 +55,22 @@ services:
       BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?thieu BOOTSTRAP_ADMIN_EMAIL}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?thieu BOOTSTRAP_ADMIN_PASSWORD}
 
-      # Địa chỉ site như TRÌNH DUYỆT KHÁCH nhìn thấy. Trình duyệt gọi thẳng API
-      # (`bookingApi()` chạy phía client), nên gốc này phải được CORS cho phép.
+      # HAI gốc, không phải một — mặc định của dev cũng là hai
+      # (`localhost:3000` và `:3001`, docs/34 mục 3).
+      #
+      # Site: trình duyệt gọi thẳng API vì `bookingApi()` chạy phía client.
+      #
+      # Trang quản trị: gọi qua proxy `rewrites()` của Next, và về lý thuyết là
+      # cùng origin nên không cần CORS — chú thích trong `web/apps/admin/
+      # next.config.ts` nói đúng ý đồ đó. Nhưng API KHÔNG thấy như vậy: request
+      # tới nó có URL nội bộ `http://api:8080`, còn header `Origin` mà Next
+      # chuyển tiếp là địa chỉ công khai của trang quản trị. Hai thứ không bao
+      # giờ bằng nhau, nên Spring xếp nó vào CORS và từ chối
+      # `403 Invalid CORS request` — đăng nhập hỏng mà log API không ghi gì.
+      #
       # KHÔNG dùng `*`: phiên xác thực bằng cookie, và đặc tả cấm `*` đi cùng
       # credentials (SecurityConfig).
-      CORS_ALLOWED_ORIGINS: ${SITE_URL:?thieu SITE_URL}
+      CORS_ALLOWED_ORIGINS: ${SITE_URL:?thieu SITE_URL},${ADMIN_URL:?thieu ADMIN_URL}
 
       # Phần đầu ghép vào `media_asset.path` — ADR-011 mục 2, docs/12 mục 4.6.
       STORAGE_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_URL:?thieu MEDIA_PUBLIC_URL}

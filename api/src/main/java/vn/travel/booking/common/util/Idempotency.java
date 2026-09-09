@@ -67,7 +67,7 @@ public class Idempotency {
      * <p>Chỉ nhớ kết quả <b>thành công</b>: một lần thử thất bại vì hết chỗ không
      * được khoá vĩnh viễn câu trả lời đó — chỗ có thể được trả về kho ngay sau đó.
      */
-    public <T> ResponseEntity<T> chay(UUID khoa, String market, String endpoint, Object than,
+    public <T> ResponseEntity<T> run(UUID khoa, String market, String endpoint, Object than,
                                Class<T> kieu, Supplier<ResponseEntity<T>> viec) {
         String vanTay = vanTay(than);
 
@@ -78,7 +78,7 @@ public class Idempotency {
                         "khoá " + khoa + " đã dùng cho một yêu cầu khác");
             }
             return ResponseEntity.status(daCo.get().statusCode())
-                    .body(doc(daCo.get().responseJson(), kieu));
+                    .body(mapRow(daCo.get().responseJson(), kieu));
         }
 
         ResponseEntity<T> ketQua = viec.get();
@@ -93,9 +93,9 @@ public class Idempotency {
     /** SHA-256 của thân yêu cầu đã chuẩn hoá qua Jackson. */
     private String vanTay(Object than) {
         try {
-            MessageDigest bam = MessageDigest.getInstance("SHA-256");
+            MessageDigest hash = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(
-                    bam.digest(viet(than).getBytes(StandardCharsets.UTF_8)));
+                    hash.digest(viet(than).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
     throw new IllegalStateException("Máy chạy Java mà không có SHA-256", ex);
         }
@@ -109,7 +109,7 @@ public class Idempotency {
         }
     }
 
-    private <T> T doc(String chuoi, Class<T> kieu) {
+    private <T> T mapRow(String chuoi, Class<T> kieu) {
         try {
             return JSON.readValue(chuoi, kieu);
         } catch (Exception ex) {

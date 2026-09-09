@@ -74,7 +74,7 @@ class DestinationEndpointIT {
      * rỗng vẫn xuất hiện với số 0 thay vì biến mất.
      */
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM destination_image;
                 DELETE FROM media_asset_translation;
@@ -163,8 +163,8 @@ class DestinationEndpointIT {
 
     @Test
     @DisplayName("Locale da: đủ ba điểm đến, sắp theo miền rồi tới thứ tự trong miền")
-    void locale_da() {
-        Destination[] ds = danhSach("dk", "da", Map.of());
+    void localeDaReturnsAllThreeDestinations() {
+        Destination[] ds = list("dk", "da", Map.of());
 
         assertEquals(List.of("Hanoi", "Sapa", "Hoi An"),
                 Arrays.stream(ds).map(Destination::getName).toList(),
@@ -173,8 +173,8 @@ class DestinationEndpointIT {
 
     @Test
     @DisplayName("Điểm đến chưa có sản phẩm nào vẫn xuất hiện, với số 0")
-    void diemDenRongVanHien() {
-        Destination sapa = tim(danhSach("dk", "da", Map.of()), "Sapa");
+    void emptyDestinationStillListedWithZero() {
+        Destination sapa = find(list("dk", "da", Map.of()), "Sapa");
 
         assertEquals(0, sapa.getProductCount(),
                 "Dùng JOIN thay vì truy vấn con thì Sapa biến mất, và trang điểm đến vừa viết xong không bao giờ hiện ra");
@@ -183,8 +183,8 @@ class DestinationEndpointIT {
 
     @Test
     @DisplayName("Điểm đến thiếu bản dịch vi BIẾN MẤT khỏi locale vi")
-    void khongFallback() {
-        Destination[] ds = danhSach("dk", "vi", Map.of());
+    void untranslatedDestinationDisappearsInVi() {
+        Destination[] ds = list("dk", "vi", Map.of());
 
         assertEquals(2, ds.length, "Sapa chỉ có bản da nên phải biến mất");
         assertTrue(Arrays.stream(ds).noneMatch(d -> "Sapa".equals(d.getName())),
@@ -195,8 +195,8 @@ class DestinationEndpointIT {
 
     @Test
     @DisplayName("Ảnh minh hoạ: lấy tấm sort_order nhỏ nhất, URL ghép từ đường dẫn tương đối")
-    void anhMinhHoa() {
-        Destination hn = tim(danhSach("dk", "da", Map.of()), "Hanoi");
+    void heroImageUsesLowestSortOrder() {
+        Destination hn = find(list("dk", "da", Map.of()), "Hanoi");
 
         assertNotNull(hn.getImage());
         assertEquals("Foerste", hn.getImage().getAlt(),
@@ -209,14 +209,14 @@ class DestinationEndpointIT {
 
     /**
      * Điểm đến chưa có ảnh vẫn phải hiện ra — cùng một cái bẫy mà
-     * {@code diemDenRongVanHien} canh cho {@code productCount}, chỉ khác chỗ:
+     * {@code emptyDestinationStillListedWithZero} canh cho {@code productCount}, chỉ khác chỗ:
      * {@code JOIN} thay vì {@code LEFT JOIN LATERAL} thì Sapa biến mất khỏi
      * danh sách mà không ai báo.
      */
     @Test
     @DisplayName("Điểm đến chưa có ảnh vẫn xuất hiện, chỉ là không có trường image")
-    void khongCoAnhVanHien() {
-        Destination sapa = tim(danhSach("dk", "da", Map.of()), "Sapa");
+    void destinationWithoutImageStillListed() {
+        Destination sapa = find(list("dk", "da", Map.of()), "Sapa");
 
         assertNull(sapa.getImage(), "Không có ảnh thì bỏ hẳn trường, không trả đối tượng toàn null");
     }
@@ -227,10 +227,10 @@ class DestinationEndpointIT {
      */
     @Test
     @DisplayName("Ảnh thiếu alt ở locale nào thì vắng khỏi locale đó, điểm đến vẫn còn")
-    void anhThieuAltThiVang() {
-        assertNotNull(tim(danhSach("dk", "da", Map.of()), "Hoi An").getImage());
+    void imageMissingAltAbsentInThatLocale() {
+        assertNotNull(find(list("dk", "da", Map.of()), "Hoi An").getImage());
 
-        Destination hoiAnVi = tim(danhSach("dk", "vi", Map.of()), "Hội An");
+        Destination hoiAnVi = find(list("dk", "vi", Map.of()), "Hội An");
         assertNull(hoiAnVi.getImage(),
                 "Hiện ảnh kèm alt tiếng Đan giữa trang tiếng Việt là đọc sai cho đúng "
                         + "nhóm người phụ thuộc vào alt nhất");
@@ -238,58 +238,58 @@ class DestinationEndpointIT {
 
     @Test
     @DisplayName("Số sản phẩm đếm trong phạm vi (market, locale)")
-    void demTheoMarketVaLocale() {
+    void countScopedToMarketAndLocale() {
         // DK/da: Hà Nội có P1, Hội An có P2.
-        assertEquals(1, tim(danhSach("dk", "da", Map.of()), "Hanoi").getProductCount());
-        assertEquals(1, tim(danhSach("dk", "da", Map.of()), "Hoi An").getProductCount());
+        assertEquals(1, find(list("dk", "da", Map.of()), "Hanoi").getProductCount());
+        assertEquals(1, find(list("dk", "da", Map.of()), "Hoi An").getProductCount());
 
         // DK/vi: P2 chưa dịch vi nên Hội An về 0, dù vẫn bán ở DK.
-        assertEquals(0, tim(danhSach("dk", "vi", Map.of()), "Hội An").getProductCount());
+        assertEquals(0, find(list("dk", "vi", Map.of()), "Hội An").getProductCount());
 
         // VN: P2 chưa gán thị trường VN nên không được tính.
-        assertEquals(1, tim(danhSach("vn", "vi", Map.of()), "Hà Nội").getProductCount());
-        assertEquals(0, tim(danhSach("vn", "vi", Map.of()), "Hội An").getProductCount());
+        assertEquals(1, find(list("vn", "vi", Map.of()), "Hà Nội").getProductCount());
+        assertEquals(0, find(list("vn", "vi", Map.of()), "Hội An").getProductCount());
     }
 
     @Test
     @DisplayName("Lọc theo miền dùng slug của locale đang xem")
-    void locTheoMien() {
-        assertEquals(2, danhSach("dk", "da", Map.of("region", "nordvietnam")).length);
-        assertEquals(1, danhSach("dk", "vi", Map.of("region", "mien-bac")).length,
+    void filterByRegionUsesCurrentLocaleSlug() {
+        assertEquals(2, list("dk", "da", Map.of("region", "nordvietnam")).length);
+        assertEquals(1, list("dk", "vi", Map.of("region", "mien-bac")).length,
                 "Sapa chỉ có bản da nên miền Bắc ở locale vi chỉ còn Hà Nội");
-        assertEquals(0, danhSach("dk", "vi", Map.of("region", "nordvietnam")).length,
+        assertEquals(0, list("dk", "vi", Map.of("region", "nordvietnam")).length,
                 "Slug tiếng Đan không được dùng ở locale vi");
     }
 
     @Test
     @DisplayName("Điểm đến xoá mềm biến mất khỏi danh sách")
-    void xoaMem() {
+    void softDeletedDestinationDisappears() {
         jdbc.update("UPDATE destination SET soft_delete = TRUE WHERE id = CAST(? AS uuid)",
                 "b1000000-0000-4000-8000-000000000002");
 
-        assertEquals(2, danhSach("dk", "da", Map.of()).length);
+        assertEquals(2, list("dk", "da", Map.of()).length);
     }
 
     @Test
     @DisplayName("Chi tiết một điểm đến, và slug phụ thuộc locale")
-    void chiTiet() {
-        ResponseEntity<Destination> da = goi("/api/v1/dk/destinations/hanoi", "da", Destination.class);
+    void destinationDetailSlugDependsOnLocale() {
+        ResponseEntity<Destination> da = call("/api/v1/dk/destinations/hanoi", "da", Destination.class);
         assertEquals(HttpStatus.OK, da.getStatusCode());
         assertEquals("Hanoi", da.getBody().getName());
         assertEquals("nordvietnam", da.getBody().getRegion().getSlug());
         assertEquals("da", da.getHeaders().getFirst(HttpHeaders.CONTENT_LANGUAGE));
 
         assertEquals(HttpStatus.NOT_FOUND,
-                goi("/api/v1/dk/destinations/hanoi", "vi", ErrorResponse.class).getStatusCode(),
+                call("/api/v1/dk/destinations/hanoi", "vi", ErrorResponse.class).getStatusCode(),
                 "Slug tiếng Đan không mở được ở locale vi");
         assertEquals(HttpStatus.OK,
-                goi("/api/v1/dk/destinations/ha-noi", "vi", Destination.class).getStatusCode());
+                call("/api/v1/dk/destinations/ha-noi", "vi", Destination.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Điểm đến chưa dịch trả 404 kèm mã, không trả bản da")
-    void chuaDichTra404() {
-        ResponseEntity<ErrorResponse> vi = goi("/api/v1/dk/destinations/sapa", "vi", ErrorResponse.class);
+    void untranslatedReturns404() {
+        ResponseEntity<ErrorResponse> vi = call("/api/v1/dk/destinations/sapa", "vi", ErrorResponse.class);
 
         assertEquals(HttpStatus.NOT_FOUND, vi.getStatusCode());
         assertEquals("NOT_FOUND", vi.getBody().getCode());
@@ -297,55 +297,55 @@ class DestinationEndpointIT {
 
     @Test
     @DisplayName("Lọc sản phẩm theo điểm đến, dùng slug của locale đang xem")
-    void locSanPhamTheoDiemDen() {
-        ProductPage dk = goi("/api/v1/dk/products?destination=hoi-an", "da", ProductPage.class).getBody();
+    void filterProductsByDestination() {
+        ProductPage dk = call("/api/v1/dk/products?destination=hoi-an", "da", ProductPage.class).getBody();
         assertEquals(1, dk.getTotalItems());
         assertEquals("Halong krydstogt", dk.getItems().get(0).getTitle());
 
-        ProductPage vi = goi("/api/v1/dk/products?destination=ha-noi", "vi", ProductPage.class).getBody();
+        ProductPage vi = call("/api/v1/dk/products?destination=ha-noi", "vi", ProductPage.class).getBody();
         assertEquals(1, vi.getTotalItems());
         assertEquals("Bắc vào Nam", vi.getItems().get(0).getTitle());
     }
 
     @Test
     @DisplayName("Thị trường đang tắt trả 404")
-    void thiTruongDangTat() {
+    void disabledMarketReturns404() {
         jdbc.update("UPDATE market SET is_active = FALSE WHERE code = 'VN'");
 
         assertEquals(HttpStatus.NOT_FOUND,
-                goi("/api/v1/vn/destinations", "vi", ErrorResponse.class).getStatusCode());
+                call("/api/v1/vn/destinations", "vi", ErrorResponse.class).getStatusCode());
     }
 
     // ------------------------------------------------------------ tiện ích
 
-    private Destination[] danhSach(String market, String locale, Map<String, String> thamSo) {
-        ResponseEntity<Destination[]> phanHoi = client().get()
+    private Destination[] list(String market, String locale, Map<String, String> params) {
+        ResponseEntity<Destination[]> response = client().get()
                 .uri(b -> {
                     b.path("/api/v1/" + market + "/destinations");
-                    thamSo.forEach((ten, gia_tri) -> b.queryParam(ten, gia_tri));
+                    params.forEach((name, gia_tri) -> b.queryParam(name, gia_tri));
                     return b.build();
                 })
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
                 .retrieve()
                 .toEntity(Destination[].class);
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        return phanHoi.getBody();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        return response.getBody();
     }
 
-    private static Destination tim(Destination[] ds, String ten) {
+    private static Destination find(Destination[] ds, String name) {
         return Arrays.stream(ds)
-                .filter(d -> ten.equals(d.getName()))
+                .filter(d -> name.equals(d.getName()))
                 .findFirst()
-                .orElseThrow(() -> new AssertionError("Không thấy điểm đến " + ten));
+                .orElseThrow(() -> new AssertionError("Không thấy điểm đến " + name));
     }
 
-    private <T> ResponseEntity<T> goi(String duongDan, String locale, Class<T> kieu) {
+    private <T> ResponseEntity<T> call(String path, String locale, Class<T> type) {
         return client().get()
-                .uri(duongDan)
+                .uri(path)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
                 .retrieve()
-                .toEntity(kieu);
+                .toEntity(type);
     }
 
     private RestClient client() {

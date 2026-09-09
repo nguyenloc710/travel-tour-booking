@@ -61,6 +61,26 @@ travel:
     # hai giá trị trùng nhau, nên lỗi này ẩn hoàn toàn cho tới lúc triển khai.
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:http://localhost:9000/travel-media}
 
+# Swagger UI: http://localhost:8080/swagger-ui.html
+# Spec sinh từ code: http://localhost:8080/v3/api-docs
+#
+# Spec này KHÔNG phải `contracts/openapi.yaml`. Nó do springdoc đọc annotation
+# trên controller mà sinh ra, nên hai bản có thể lệch nhau và không có gì báo.
+# File trong `contracts/` vẫn là thứ dùng để sinh model Java và TS client.
+#
+# TẮT Ở BẢN CHẠY THẬT. Trang này liệt kê đủ cả bề mặt quản trị, và chế độ chạy
+# bằng IP chưa có HTTPS — xem chú thích trong SecurityConfig.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    path: /swagger-ui.html
+    # Sắp theo thẻ và theo phương thức, không theo thứ tự quét được — thứ tự
+    # quét đổi theo classpath và làm trang này khác nhau giữa hai lần chạy.
+    tags-sorter: alpha
+    operations-sorter: method
+
 server:
   port: ${PORT:8080}
   error:

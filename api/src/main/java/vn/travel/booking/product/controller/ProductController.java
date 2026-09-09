@@ -1,5 +1,10 @@
 package vn.travel.booking.product.controller;
 
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.common.util.RequestScope;
 import org.springframework.http.CacheControl;
@@ -12,7 +17,6 @@ import vn.travel.booking.product.service.ProductService;
 import vn.travel.booking.product.service.ProductContentService;
 import vn.travel.booking.product.service.SlugRedirectService;
 import vn.travel.booking.product.dto.ProductQuery;
-import vn.travel.booking.web.generated.api.ProductsApi;
 import vn.travel.booking.web.generated.model.Departure;
 import vn.travel.booking.web.generated.model.DepartureStatus;
 import vn.travel.booking.web.generated.model.HotelStay;
@@ -33,7 +37,8 @@ import java.util.List;
  * chạy — lý do duy nhất để chọn spec-first (ADR-002).
  */
 @RestController
-public class ProductController implements ProductsApi {
+@Validated
+public class ProductController {
 
     private final ProductService products;
     private final ProductContentService noiDung;
@@ -47,18 +52,23 @@ public class ProductController implements ProductsApi {
         this.slugCu = slugCu;
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/products",
+        produces = { "application/json" }
+    )
     public ResponseEntity<ProductPage> listProducts(
-            String market,
-            String acceptLanguage,
-            String region,
-            String destination,
-            List<String> theme,
-            ProductType productType,
-            String q,
-            ProductSort sort,
-            Integer page,
-            Integer size) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @Valid @RequestParam(value = "region", required = false) @Nullable String region,
+            @Valid @RequestParam(value = "destination", required = false) @Nullable String destination,
+            @Valid @RequestParam(value = "theme", required = false) @Nullable List<String> theme,
+            @Valid @RequestParam(value = "productType", required = false) @Nullable ProductType productType,
+            @Size(max = 100)  @Valid @RequestParam(value = "q", required = false) @Nullable String q,
+            @Valid @RequestParam(value = "sort", required = false, defaultValue = "title,asc") ProductSort sort,
+            @Min(0)  @Valid @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @Min(1) @Max(60)  @Valid @RequestParam(value = "size", required = false, defaultValue = "24") Integer size
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
@@ -75,7 +85,7 @@ public class ProductController implements ProductsApi {
                 page == null ? 0 : page,
                 size == null ? 24 : size);
 
-        ProductPage than = RefMapper.sangTrang(products.danhSach(truyVan));
+        ProductPage than = RefMapper.sangTrang(products.list(truyVan));
 
         // Listing sản phẩm: 60 giây. Ngày khởi hành và giá thì no-store —
         // docs/13 mục 8. Chỗ còn thay đổi từng phút không được cache.
@@ -90,9 +100,17 @@ public class ProductController implements ProductsApi {
      * đó dòng cũ vẫn trỏ đúng entity — trigger {@code trg_luu_slug_cu} ghi thêm
      * dòng mới chứ không sửa dòng cũ.
      */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/redirects/{type}/{slug}",
+        produces = { "application/json" }
+    )
     public ResponseEntity<SlugRedirect> resolveSlug(
-            String market, String acceptLanguage, String type, String slug) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("type") String type,
+            @PathVariable("slug") String slug
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
         String moi = slugCu.giai(RequestScope.market(market), locale, type, slug);
@@ -100,19 +118,34 @@ public class ProductController implements ProductsApi {
         return phanHoi(locale, Duration.ofDays(1)).body(new SlugRedirect(moi));
     }
 
-    @Override
-    public ResponseEntity<ProductDetail> getProduct(String market, String acceptLanguage, String slug) {
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/products/{slug}",
+        produces = { "application/json" }
+    )
+    public ResponseEntity<ProductDetail> getProduct(
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("slug") String slug
+    ) {
         String locale = RequestScope.locale(acceptLanguage);
 
         ProductDetail than = RefMapper.sangChiTiet(
-                products.chiTiet(RequestScope.market(market), locale, slug));
+                products.detail(RequestScope.market(market), locale, slug));
 
         return phanHoi(locale, Duration.ofMinutes(1)).body(than);
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/products/{slug}/itinerary",
+        produces = { "application/json" }
+    )
     public ResponseEntity<List<ItineraryDay>> getItinerary(
-            String market, String acceptLanguage, String slug) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("slug") String slug
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
@@ -126,9 +159,16 @@ public class ProductController implements ProductsApi {
         return phanHoi(locale, Duration.ofMinutes(1)).body(than);
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/products/{slug}/hotels",
+        produces = { "application/json" }
+    )
     public ResponseEntity<List<HotelStay>> getHotelStays(
-            String market, String acceptLanguage, String slug) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("slug") String slug
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
@@ -147,9 +187,16 @@ public class ProductController implements ProductsApi {
      * <b>Không cache.</b> Chỗ còn thay đổi từng phút; hiện số chỗ cũ là dẫn khách
      * vào một giao dịch chắc chắn thất bại ở bước cuối (docs/13 mục 8).
      */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/products/{slug}/departures",
+        produces = { "application/json" }
+    )
     public ResponseEntity<List<Departure>> listDepartures(
-            String market, String acceptLanguage, String slug) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("slug") String slug
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
@@ -174,12 +221,12 @@ public class ProductController implements ProductsApi {
                 .departureCity(d.departureCity());
     }
 
-    private static ResponseEntity.BodyBuilder phanHoi(String locale, Duration tuoi) {
+    private static ResponseEntity.BodyBuilder phanHoi(String locale, Duration age) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_LANGUAGE, locale)
                 // Thiếu Vary là CDN phục vụ bản tiếng Đan cho khách Việt.
                 .header(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE)
-                .cacheControl(CacheControl.maxAge(tuoi).cachePublic());
+                .cacheControl(CacheControl.maxAge(age).cachePublic());
     }
 
     /**

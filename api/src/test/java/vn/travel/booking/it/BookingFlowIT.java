@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Đợt 4 — tính giá, giữ chỗ, đặt tour.
  *
- * <p>Test {@code haiKhachGianhChoCuoiCung} là <b>test quan trọng nhất của cả dự
+ * <p>Test {@code twoClientsRaceForLastSeatsOnlyOneWins} là <b>test quan trọng nhất của cả dự
  * án</b> (docs/14 mục 9.3): nó chạy hai transaction thật song song, không mô phỏng.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -77,14 +77,14 @@ class BookingFlowIT {
     JdbcTemplate jdbc;
 
     @Autowired
-    SeatHoldSweeper quetDon;
+    SeatHoldSweeper sweepBookings;
 
     /**
      * Một tour đoàn với <b>đúng 2 chỗ</b> còn lại: sức chứa 20, đã đặt 18. Con số
      * nhỏ để test giành chỗ cuối cùng nói đúng điều nó muốn nói.
      */
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM idempotency_key;
                 DELETE FROM booking_event;
@@ -158,8 +158,8 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Xem trước giá: bảng phân rã cộng lại bằng tổng, và không lưu gì")
-    void xemTruocGia() {
-        PriceBreakdown b = goi(HttpMethod.POST, "/api/v1/dk/pricing/preview", null,
+    void pricePreviewSumsToTotalAndPersistsNothing() {
+        PriceBreakdown b = call(HttpMethod.POST, "/api/v1/dk/pricing/preview", null,
                 ("{\"departureId\":\"%s\",\"pax\":[{\"paxTypeCode\":\"ADULT\",\"count\":2}],"
                         + "\"singleTravellers\":0,\"departureOriginId\":\"%s\"}")
                         .formatted(NGAY_DI, DIEM_KHOI_HANH),
@@ -170,14 +170,14 @@ class BookingFlowIT {
         assertEquals("12968.75", b.getDeposit().getAmount(), "25% làm tròn xuống");
         assertEquals("38906.25", b.getBalance().getAmount());
 
-        assertEquals(0, dem("SELECT count(*) FROM booking"), "Xem trước giá KHÔNG lưu gì");
-        assertEquals(0, dem("SELECT count(*) FROM seat_hold"));
+        assertEquals(0, count("SELECT count(*) FROM booking"), "Xem trước giá KHÔNG lưu gì");
+        assertEquals(0, count("SELECT count(*) FROM seat_hold"));
     }
 
     @Test
     @DisplayName("Phụ thu phòng đơn tính bằng chênh giá phòng đơn trừ phòng đôi")
-    void phuThuPhongDon() {
-        PriceBreakdown b = goi(HttpMethod.POST, "/api/v1/dk/pricing/preview", null,
+    void singleSupplementIsRoomPriceDifference() {
+        PriceBreakdown b = call(HttpMethod.POST, "/api/v1/dk/pricing/preview", null,
                 ("{\"departureId\":\"%s\",\"pax\":[{\"paxTypeCode\":\"ADULT\",\"count\":1}],"
                         + "\"singleTravellers\":1}").formatted(NGAY_DI),
                 PriceBreakdown.class).getBody();
@@ -192,57 +192,57 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Giữ chỗ thành công trả về hạn giữ")
-    void giuChoThanhCong() {
-        SeatHold giu = giuCho(2).getBody();
+    void holdSucceedsAndReturnsExpiry() {
+        SeatHold hold = seatHold(2).getBody();
 
-        assertNotNull(giu.getExpiresAt());
-        assertEquals(2, giu.getSeats());
-        assertEquals(1, dem("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"));
+        assertNotNull(hold.getExpiresAt());
+        assertEquals(2, hold.getSeats());
+        assertEquals(1, count("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"));
     }
 
     @Test
     @DisplayName("Giữ nhiều hơn số chỗ còn lại thì 409 DEPARTURE_SOLD_OUT")
-    void giuQuaSoCho() {
-        ResponseEntity<ErrorResponse> phanHoi = goi(HttpMethod.POST, "/api/v1/dk/seat-holds",
-                UUID.randomUUID(), thanGiuCho(3), ErrorResponse.class);
+    void holdingMoreThanAvailableReturns409() {
+        ResponseEntity<ErrorResponse> response = call(HttpMethod.POST, "/api/v1/dk/seat-holds",
+                UUID.randomUUID(), holdBody(3), ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("DEPARTURE_SOLD_OUT", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("DEPARTURE_SOLD_OUT", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Ngày khởi hành đã đóng bán thì 409, dù còn nguyên sức chứa")
-    void ngayDaDongBan() {
-        ResponseEntity<ErrorResponse> phanHoi = goi(HttpMethod.POST, "/api/v1/dk/seat-holds",
+    void closedDepartureReturns409() {
+        ResponseEntity<ErrorResponse> response = call(HttpMethod.POST, "/api/v1/dk/seat-holds",
                 UUID.randomUUID(),
                 "{\"departureId\":\"%s\",\"seats\":1}".formatted(NGAY_DI_CHOT), ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("DEPARTURE_CLOSED", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("DEPARTURE_CLOSED", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Chỗ đang giữ bị trừ khỏi chỗ khả dụng của người sau")
-    void choDangGiuBiTru() {
-        assertEquals(HttpStatus.CREATED, giuCho(2).getStatusCode());
+    void heldSeatsSubtractedFromAvailable() {
+        assertEquals(HttpStatus.CREATED, seatHold(2).getStatusCode());
 
-        ResponseEntity<ErrorResponse> nguoiSau = goi(HttpMethod.POST, "/api/v1/dk/seat-holds",
-                UUID.randomUUID(), thanGiuCho(1), ErrorResponse.class);
+        ResponseEntity<ErrorResponse> secondClient = call(HttpMethod.POST, "/api/v1/dk/seat-holds",
+                UUID.randomUUID(), holdBody(1), ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, nguoiSau.getStatusCode(),
+        assertEquals(HttpStatus.CONFLICT, secondClient.getStatusCode(),
                 "Hai chỗ cuối đang bị giữ — người sau không được bán tiếp");
     }
 
     @Test
     @DisplayName("Bỏ giữ chỗ trả chỗ về kho ngay")
-    void boGiuCho() {
-        SeatHold giu = giuCho(2).getBody();
+    void releasingHoldReturnsSeatsImmediately() {
+        SeatHold hold = seatHold(2).getBody();
 
         assertEquals(HttpStatus.NO_CONTENT,
-                goi(HttpMethod.DELETE, "/api/v1/dk/seat-holds/" + giu.getId(), null, null,
+                call(HttpMethod.DELETE, "/api/v1/dk/seat-holds/" + hold.getId(), null, null,
                         Void.class).getStatusCode());
 
-        assertEquals(HttpStatus.CREATED, giuCho(2).getStatusCode(),
+        assertEquals(HttpStatus.CREATED, seatHold(2).getStatusCode(),
                 "Chỗ đã về kho nên người sau giữ được");
     }
 
@@ -250,28 +250,28 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("HAI KHÁCH cùng giành hai chỗ cuối: ĐÚNG MỘT người thành công")
-    void haiKhachGianhChoCuoiCung() throws Exception {
+    void twoClientsRaceForLastSeatsOnlyOneWins() throws Exception {
         ExecutorService hai = Executors.newFixedThreadPool(2);
         try {
-            Callable<HttpStatusCode> mua = () -> goi(HttpMethod.POST, "/api/v1/dk/seat-holds",
-                    UUID.randomUUID(), thanGiuCho(2), Object.class).getStatusCode();
+            Callable<HttpStatusCode> mua = () -> call(HttpMethod.POST, "/api/v1/dk/seat-holds",
+                    UUID.randomUUID(), holdBody(2), Object.class).getStatusCode();
 
             // Hai transaction THẬT chạy song song, không mô phỏng.
-            List<Future<HttpStatusCode>> ketQua = hai.invokeAll(List.of(mua, mua));
+            List<Future<HttpStatusCode>> result = hai.invokeAll(List.of(mua, mua));
 
-            long thanhCong = 0;
-            long thatBai = 0;
-            for (Future<HttpStatusCode> f : ketQua) {
+            long success = 0;
+            long failure = 0;
+            for (Future<HttpStatusCode> f : result) {
                 if (f.get(30, TimeUnit.SECONDS).value() == 201) {
-                    thanhCong++;
+                    success++;
                 } else {
-                    thatBai++;
+                    failure++;
                 }
             }
 
-            assertEquals(1, thanhCong, "Hai khách cùng mua được chỗ cuối là bug hạng nhất");
-            assertEquals(1, thatBai, "Người thua phải nhận câu trả lời rõ ràng, không phải lỗi 500");
-            assertEquals(1, dem("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"));
+            assertEquals(1, success, "Hai khách cùng mua được chỗ cuối là bug hạng nhất");
+            assertEquals(1, failure, "Người thua phải nhận câu trả lời rõ ràng, không phải lỗi 500");
+            assertEquals(1, count("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"));
         } finally {
             hai.shutdownNow();
         }
@@ -281,83 +281,83 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Giữ chỗ quá hạn không còn được tính, KỂ CẢ trước khi job quét chạy")
-    void quaHanKhongConDuocTinh() {
-        SeatHold giu = giuCho(2).getBody();
-        heHan(giu.getId());
+    void expiredHoldNoLongerCountsBeforeSweep() {
+        SeatHold hold = seatHold(2).getBody();
+        heHan(hold.getId());
 
-        assertEquals(HttpStatus.CREATED, giuCho(2).getStatusCode(),
+        assertEquals(HttpStatus.CREATED, seatHold(2).getStatusCode(),
                 "Công thức dùng expires_at > now(), nên chỗ về kho ngay khi hết hạn");
-        assertEquals(1, dem("SELECT count(*) FROM seat_hold "
+        assertEquals(1, count("SELECT count(*) FROM seat_hold "
                         + "WHERE released_at IS NULL AND expires_at <= now()"),
                 "released_at vẫn NULL — job chỉ dọn dẹp, không phải cơ chế trả chỗ");
     }
 
     @Test
     @DisplayName("Job quét chạy hai lần cho cùng kết quả")
-    void jobQuetBatBien() {
-        heHan(giuCho(1).getBody().getId());
+    void sweepJobIsIdempotent() {
+        heHan(seatHold(1).getBody().getId());
 
-        assertEquals(1, quetDon.donDep(), "Lần đầu dọn một dòng");
-        assertEquals(0, quetDon.donDep(), "Lần hai không còn gì để dọn — lệnh bất biến khi lặp");
+        assertEquals(1, sweepBookings.donDep(), "Lần đầu dọn một dòng");
+        assertEquals(0, sweepBookings.donDep(), "Lần hai không còn gì để dọn — lệnh bất biến khi lặp");
     }
 
     // ------------------------------------------------------------ đặt tour
 
     @Test
     @DisplayName("Đặt tour đầu-cuối: đơn PENDING_PAYMENT, chỗ vào seats_booked, có nhật ký")
-    void datTourDauCuoi() {
-        SeatHold giu = giuCho(2).getBody();
-        Booking don = datTour(giu.getId(), UUID.randomUUID()).getBody();
+    void endToEndBookingCreatesPendingPaymentAndAudit() {
+        SeatHold hold = seatHold(2).getBody();
+        Booking booking = bookTour(hold.getId(), UUID.randomUUID()).getBody();
 
-        assertEquals(BookingStatus.PENDING_PAYMENT, don.getStatus());
-        assertEquals("Nord til syd", don.getProductTitle(), "Tên sản phẩm CHỤP LẠI lúc đặt");
-        assertTrue(don.getReference().startsWith("DK-"));
+        assertEquals(BookingStatus.PENDING_PAYMENT, booking.getStatus());
+        assertEquals("Nord til syd", booking.getProductTitle(), "Tên sản phẩm CHỤP LẠI lúc đặt");
+        assertTrue(booking.getReference().startsWith("DK-"));
 
-        assertEquals(20, dem("SELECT seats_booked FROM departure WHERE id = CAST('"
+        assertEquals(20, count("SELECT seats_booked FROM departure WHERE id = CAST('"
                 + NGAY_DI + "' AS uuid)"));
-        assertEquals(0, dem("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"),
+        assertEquals(0, count("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"),
                 "Giữ chỗ đã chuyển thành đơn");
-        assertEquals(1, dem("SELECT count(*) FROM booking_event WHERE to_status = 'PENDING_PAYMENT'"),
+        assertEquals(1, count("SELECT count(*) FROM booking_event WHERE to_status = 'PENDING_PAYMENT'"),
                 "Mọi lần đổi trạng thái ghi nhật ký, kể cả lần đầu");
-        assertEquals(2, dem("SELECT count(*) FROM booking_passenger"));
-        assertTrue(dem("SELECT count(*) FROM booking_line") >= 2);
+        assertEquals(2, count("SELECT count(*) FROM booking_passenger"));
+        assertTrue(count("SELECT count(*) FROM booking_line") >= 2);
     }
 
     @Test
     @DisplayName("deposit + balance = total trên đơn đã lưu")
-    void batBienDatCoc() {
-        Booking don = datTour(giuCho(2).getBody().getId(), UUID.randomUUID()).getBody();
+    void depositPlusBalanceEqualsTotalOnSavedBooking() {
+        Booking booking = bookTour(seatHold(2).getBody().getId(), UUID.randomUUID()).getBody();
 
-        BigDecimal tong = new BigDecimal(don.getTotal().getAmount());
-        BigDecimal coc = new BigDecimal(don.getDeposit().getAmount());
-        BigDecimal conLai = new BigDecimal(don.getBalance().getAmount());
+        BigDecimal total = new BigDecimal(booking.getTotal().getAmount());
+        BigDecimal deposit = new BigDecimal(booking.getDeposit().getAmount());
+        BigDecimal remaining = new BigDecimal(booking.getBalance().getAmount());
 
-        assertEquals(0, tong.compareTo(coc.add(conLai)));
+        assertEquals(0, total.compareTo(deposit.add(remaining)));
     }
 
     @Test
     @DisplayName("Giữ chỗ đã hết hạn thì đặt tour trả 409 SEAT_HOLD_EXPIRED")
-    void giuChoHetHanKhiDatTour() {
-        SeatHold giu = giuCho(2).getBody();
-        heHan(giu.getId());
+    void expiredHoldOnBookingReturns409() {
+        SeatHold hold = seatHold(2).getBody();
+        heHan(hold.getId());
 
-        ResponseEntity<ErrorResponse> phanHoi = goi(HttpMethod.POST, "/api/v1/dk/bookings",
-                UUID.randomUUID(), thanDatTour(giu.getId()), ErrorResponse.class);
+        ResponseEntity<ErrorResponse> response = call(HttpMethod.POST, "/api/v1/dk/bookings",
+                UUID.randomUUID(), bookingBody(hold.getId()), ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("SEAT_HOLD_EXPIRED", phanHoi.getBody().getCode());
-        assertEquals(18, dem("SELECT seats_booked FROM departure WHERE id = CAST('"
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("SEAT_HOLD_EXPIRED", response.getBody().getCode());
+        assertEquals(18, count("SELECT seats_booked FROM departure WHERE id = CAST('"
                         + NGAY_DI + "' AS uuid)"),
                 "Đơn không thành thì seats_booked không được đổi");
     }
 
     @Test
     @DisplayName("Loại có tồn kho mà thiếu seatHoldId thì bị chặn")
-    void thieuGiuCho() {
-        ResponseEntity<ErrorResponse> phanHoi = goi(HttpMethod.POST, "/api/v1/dk/bookings",
-                UUID.randomUUID(), thanDatTour(null), ErrorResponse.class);
+    void missingSeatHoldIdRejectedForInventoryType() {
+        ResponseEntity<ErrorResponse> response = call(HttpMethod.POST, "/api/v1/dk/bookings",
+                UUID.randomUUID(), bookingBody(null), ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode(),
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode(),
                 "Không có giữ chỗ nghĩa là chỗ chưa bao giờ được khoá");
     }
 
@@ -365,32 +365,32 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Gọi lại cùng Idempotency-Key trả về CÙNG đơn, không tạo đơn thứ hai")
-    void goiLaiCungKhoa() {
-        SeatHold giu = giuCho(2).getBody();
-        UUID khoa = UUID.randomUUID();
+    void sameIdempotencyKeyReturnsSameBooking() {
+        SeatHold hold = seatHold(2).getBody();
+        UUID key = UUID.randomUUID();
 
-        Booking lanMot = datTour(giu.getId(), khoa).getBody();
-        ResponseEntity<Booking> lanHai = datTour(giu.getId(), khoa);
+        Booking firstAttempt = bookTour(hold.getId(), key).getBody();
+        ResponseEntity<Booking> secondAttempt = bookTour(hold.getId(), key);
 
-        assertEquals(HttpStatus.CREATED, lanHai.getStatusCode());
-        assertEquals(lanMot.getReference(), lanHai.getBody().getReference(),
+        assertEquals(HttpStatus.CREATED, secondAttempt.getStatusCode());
+        assertEquals(firstAttempt.getReference(), secondAttempt.getBody().getReference(),
                 "Khách bấm nút hai lần không được thành hai đơn");
-        assertEquals(1, dem("SELECT count(*) FROM booking"));
-        assertEquals(20, dem("SELECT seats_booked FROM departure WHERE id = CAST('"
+        assertEquals(1, count("SELECT count(*) FROM booking"));
+        assertEquals(20, count("SELECT seats_booked FROM departure WHERE id = CAST('"
                         + NGAY_DI + "' AS uuid)"),
                 "Chỗ không bị trừ hai lần");
     }
 
     @Test
     @DisplayName("Cùng khoá nhưng thân yêu cầu KHÁC thì 409, không trả kết quả cũ")
-    void cungKhoaKhacThan() {
-        SeatHold giu = giuCho(2).getBody();
-        UUID khoa = UUID.randomUUID();
+    void sameKeyDifferentBodyReturns409() {
+        SeatHold hold = seatHold(2).getBody();
+        UUID key = UUID.randomUUID();
 
-        assertEquals(HttpStatus.CREATED, datTour(giu.getId(), khoa).getStatusCode());
+        assertEquals(HttpStatus.CREATED, bookTour(hold.getId(), key).getStatusCode());
 
-        ResponseEntity<ErrorResponse> khac = goi(HttpMethod.POST, "/api/v1/dk/bookings", khoa,
-                thanDatTour(giu.getId()).replace("Anders Jensen", "Người khác hẳn"),
+        ResponseEntity<ErrorResponse> khac = call(HttpMethod.POST, "/api/v1/dk/bookings", key,
+                bookingBody(hold.getId()).replace("Anders Jensen", "Người khác hẳn"),
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, khac.getStatusCode());
@@ -400,17 +400,17 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Lần thử THẤT BẠI không bị khoá vĩnh viễn vào Idempotency-Key")
-    void thatBaiKhongDuocNho() {
-        UUID khoa = UUID.randomUUID();
+    void failedAttemptNotCachedUnderKey() {
+        UUID key = UUID.randomUUID();
 
         assertEquals(HttpStatus.CONFLICT,
-                goi(HttpMethod.POST, "/api/v1/dk/seat-holds", khoa, thanGiuCho(3), Object.class)
+                call(HttpMethod.POST, "/api/v1/dk/seat-holds", key, holdBody(3), Object.class)
                         .getStatusCode());
 
         jdbc.update("UPDATE departure SET seats_booked = 17 WHERE id = CAST(? AS uuid)", NGAY_DI);
 
         assertEquals(HttpStatus.CREATED,
-                goi(HttpMethod.POST, "/api/v1/dk/seat-holds", khoa, thanGiuCho(3), Object.class)
+                call(HttpMethod.POST, "/api/v1/dk/seat-holds", key, holdBody(3), Object.class)
                         .getStatusCode(),
                 "Chỉ nhớ kết quả THÀNH CÔNG — chỗ có thể về kho ngay sau lần thử hỏng");
     }
@@ -419,18 +419,18 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Tra đơn cần mã VÀ email khớp; sai email trả cùng kết quả với sai mã")
-    void traDon() {
-        Booking don = datTour(giuCho(2).getBody().getId(), UUID.randomUUID()).getBody();
+    void bookingLookupNeedsCodeAndEmail() {
+        Booking booking = bookTour(seatHold(2).getBody().getId(), UUID.randomUUID()).getBody();
 
-        assertEquals(HttpStatus.OK, goi(HttpMethod.GET,
-                "/api/v1/dk/bookings/" + don.getReference() + "?email=anders@example.dk",
+        assertEquals(HttpStatus.OK, call(HttpMethod.GET,
+                "/api/v1/dk/bookings/" + booking.getReference() + "?email=anders@example.dk",
                 null, null, Booking.class).getStatusCode());
 
-        assertEquals(HttpStatus.NOT_FOUND, goi(HttpMethod.GET,
-                "/api/v1/dk/bookings/" + don.getReference() + "?email=nguoi.khac@example.dk",
+        assertEquals(HttpStatus.NOT_FOUND, call(HttpMethod.GET,
+                "/api/v1/dk/bookings/" + booking.getReference() + "?email=nguoi.khac@example.dk",
                 null, null, ErrorResponse.class).getStatusCode());
 
-        assertEquals(HttpStatus.NOT_FOUND, goi(HttpMethod.GET,
+        assertEquals(HttpStatus.NOT_FOUND, call(HttpMethod.GET,
                         "/api/v1/dk/bookings/DK-2026-KHONGCO?email=anders@example.dk",
                         null, null, ErrorResponse.class).getStatusCode(),
                 "Sai mã và sai email trả cùng một kết quả — nếu không thì đây là kênh dò mã đơn");
@@ -438,35 +438,35 @@ class BookingFlowIT {
 
     @Test
     @DisplayName("Đường ghi không bao giờ được cache")
-    void khongCache() {
-        String cache = giuCho(1).getHeaders().getCacheControl();
+    void writePathIsNeverCached() {
+        String cache = seatHold(1).getHeaders().getCacheControl();
         assertNotNull(cache);
         assertTrue(cache.contains("no-store"));
     }
 
     // ------------------------------------------------------------ tiện ích
 
-    private ResponseEntity<SeatHold> giuCho(int soCho) {
-        return goi(HttpMethod.POST, "/api/v1/dk/seat-holds", UUID.randomUUID(),
-                thanGiuCho(soCho), SeatHold.class);
+    private ResponseEntity<SeatHold> seatHold(int seatCount) {
+        return call(HttpMethod.POST, "/api/v1/dk/seat-holds", UUID.randomUUID(),
+                holdBody(seatCount), SeatHold.class);
     }
 
-    private ResponseEntity<Booking> datTour(UUID seatHoldId, UUID khoa) {
-        return goi(HttpMethod.POST, "/api/v1/dk/bookings", khoa, thanDatTour(seatHoldId), Booking.class);
+    private ResponseEntity<Booking> bookTour(UUID seatHoldId, UUID key) {
+        return call(HttpMethod.POST, "/api/v1/dk/bookings", key, bookingBody(seatHoldId), Booking.class);
     }
 
-    private static String thanGiuCho(int soCho) {
-        return "{\"departureId\":\"%s\",\"seats\":%d}".formatted(NGAY_DI, soCho);
+    private static String holdBody(int seatCount) {
+        return "{\"departureId\":\"%s\",\"seats\":%d}".formatted(NGAY_DI, seatCount);
     }
 
-    private static String thanDatTour(UUID seatHoldId) {
-        String giu = seatHoldId == null ? "" : "\"seatHoldId\":\"%s\",".formatted(seatHoldId);
+    private static String bookingBody(UUID seatHoldId) {
+        String hold = seatHoldId == null ? "" : "\"seatHoldId\":\"%s\",".formatted(seatHoldId);
         return ("{\"departureId\":\"%s\",%s"
                 + "\"pax\":[{\"paxTypeCode\":\"ADULT\",\"count\":2}],\"singleTravellers\":0,"
                 + "\"passengers\":[{\"paxTypeCode\":\"ADULT\",\"fullName\":\"Anders Jensen\"},"
                 + "{\"paxTypeCode\":\"ADULT\",\"fullName\":\"Mette Jensen\"}],"
                 + "\"contactEmail\":\"anders@example.dk\",\"contactPhone\":\"+4512345678\"}")
-                .formatted(NGAY_DI, giu);
+                .formatted(NGAY_DI, hold);
     }
 
     private void heHan(UUID seatHoldId) {
@@ -474,27 +474,27 @@ class BookingFlowIT {
                 seatHoldId);
     }
 
-    private int dem(String sql) {
-        Integer so = jdbc.queryForObject(sql, Integer.class);
-        return so == null ? 0 : so;
+    private int count(String sql) {
+        Integer count = jdbc.queryForObject(sql, Integer.class);
+        return count == null ? 0 : count;
     }
 
-    private <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan,
-                                      UUID khoa, String than, Class<T> kieu) {
-        RestClient.RequestBodySpec yeuCau = RestClient.builder()
+    private <T> ResponseEntity<T> call(HttpMethod httpMethod, String path,
+                                      UUID key, String body, Class<T> type) {
+        RestClient.RequestBodySpec request = RestClient.builder()
                 .baseUrl("http://localhost:" + cong)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build()
-                .method(phuongThuc)
-                .uri(duongDan)
+                .method(httpMethod)
+                .uri(path)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, "da");
 
-        if (khoa != null) {
-            yeuCau.header("Idempotency-Key", khoa.toString());
+        if (key != null) {
+            request.header("Idempotency-Key", key.toString());
         }
-        if (than != null) {
-            yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);
+        if (body != null) {
+            request.contentType(MediaType.APPLICATION_JSON).body(body);
         }
-        return yeuCau.retrieve().toEntity(kieu);
+        return request.retrieve().toEntity(type);
     }
 }

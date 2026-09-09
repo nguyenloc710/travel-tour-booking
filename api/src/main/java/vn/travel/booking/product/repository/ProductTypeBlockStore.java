@@ -51,7 +51,7 @@ public class ProductTypeBlockStore {
      * Ghi khối riêng của loại. Tạo mới hay sửa đều đi qua đây — khoá chính là
      * {@code product_id} nên {@code save()} tự phân biệt.
      */
-    public void luu(UUID productId, String productType, ProductTypeBlocks blocks) {
+    public void save(UUID productId, String productType, ProductTypeBlocks blocks) {
         switch (productType) {
             case "GROUP_TOUR" -> {
                 ProductTypeBlocks.GroupTour k = blocks.groupTour();
@@ -110,10 +110,10 @@ public class ProductTypeBlockStore {
     }
 
     /** Đọc khối riêng của loại. Chỉ khối khớp {@code productType} khác {@code null}. */
-    public ProductTypeBlocks doc(UUID productId, String productType) {
+    public ProductTypeBlocks mapRow(UUID productId, String productType) {
         return switch (productType) {
             case "GROUP_TOUR" -> groupTour.findById(productId)
-                    .map(e -> khoi(new ProductTypeBlocks.GroupTour(
+                    .map(e -> block(new ProductTypeBlocks.GroupTour(
                             e.getMinPax(), e.getMaxPax(), e.getGuaranteedThreshold(),
                             e.getTourLeaderLanguage(), e.getFitnessLevel())))
                     .orElseGet(ProductTypeBlockStore::rong);
@@ -142,7 +142,7 @@ public class ProductTypeBlockStore {
         };
     }
 
-    private static ProductTypeBlocks khoi(ProductTypeBlocks.GroupTour k) {
+    private static ProductTypeBlocks block(ProductTypeBlocks.GroupTour k) {
         return new ProductTypeBlocks(k, null, null, null, null, null);
     }
 

@@ -22,10 +22,10 @@ public class MarketRepository {
      * triển khai lại ứng dụng.
      */
     public boolean isActive(String market) {
-        Integer so = jdbc.queryForObject(
+        Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM market WHERE code = ? AND is_active",
                 Integer.class, market);
-        return so != null && so > 0;
+        return count != null && count > 0;
     }
 
     /**
@@ -35,7 +35,7 @@ public class MarketRepository {
      * cho client gửi tiền tệ là mở đường nhập giá DKK vào thị trường {@code VN},
      * và không ràng buộc CSDL nào bắt được chuyện đó.
      */
-    public Optional<CauHinh> cauHinh(String market) {
+    public Optional<CauHinh> config(String market) {
         try {
             return Optional.ofNullable(jdbc.queryForObject(
                     "SELECT currency, fraction_digits FROM market WHERE code = ? AND is_active",

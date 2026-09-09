@@ -49,19 +49,19 @@ public final class QuoteStatuses {
     private QuoteStatuses() {
     }
 
-    public static boolean diDuoc(QuoteStatus tu, QuoteStatus sang) {
+    public static boolean canTransitionTo(QuoteStatus tu, QuoteStatus sang) {
         return DUOC_PHEP.getOrDefault(tu, EnumSet.noneOf(QuoteStatus.class)).contains(sang);
     }
 
-    public static void phaiDiDuoc(QuoteStatus tu, QuoteStatus sang) {
-        if (!diDuoc(tu, sang)) {
+    public static void requireTransition(QuoteStatus tu, QuoteStatus sang) {
+        if (!canTransitionTo(tu, sang)) {
             throw new QuoteErrors.NotAcceptable(tu, sang);
         }
     }
 
     /** Đã chốt: không còn đường đi tiếp. Dùng để biết báo giá nào còn phải theo dõi. */
-    public static boolean daChot(QuoteStatus trangThai) {
-        return DUOC_PHEP.getOrDefault(trangThai, EnumSet.noneOf(QuoteStatus.class)).isEmpty();
+    public static boolean isClosed(QuoteStatus status) {
+        return DUOC_PHEP.getOrDefault(status, EnumSet.noneOf(QuoteStatus.class)).isEmpty();
     }
 
     /**
@@ -71,7 +71,7 @@ public final class QuoteStatuses {
      * tay, và sửa nó sau lưng khách là thứ không có cách nào giải thích khi hai
      * bên mang hai bản ra đối chiếu.
      */
-    public static boolean suaBangGiaDuoc(QuoteStatus trangThai) {
-        return trangThai == QuoteStatus.DRAFT;
+    public static boolean canEditPriceTiers(QuoteStatus status) {
+        return status == QuoteStatus.DRAFT;
     }
 }

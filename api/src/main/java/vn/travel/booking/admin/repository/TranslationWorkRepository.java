@@ -114,25 +114,25 @@ public class TranslationWorkRepository {
     // ------------------------------------------------------------ hàng đợi
 
     public List<QueueItem> queue(String localeNguon, String entityType, int limit) {
-        List<String> khoi = new ArrayList<>();
-        List<Object> thamSo = new ArrayList<>();
+        List<String> block = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
 
         if (entityType == null || "PRODUCT".equals(entityType)) {
-            khoi.add(SAN_PHAM);
-            thamSo.add(localeNguon);
+            block.add(SAN_PHAM);
+            params.add(localeNguon);
         }
         if (entityType == null || "POST".equals(entityType)) {
-            khoi.add(BAI_VIET);
-            thamSo.add(localeNguon);
+            block.add(BAI_VIET);
+            params.add(localeNguon);
         }
-        if (khoi.isEmpty()) {
+        if (block.isEmpty()) {
             return List.of();
         }
-        thamSo.add(limit);
+        params.add(limit);
 
         // Sắp theo priority TRƯỚC, ngày sau. Sắp theo ngày là để một dòng chữ
         // trong bài blog chen lên trước một tour đang bán (docs/22 mục 4.1.1).
-        String sql = "SELECT * FROM (\n" + String.join("\nUNION ALL\n", khoi) + "\n) x\n"
+        String sql = "SELECT * FROM (\n" + String.join("\nUNION ALL\n", block) + "\n) x\n"
                 + "ORDER BY x.priority, x.source_modified DESC\n"
                 + "LIMIT ?";
 
@@ -146,7 +146,7 @@ public class TranslationWorkRepository {
                         rs.getString("source_title"),
                         rs.getObject("source_modified", OffsetDateTime.class),
                         rs.getObject("translated_at", OffsetDateTime.class)),
-                thamSo.toArray());
+                params.toArray());
     }
 
     // ------------------------------------------------------------ độ phủ
@@ -159,9 +159,9 @@ public class TranslationWorkRepository {
      */
     public List<CoverageRow> coverage(String localeNguon, String locale) {
         List<CoverageRow> ket_qua = new ArrayList<>();
-        ket_qua.addAll(demMot("PRODUCT", "product", "product_translation", "product_id",
+        ket_qua.addAll(countOne("PRODUCT", "product", "product_translation", "product_id",
                 localeNguon, locale));
-        ket_qua.addAll(demMot("POST", "post", "post_translation", "post_id",
+        ket_qua.addAll(countOne("POST", "post", "post_translation", "post_id",
                 localeNguon, locale));
         return ket_qua;
     }
@@ -171,15 +171,15 @@ public class TranslationWorkRepository {
      * đều là <b>hằng số trong mã nguồn</b>, không có đường nào cho dữ liệu người
      * dùng chạm tới. Giá trị do người dùng nhập vẫn đi bằng tham số {@code ?}.
      */
-    private List<CoverageRow> demMot(String entityType, String bang, String bangDich,
+    private List<CoverageRow> countOne(String entityType, String table, String bangDich,
                                      String cotKhoa, String localeNguon, String locale) {
-        List<Object> thamSo = new ArrayList<>();
-        thamSo.add(localeNguon);
+        List<Object> params = new ArrayList<>();
+        params.add(localeNguon);
 
-        String locLocale = "";
+        String localeFilter = "";
         if (locale != null) {
-            locLocale = " AND l.code = ?";
-            thamSo.add(locale);
+            localeFilter = " AND l.code = ?";
+            params.add(locale);
         }
 
         String sql = "SELECT l.code AS locale,\n"
@@ -187,20 +187,20 @@ public class TranslationWorkRepository {
                 + "       count(*) FILTER (WHERE t.translated_at IS NOT NULL) AS translated,\n"
                 + "       count(*) FILTER (WHERE t.translated_at IS NOT NULL\n"
                 + "                          AND t.translated_at >= src.last_modified_at) AS up_to_date\n"
-                + "FROM " + bang + " e\n"
+                + "FROM " + table + " e\n"
                 + "JOIN " + bangDich + " src\n"
                 + "  ON src." + cotKhoa + " = e.id AND src.locale = ?\n"
                 + " AND NOT src.soft_delete AND src.status = 'PUBLISHED'\n"
                 + "CROSS JOIN locale l\n"
                 + "LEFT JOIN " + bangDich + " t\n"
                 + "  ON t." + cotKhoa + " = e.id AND t.locale = l.code AND NOT t.soft_delete\n"
-                + "WHERE NOT e.soft_delete AND l.is_active AND NOT l.is_source" + locLocale + "\n"
+                + "WHERE NOT e.soft_delete AND l.is_active AND NOT l.is_source" + localeFilter + "\n"
                 + "GROUP BY l.code\n"
                 + "ORDER BY l.code";
 
         return jdbc.query(sql,
                 (rs, i) -> new CoverageRow(entityType, rs.getString("locale"),
                         rs.getInt("total"), rs.getInt("translated"), rs.getInt("up_to_date")),
-                thamSo.toArray());
+                params.toArray());
     }
 }

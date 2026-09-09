@@ -26,13 +26,13 @@ public final class EarlyBird {
      * được giảm, đặt sau đó <b>một ngày</b> thì không. Ranh giới này có test
      * riêng vì nó là chỗ dễ lệch một ngày nhất (docs/14 mục 9.1).
      */
-    public static Money mucGiamMoiNguoi(LocalDate ngayDat, LocalDate ngayKhoiHanh,
-                                        List<EarlyBirdTier> bac, String tienTe) {
+    public static Money discountPerPerson(LocalDate bookedAt, LocalDate departureDate,
+                                        List<EarlyBirdTier> bac, String currency) {
         return bac.stream()
                 .sorted(Comparator.comparingInt(EarlyBirdTier::monthsBefore).reversed())
-                .filter(b -> !ngayKhoiHanh.isBefore(ngayDat.plusMonths(b.monthsBefore())))
+                .filter(b -> !departureDate.isBefore(bookedAt.plusMonths(b.monthsBefore())))
                 .findFirst()
                 .map(EarlyBirdTier::discountPerPerson)
-                .orElse(Money.of("0", tienTe));
+                .orElse(Money.of("0", currency));
     }
 }

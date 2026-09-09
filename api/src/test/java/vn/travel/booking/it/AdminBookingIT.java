@@ -44,11 +44,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Hai bài quan trọng nhất của lớp này:
  *
  * <ul>
- *   <li>{@link #demDungKhiDonCoNhieuHanhKhach()} — {@code totalItems} phải đếm
+ *   <li>{@link #totalItemsCountsBookingsNotPassengers()} — {@code totalItems} phải đếm
  *       <b>đơn</b>, không đếm hành khách. Viết truy vấn bằng {@code JOIN
  *       booking_passenger} thì bài này đỏ còn mọi bài khác vẫn xanh; đó đúng là
  *       cái bẫy đã dính một lần với thẻ và chủ đề.
- *   <li>{@link #chiTietHienToanBoNhatKy()} — nhật ký hiện <b>đủ</b>, cũ nhất
+ *   <li>{@link #detailShowsFullAuditLogOldestFirst()} — nhật ký hiện <b>đủ</b>, cũ nhất
  *       trước. Một nhật ký kiểm toán hiện một nửa là một nhật ký không dùng được
  *       khi có tranh chấp, và không có gì trên màn hình cho thấy nó thiếu.
  * </ul>
@@ -85,7 +85,7 @@ class AdminBookingIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    private static final String MAT_KHAU = "mat-khau-rat-dai";
+    private static final String PASSWORD = "mat-khau-rat-dai";
     private static final String TU_VAN = "bb100000-0000-4000-8000-000000000002";
     private static final String DEPARTURE_DK = "bb200000-0000-4000-8000-000000000001";
 
@@ -96,7 +96,7 @@ class AdminBookingIT {
     JdbcTemplate jdbc;
 
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         // MỘT câu nhiều lệnh: ràng buộc ct_product_source_translation là
         // DEFERRABLE INITIALLY DEFERRED, nên product và bản dịch nguồn của nó
         // phải nằm cùng một transaction.
@@ -119,6 +119,7 @@ class AdminBookingIT {
                 DELETE FROM destination;
                 DELETE FROM region_translation;
                 DELETE FROM region;
+                DELETE FROM slug_history;
                 DELETE FROM staff_user;
 
                 INSERT INTO region (id, code, sort_order) VALUES
@@ -212,10 +213,10 @@ class AdminBookingIT {
                    'Bo Jensen','1975-01-01',NULL,NULL,'DK');
                 """);
 
-        String bam = new BCryptPasswordEncoder().encode(MAT_KHAU);
-        themNhanVien("bb100000-0000-4000-8000-000000000001", "bientap@travel.test", "Biên tập", bam, "EDITOR");
-        themNhanVien(TU_VAN, "tuvan@travel.test", "Trần Tư Vấn", bam, "CONSULTANT");
-        themNhanVien("bb100000-0000-4000-8000-000000000003", "admin@travel.test", "Quản trị", bam, "ADMIN");
+        String hash = new BCryptPasswordEncoder().encode(PASSWORD);
+        addStaff("bb100000-0000-4000-8000-000000000001", "bientap@travel.test", "Biên tập", hash, "EDITOR");
+        addStaff(TU_VAN, "tuvan@travel.test", "Trần Tư Vấn", hash, "CONSULTANT");
+        addStaff("bb100000-0000-4000-8000-000000000003", "admin@travel.test", "Quản trị", hash, "ADMIN");
 
         // Nhật ký của B2 — ba dòng, và dòng cuối do NHÂN VIÊN làm. Đặt created_at
         // tay để thứ tự kiểm được; dựa vào now() thì ba dòng chèn trong cùng một
@@ -239,28 +240,28 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Mặc định chỉ trả đơn cần xử lý, không trả tất cả")
-    void macDinhChiTraDonCanXuLy() {
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings", AdminBookingPage.class).getBody();
+    void defaultReturnsOnlyActionableBookings() {
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
         assertEquals(2L, trang.getTotalItems());
 
         // Một danh sách vận hành mở ra mặc định "tất cả" là danh sách không dùng
         // được sau sáu tháng: việc cần làm hôm nay chìm giữa đơn đã xong.
-        List<BookingStatus> trangThai = trang.getItems().stream()
+        List<BookingStatus> status = trang.getItems().stream()
                 .map(AdminBookingSummary::getStatus).toList();
-        assertTrue(trangThai.contains(BookingStatus.PENDING_CONFIRMATION));
-        assertTrue(trangThai.contains(BookingStatus.PENDING_PAYMENT));
-        assertFalse(trangThai.contains(BookingStatus.CONFIRMED));
-        assertFalse(trangThai.contains(BookingStatus.COMPLETED));
+        assertTrue(status.contains(BookingStatus.PENDING_CONFIRMATION));
+        assertTrue(status.contains(BookingStatus.PENDING_PAYMENT));
+        assertFalse(status.contains(BookingStatus.CONFIRMED));
+        assertFalse(status.contains(BookingStatus.COMPLETED));
     }
 
     @Test
     @DisplayName("scope=ALL trả hết, mới nhất trước")
-    void scopeAllTraHetMoiNhatTruoc() {
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
+    void scopeAllReturnsEverythingNewestFirst() {
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
         assertEquals(4L, trang.getTotalItems());
@@ -270,12 +271,12 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("status tường minh thắng scope mặc định")
-    void statusTuongMinhThangScope() {
+    void explicitStatusOverridesDefaultScope() {
         // COMPLETED không nằm trong NEEDS_ACTION. Không truyền scope, nhưng
         // truyền status: lựa chọn người dùng nhìn thấy thắng mặc định họ không
         // nhìn thấy.
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings?status=COMPLETED", AdminBookingPage.class).getBody();
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings?status=COMPLETED", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
         assertEquals(1L, trang.getTotalItems());
@@ -284,12 +285,12 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Lọc theo thị trường, và thị trường đã tắt vẫn thấy đơn cũ")
-    void locTheoThiTruong() {
+    void filterByMarketKeepsDisabledMarketHistory() {
         // VN có is_active = FALSE trong dữ liệu tra cứu. Đơn đã đặt ở đó vẫn
         // phải nhìn thấy được: tắt một thị trường là ngừng bán, không phải xoá
         // những người đã mua.
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings?scope=ALL&market=VN", AdminBookingPage.class).getBody();
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings?scope=ALL&market=VN", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
         assertEquals(1L, trang.getTotalItems());
@@ -300,9 +301,9 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Khoảng ngày lọc theo ngày TẠO đơn, và bao gồm cả ngày cuối")
-    void locTheoKhoangNgayTao() {
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings?scope=ALL&from=2026-09-01&to=2026-09-02",
+    void dateRangeFiltersByCreatedAtInclusive() {
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings?scope=ALL&from=2026-09-01&to=2026-09-02",
                         AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
@@ -315,29 +316,29 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Tìm được bằng mã tra cứu và bằng email liên hệ")
-    void timTheoMaHoacEmail() {
-        var phien = dangNhap("tuvan@travel.test");
+    void searchByReferenceOrContactEmail() {
+        var session = login("tuvan@travel.test");
 
-        AdminBookingPage theoMa = phien
-                .lay("/api/v1/admin/bookings?scope=ALL&q=BBBB", AdminBookingPage.class).getBody();
-        assertNotNull(theoMa);
-        assertEquals(1L, theoMa.getTotalItems());
-        assertEquals("DK-2026-BBBB22", theoMa.getItems().getFirst().getReference());
+        AdminBookingPage byCode = session
+                .get("/api/v1/admin/bookings?scope=ALL&q=BBBB", AdminBookingPage.class).getBody();
+        assertNotNull(byCode);
+        assertEquals(1L, byCode.getTotalItems());
+        assertEquals("DK-2026-BBBB22", byCode.getItems().getFirst().getReference());
 
         // Tổng đài có trong tay một trong hai, và không biết mình đang cầm cái
         // nào cho tới khi gõ xong.
-        AdminBookingPage theoEmail = phien
-                .lay("/api/v1/admin/bookings?scope=ALL&q=hoa@example.vn", AdminBookingPage.class).getBody();
-        assertNotNull(theoEmail);
-        assertEquals(1L, theoEmail.getTotalItems());
-        assertEquals("VN-2026-CCCC33", theoEmail.getItems().getFirst().getReference());
+        AdminBookingPage byEmail = session
+                .get("/api/v1/admin/bookings?scope=ALL&q=hoa@example.vn", AdminBookingPage.class).getBody();
+        assertNotNull(byEmail);
+        assertEquals(1L, byEmail.getTotalItems());
+        assertEquals("VN-2026-CCCC33", byEmail.getItems().getFirst().getReference());
     }
 
     @Test
     @DisplayName("totalItems đếm ĐƠN, không đếm hành khách")
-    void demDungKhiDonCoNhieuHanhKhach() {
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
+    void totalItemsCountsBookingsNotPassengers() {
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
         // Bốn đơn mang tổng cộng bảy hành khách. Viết truy vấn bằng
@@ -345,18 +346,18 @@ class AdminBookingIT {
         // là một con số hợp lý.
         assertEquals(4L, trang.getTotalItems());
         assertEquals(4, trang.getItems().size());
-        assertEquals(3, tim(trang, "VN-2026-CCCC33").getPaxCount());
-        assertEquals(2, tim(trang, "DK-2026-AAAA11").getPaxCount());
+        assertEquals(3, find(trang, "VN-2026-CCCC33").getPaxCount());
+        assertEquals(2, find(trang, "DK-2026-AAAA11").getPaxCount());
     }
 
     @Test
     @DisplayName("Locale của đơn độc lập với thị trường")
-    void localeDocLapVoiThiTruong() {
-        AdminBookingPage trang = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
+    void bookingLocaleIndependentOfMarket() {
+        AdminBookingPage trang = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
-        AdminBookingSummary b2 = tim(trang, "DK-2026-BBBB22");
+        AdminBookingSummary b2 = find(trang, "DK-2026-BBBB22");
         assertEquals(AdminBookingSummary.MarketEnum.DK, b2.getMarket());
         assertEquals("vi", b2.getLocale());
     }
@@ -365,90 +366,90 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Chi tiết trả đúng giá đã chụp lại lúc đặt")
-    void chiTietTraGiaDaChupLai() {
-        AdminBookingDetail don = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings/DK-2026-AAAA11", AdminBookingDetail.class).getBody();
+    void detailReturnsPriceSnapshotFromBooking() {
+        AdminBookingDetail booking = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings/DK-2026-AAAA11", AdminBookingDetail.class).getBody();
 
-        assertNotNull(don);
-        assertEquals(2, don.getBreakdown().getLines().size());
-        assertEquals("49980.00", don.getBreakdown().getTotal().getAmount());
-        assertEquals("12495.00", don.getBreakdown().getDeposit().getAmount());
+        assertNotNull(booking);
+        assertEquals(2, booking.getBreakdown().getLines().size());
+        assertEquals("49980.00", booking.getBreakdown().getTotal().getAmount());
+        assertEquals("12495.00", booking.getBreakdown().getDeposit().getAmount());
 
         // deposit + balance = total, tuyệt đối. docs/14 mục 3 quy tắc 4.
         assertEquals(new BigDecimal("49980.00"),
-                new BigDecimal(don.getBreakdown().getDeposit().getAmount())
-                        .add(new BigDecimal(don.getBreakdown().getBalance().getAmount())));
+                new BigDecimal(booking.getBreakdown().getDeposit().getAmount())
+                        .add(new BigDecimal(booking.getBreakdown().getBalance().getAmount())));
 
         // Nhãn là KHOÁ CHUỖI, không phải câu tiếng người: cùng một đơn in ra
         // được ở cả hai ngôn ngữ.
-        assertEquals("line.base", don.getBreakdown().getLines().getFirst().getLabelKey());
+        assertEquals("line.base", booking.getBreakdown().getLines().getFirst().getLabelKey());
     }
 
     @Test
     @DisplayName("Chi tiết hiện TOÀN BỘ nhật ký, cũ nhất trước")
-    void chiTietHienToanBoNhatKy() {
-        AdminBookingDetail don = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings/DK-2026-BBBB22", AdminBookingDetail.class).getBody();
+    void detailShowsFullAuditLogOldestFirst() {
+        AdminBookingDetail booking = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings/DK-2026-BBBB22", AdminBookingDetail.class).getBody();
 
-        assertNotNull(don);
-        List<AdminBookingEvent> nhatKy = don.getEvents();
-        assertEquals(3, nhatKy.size());
+        assertNotNull(booking);
+        List<AdminBookingEvent> auditLog = booking.getEvents();
+        assertEquals(3, auditLog.size());
 
         // Dòng đầu không đến từ trạng thái nào — đơn vừa sinh ra.
-        assertNull(nhatKy.getFirst().getFromStatus());
-        assertEquals(BookingStatus.PENDING_PAYMENT, nhatKy.getFirst().getToStatus());
+        assertNull(auditLog.getFirst().getFromStatus());
+        assertEquals(BookingStatus.PENDING_PAYMENT, auditLog.getFirst().getToStatus());
 
         assertEquals(List.of(BookingStatus.PENDING_PAYMENT, BookingStatus.PENDING_CONFIRMATION,
                         BookingStatus.CONFIRMED),
-                nhatKy.stream().map(AdminBookingEvent::getToStatus).toList());
+                auditLog.stream().map(AdminBookingEvent::getToStatus).toList());
     }
 
     @Test
     @DisplayName("Tên nhân viên chỉ có ở dòng do nhân viên làm")
-    void tenNhanVienChiCoODongStaff() {
-        AdminBookingDetail don = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings/DK-2026-BBBB22", AdminBookingDetail.class).getBody();
+    void staffNameOnlyOnStaffRows() {
+        AdminBookingDetail booking = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings/DK-2026-BBBB22", AdminBookingDetail.class).getBody();
 
-        assertNotNull(don);
-        AdminBookingEvent cuoi = don.getEvents().getLast();
-        assertEquals(AdminBookingEvent.ActorTypeEnum.STAFF, cuoi.getActorType());
-        assertEquals("Trần Tư Vấn", cuoi.getActorName());
-        assertEquals("Đã gọi xác nhận", cuoi.getNote());
+        assertNotNull(booking);
+        AdminBookingEvent last = booking.getEvents().getLast();
+        assertEquals(AdminBookingEvent.ActorTypeEnum.STAFF, last.getActorType());
+        assertEquals("Trần Tư Vấn", last.getActorName());
+        assertEquals("Đã gọi xác nhận", last.getNote());
 
         // Dòng của khách và của hệ thống không có nhân viên nào — và đó là phần
         // lớn nhật ký của một đơn bình thường.
-        assertEquals(AdminBookingEvent.ActorTypeEnum.CUSTOMER, don.getEvents().getFirst().getActorType());
-        assertNull(don.getEvents().getFirst().getActorName());
-        assertNull(don.getEvents().get(1).getActorName());
+        assertEquals(AdminBookingEvent.ActorTypeEnum.CUSTOMER, booking.getEvents().getFirst().getActorType());
+        assertNull(booking.getEvents().getFirst().getActorName());
+        assertNull(booking.getEvents().get(1).getActorName());
     }
 
     @Test
     @DisplayName("Chi tiết trả hộ chiếu — thứ bề mặt công khai không trả")
-    void chiTietTraHoChieu() {
-        AdminBookingDetail don = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings/DK-2026-BBBB22", AdminBookingDetail.class).getBody();
+    void detailReturnsPassportDataPublicDoesNot() {
+        AdminBookingDetail booking = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings/DK-2026-BBBB22", AdminBookingDetail.class).getBody();
 
-        assertNotNull(don);
-        assertEquals(1, don.getPassengers().size());
-        AdminBookingPassenger khach = don.getPassengers().getFirst();
-        assertEquals("Nguyễn Mỹ Linh", khach.getFullName());
-        assertEquals("P1234567", khach.getPassportNo());
-        assertEquals("ADULT", khach.getPaxTypeCode());
+        assertNotNull(booking);
+        assertEquals(1, booking.getPassengers().size());
+        AdminBookingPassenger client = booking.getPassengers().getFirst();
+        assertEquals("Nguyễn Mỹ Linh", client.getFullName());
+        assertEquals("P1234567", client.getPassportNo());
+        assertEquals("ADULT", client.getPaxTypeCode());
     }
 
     @Test
     @DisplayName("Mã tra cứu không tồn tại trả 404")
-    void maKhongTonTaiTra404() {
-        assertEquals(HttpStatus.NOT_FOUND, dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings/DK-2026-KHONGCO", String.class).getStatusCode());
+    void unknownReferenceReturns404() {
+        assertEquals(HttpStatus.NOT_FOUND, login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings/DK-2026-KHONGCO", String.class).getStatusCode());
     }
 
     // ------------------------------------------------------------ M7 đường ghi
 
     @Test
     @DisplayName("Xác nhận đơn: trạng thái đổi và nhật ký có dòng mang tên nhân viên")
-    void xacNhanDonGhiNhatKy() {
-        AdminBookingDetail sau = doiTrangThai("tuvan@travel.test", "DK-2026-AAAA11",
+    void confirmingBookingWritesAuditRow() {
+        AdminBookingDetail sau = changeStatus("tuvan@travel.test", "DK-2026-AAAA11",
                 "CONFIRMED", "Khách đã chuyển khoản");
 
         assertNotNull(sau);
@@ -466,39 +467,39 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Huỷ đơn trả chỗ về kho NGAY")
-    void huyDonTraChoVeKho() {
+    void cancellingReturnsSeatsImmediately() {
         // B2 đang CONFIRMED với 1 hành khách, trên ngày khởi hành có 4 chỗ đã bán.
-        assertEquals(4, choDaBan(DEPARTURE_DK));
+        assertEquals(4, seatsSold(DEPARTURE_DK));
 
-        doiTrangThai("tuvan@travel.test", "DK-2026-BBBB22", "CANCELLED", "Khách đổi ý");
+        changeStatus("tuvan@travel.test", "DK-2026-BBBB22", "CANCELLED", "Khách đổi ý");
 
         // docs/14 mục 6.5: không chờ hoàn tiền xong. Giữ chỗ trống trong lúc chờ
         // ngân hàng là mất doanh thu vô ích.
-        assertEquals(3, choDaBan(DEPARTURE_DK));
+        assertEquals(3, seatsSold(DEPARTURE_DK));
     }
 
     @Test
     @DisplayName("Hoàn tiền KHÔNG trả chỗ lần thứ hai")
-    void hoanTienKhongTraChoLanHai() {
-        var phien = dangNhap("tuvan@travel.test");
-        goiDoi(phien, "DK-2026-BBBB22", "CANCELLED", null);
-        assertEquals(3, choDaBan(DEPARTURE_DK));
+    void refundDoesNotReturnSeatsTwice() {
+        var session = login("tuvan@travel.test");
+        callChange(session, "DK-2026-BBBB22", "CANCELLED", null);
+        assertEquals(3, seatsSold(DEPARTURE_DK));
 
         // CANCELLED → REFUNDED: chỗ đã về kho từ bước trước. Trừ thêm lần nữa là
         // bán được nhiều hơn sức chứa, và không ai phát hiện cho tới lúc lên xe.
-        goiDoi(phien, "DK-2026-BBBB22", "REFUNDED", "Đã hoàn qua ngân hàng");
-        assertEquals(3, choDaBan(DEPARTURE_DK));
+        callChange(session, "DK-2026-BBBB22", "REFUNDED", "Đã hoàn qua ngân hàng");
+        assertEquals(3, seatsSold(DEPARTURE_DK));
     }
 
     @Test
     @DisplayName("Bước chuyển ngược trả 409 kèm from và to")
-    void buocChuyenNguocTra409() {
+    void backwardTransitionReturns409() {
         // B4 đã COMPLETED — trạng thái đã chốt, không còn đường đi tiếp.
-        ResponseEntity<ErrorResponse> phanHoi = goiDoi(
-                dangNhap("tuvan@travel.test"), "DK-2026-DDDD44", "CONFIRMED", null);
+        ResponseEntity<ErrorResponse> response = callChange(
+                login("tuvan@travel.test"), "DK-2026-DDDD44", "CONFIRMED", null);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        ErrorResponse loi = phanHoi.getBody();
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        ErrorResponse loi = response.getBody();
         assertNotNull(loi);
         assertEquals("BOOKING_TRANSITION_NOT_ALLOWED", loi.getCode());
         // Tham số, không phải câu tiếng người — frontend dựng câu.
@@ -508,41 +509,41 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Gọi lại lần hai rơi vào máy trạng thái, không cần Idempotency-Key")
-    void goiLaiLanHaiTra409() {
-        var phien = dangNhap("tuvan@travel.test");
+    void secondCallHitsStateMachineNotIdempotency() {
+        var session = login("tuvan@travel.test");
         assertEquals(HttpStatus.OK,
-                goiDoi(phien, "DK-2026-AAAA11", "CONFIRMED", null).getStatusCode());
+                callChange(session, "DK-2026-AAAA11", "CONFIRMED", null).getStatusCode());
 
         // Bấm hai lần, hoặc trình duyệt gửi lại: lần thứ hai PENDING_CONFIRMATION
         // không còn là trạng thái hiện tại nữa. Bản thân máy trạng thái đã là cơ
         // chế chống gọi lại ở đây.
         assertEquals(HttpStatus.CONFLICT,
-                goiDoi(phien, "DK-2026-AAAA11", "CONFIRMED", null).getStatusCode());
+                callChange(session, "DK-2026-AAAA11", "CONFIRMED", null).getStatusCode());
     }
 
     @Test
     @DisplayName("Nhân viên không đặt tay được EXPIRED")
-    void khongDatTayDuocExpired() {
+    void staffCannotSetExpiredManually() {
         // EXPIRED do job quét hạn sinh ra. Đặt tay được nghĩa là nhật ký có thể
         // ghi một việc chưa từng xảy ra — spec để nó ngoài AdminBookingTargetStatus.
-        assertEquals(HttpStatus.BAD_REQUEST, goiDoi(
-                dangNhap("tuvan@travel.test"), "DK-2026-AAAA11", "EXPIRED", null)
+        assertEquals(HttpStatus.BAD_REQUEST, callChange(
+                login("tuvan@travel.test"), "DK-2026-AAAA11", "EXPIRED", null)
                 .getStatusCode());
     }
 
     @Test
     @DisplayName("Biên tập viên không đổi được trạng thái đơn")
-    void bienTapVienKhongDoiDuocTrangThai() {
-        assertEquals(HttpStatus.FORBIDDEN, goiDoi(
-                dangNhap("bientap@travel.test"), "DK-2026-AAAA11", "CONFIRMED", null)
+    void editorCannotChangeBookingStatus() {
+        assertEquals(HttpStatus.FORBIDDEN, callChange(
+                login("bientap@travel.test"), "DK-2026-AAAA11", "CONFIRMED", null)
                 .getStatusCode());
     }
 
     @Test
     @DisplayName("Đổi trạng thái đơn không tồn tại trả 404")
-    void doiTrangThaiDonKhongTonTaiTra404() {
-        assertEquals(HttpStatus.NOT_FOUND, goiDoi(
-                dangNhap("tuvan@travel.test"), "DK-2026-KHONGCO", "CONFIRMED", null)
+    void statusChangeOnUnknownBookingReturns404() {
+        assertEquals(HttpStatus.NOT_FOUND, callChange(
+                login("tuvan@travel.test"), "DK-2026-KHONGCO", "CONFIRMED", null)
                 .getStatusCode());
     }
 
@@ -550,22 +551,22 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Biên tập viên không xem được đơn")
-    void bienTapVienKhongXemDuocDon() {
+    void editorCannotViewBookings() {
         // Ma trận docs/22 mục 2.1 để EDITOR ở "–" cho dòng "Đơn đặt: xem". Đơn
         // mang email, điện thoại, ngày sinh và số hộ chiếu của khách; người viết
         // nội dung không có việc gì với dữ liệu đó.
-        var phien = dangNhap("bientap@travel.test");
+        var session = login("bientap@travel.test");
         assertEquals(HttpStatus.FORBIDDEN,
-                phien.lay("/api/v1/admin/bookings", String.class).getStatusCode());
+                session.get("/api/v1/admin/bookings", String.class).getStatusCode());
         assertEquals(HttpStatus.FORBIDDEN,
-                phien.lay("/api/v1/admin/bookings/DK-2026-AAAA11", String.class).getStatusCode());
+                session.get("/api/v1/admin/bookings/DK-2026-AAAA11", String.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Quản trị viên xem được đơn")
-    void quanTriVienXemDuocDon() {
-        AdminBookingPage trang = dangNhap("admin@travel.test")
-                .lay("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
+    void adminCanViewBookings() {
+        AdminBookingPage trang = login("admin@travel.test")
+                .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
         assertNotNull(trang);
         assertEquals(4L, trang.getTotalItems());
@@ -573,126 +574,126 @@ class AdminBookingIT {
 
     @Test
     @DisplayName("Chưa đăng nhập trả 401")
-    void chuaDangNhapTra401() {
+    void notLoggedInReturns401() {
         assertEquals(HttpStatus.UNAUTHORIZED,
-                new Phien().lay("/api/v1/admin/bookings", String.class).getStatusCode());
+                new Phien().get("/api/v1/admin/bookings", String.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Phản hồi không bao giờ được cache")
-    void phanHoiKhongCache() {
-        ResponseEntity<AdminBookingPage> phanHoi = dangNhap("tuvan@travel.test")
-                .lay("/api/v1/admin/bookings", AdminBookingPage.class);
+    void responsesAreNeverCached() {
+        ResponseEntity<AdminBookingPage> response = login("tuvan@travel.test")
+                .get("/api/v1/admin/bookings", AdminBookingPage.class);
 
         // docs/22 mục 7: nội dung quản trị không được nằm trong bất kỳ cache nào.
-        assertTrue(phanHoi.getHeaders().getCacheControl().contains("no-store"));
+        assertTrue(response.getHeaders().getCacheControl().contains("no-store"));
     }
 
     // ------------------------------------------------------------ tiện ích
 
     /** Gọi đường ghi và trả về đơn sau khi đổi. Đỏ ngay nếu không phải 200. */
-    private AdminBookingDetail doiTrangThai(String email, String reference,
-                                            String sang, String note) {
-        ResponseEntity<AdminBookingDetail> phanHoi = dangNhap(email)
-                .goi(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
-                        than(sang, note), AdminBookingDetail.class);
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        return phanHoi.getBody();
+    private AdminBookingDetail changeStatus(String email, String reference,
+                                            String toStatus, String note) {
+        ResponseEntity<AdminBookingDetail> response = login(email)
+                .call(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
+                        body(toStatus, note), AdminBookingDetail.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        return response.getBody();
     }
 
-    private ResponseEntity<ErrorResponse> goiDoi(Phien phien, String reference,
-                                                 String sang, String note) {
-        return phien.goi(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
-                than(sang, note), ErrorResponse.class);
+    private ResponseEntity<ErrorResponse> callChange(Phien session, String reference,
+                                                 String toStatus, String note) {
+        return session.call(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
+                body(toStatus, note), ErrorResponse.class);
     }
 
-    private static String than(String sang, String note) {
+    private static String body(String toStatus, String note) {
         return note == null
-                ? "{\"toStatus\":\"%s\"}".formatted(sang)
-                : "{\"toStatus\":\"%s\",\"note\":\"%s\"}".formatted(sang, note);
+                ? "{\"toStatus\":\"%s\"}".formatted(toStatus)
+                : "{\"toStatus\":\"%s\",\"note\":\"%s\"}".formatted(toStatus, note);
     }
 
-    private int choDaBan(String departureId) {
-        Integer so = jdbc.queryForObject(
+    private int seatsSold(String departureId) {
+        Integer count = jdbc.queryForObject(
                 "SELECT seats_booked FROM departure WHERE id = CAST(? AS uuid)",
                 Integer.class, departureId);
-        return so == null ? -1 : so;
+        return count == null ? -1 : count;
     }
 
-    private static AdminBookingSummary tim(AdminBookingPage trang, String reference) {
+    private static AdminBookingSummary find(AdminBookingPage trang, String reference) {
         return trang.getItems().stream()
                 .filter(d -> reference.equals(d.getReference()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("không có đơn " + reference + " trong trang"));
     }
 
-    private void themNhanVien(String id, String email, String ten, String bam, String vaiTro) {
+    private void addStaff(String id, String email, String name, String hash, String roles) {
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash)
                 VALUES (CAST(? AS uuid), ?, ?, ?)
-                """, id, email, ten, bam);
+                """, id, email, name, hash);
         jdbc.update("""
                 INSERT INTO staff_user_role (id, staff_user_id, role_code)
                 VALUES (gen_random_uuid(), CAST(? AS uuid), ?)
-                """, id, vaiTro);
+                """, id, roles);
     }
 
-    private Phien dangNhap(String email) {
-        Phien phien = new Phien();
-        assertEquals(HttpStatus.NO_CONTENT, phien.dangNhap(email, MAT_KHAU).getStatusCode());
-        return phien;
+    private Phien login(String email) {
+        Phien session = new Phien();
+        assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
+        return session;
     }
 
     private final class Phien {
 
         private final List<String> cookies = new ArrayList<>();
 
-        ResponseEntity<String> dangNhap(String email, String matKhau) {
-            return goi(HttpMethod.POST, "/api/v1/admin/session",
-                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, matKhau),
+        ResponseEntity<String> login(String email, String password) {
+            return call(HttpMethod.POST, "/api/v1/admin/session",
+                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password),
                     String.class);
         }
 
-        <T> ResponseEntity<T> lay(String duongDan, Class<T> kieu) {
-            return goi(HttpMethod.GET, duongDan, null, kieu);
+        <T> ResponseEntity<T> get(String path, Class<T> type) {
+            return call(HttpMethod.GET, path, null, type);
         }
 
-        <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan, String than, Class<T> kieu) {
-            RestClient.RequestBodySpec yeuCau = RestClient.builder()
+        <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
+            RestClient.RequestBodySpec request = RestClient.builder()
                     .baseUrl("http://localhost:" + cong)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
-                    .method(phuongThuc)
-                    .uri(duongDan);
+                    .method(httpMethod)
+                    .uri(path);
 
             for (String c : cookies) {
-                yeuCau.header(HttpHeaders.COOKIE, c);
+                request.header(HttpHeaders.COOKIE, c);
             }
-            thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
+            csrfToken().ifPresent(t -> request.header("X-XSRF-TOKEN", t));
 
-            if (than != null) {
-                yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);
+            if (body != null) {
+                request.contentType(MediaType.APPLICATION_JSON).body(body);
             }
 
-            ResponseEntity<T> phanHoi = yeuCau.retrieve().toEntity(kieu);
-            nhoCookie(phanHoi);
-            return phanHoi;
+            ResponseEntity<T> response = request.retrieve().toEntity(type);
+            nhoCookie(response);
+            return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> phanHoi) {
-            List<String> moi = phanHoi.getHeaders().get(HttpHeaders.SET_COOKIE);
+        private void nhoCookie(ResponseEntity<?> response) {
+            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
             if (moi == null) {
                 return;
             }
             for (String c : moi) {
-                String rutGon = c.split(";", 2)[0];
-                String ten = rutGon.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(ten + "="));
-                cookies.add(rutGon);
+                String summary = c.split(";", 2)[0];
+                String name = summary.split("=", 2)[0];
+                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.add(summary);
             }
         }
 
-        private Optional<String> thecCsrf() {
+        private Optional<String> csrfToken() {
             return cookies.stream()
                     .filter(c -> c.startsWith("XSRF-TOKEN="))
                     .map(c -> c.substring("XSRF-TOKEN=".length()))

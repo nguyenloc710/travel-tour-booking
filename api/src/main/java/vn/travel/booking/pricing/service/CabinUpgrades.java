@@ -21,12 +21,12 @@ public final class CabinUpgrades {
      * <p>Giá cabin dao động theo mùa, và chênh lệch giữa hai hạng cũng dao động
      * theo. Dùng một mức chênh cố định nghĩa là bán sai giá vào mùa cao điểm.
      */
-    public static Money chenhSoVoiHangThapNhat(Map<String, Money> giaTheoHang, String hangDaChon) {
-        Money daChon = giaTheoHang.get(hangDaChon);
+    public static Money diffAgainstLowestTier(Map<String, Money> priceByTier, String selectedTier) {
+        Money daChon = priceByTier.get(selectedTier);
         if (daChon == null) {
-            throw new IllegalArgumentException("Không có hạng cabin: " + hangDaChon);
+            throw new IllegalArgumentException("Không có hạng cabin: " + selectedTier);
         }
-        Money thapNhat = giaTheoHang.values().stream()
+        Money thapNhat = priceByTier.values().stream()
                 .min(Comparator.comparing(Money::amount))
                 .orElseThrow();
 

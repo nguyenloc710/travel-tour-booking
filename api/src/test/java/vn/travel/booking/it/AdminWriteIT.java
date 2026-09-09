@@ -46,13 +46,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Đợt 5b — đường <b>ghi</b> của trang quản trị: tạo và sửa sản phẩm, gán thị
  * trường, ngày khởi hành, bảng giá, thang giá.
  *
- * <p>Bài quan trọng nhất là {@link #moBanMotTourMoiTuDauDenCuoi()}: nó đi đúng
+ * <p>Bài quan trọng nhất là {@link #launchNewTourEndToEnd()}: nó đi đúng
  * bảy bước của checklist mở bán (docs/22 mục 5) qua API thật, rồi kiểm bằng
  * <b>bề mặt khách</b> — tour vừa nhập phải hiện ra ở
  * {@code GET /api/v1/dk/products} kèm giá. Đó là tiêu chí ra số 7 của cổng G4,
  * và không bài test nào khác trong dự án chứng minh được nó.
  *
- * <p>Bài quan trọng thứ hai là {@link #nhanBanLichNhungKhongNhanBanGia()}: nhân
+ * <p>Bài quan trọng thứ hai là {@link #duplicateScheduleWithoutPrices()}: nhân
  * bản lịch mà chép cả giá sang thị trường kia là vi phạm điều 4 của
  * {@code CLAUDE.md}, và đó là loại lỗi trông rất giống một tiện ích tử tế.
  */
@@ -75,7 +75,7 @@ class AdminWriteIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    private static final String MAT_KHAU = "mat-khau-rat-dai";
+    private static final String PASSWORD = "mat-khau-rat-dai";
     private static final String DIEM_DEN = "cc000000-0000-4000-8000-0000000000f2";
     private static final LocalDate NGAY_DI = LocalDate.of(2027, 3, 14);
 
@@ -86,7 +86,7 @@ class AdminWriteIT {
     JdbcTemplate jdbc;
 
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM booking_event;
                 DELETE FROM booking_line;
@@ -108,6 +108,7 @@ class AdminWriteIT {
                 DELETE FROM region_translation;
                 DELETE FROM region;
                 DELETE FROM staff_user_role;
+                DELETE FROM slug_history;
                 DELETE FROM staff_user;
 
                 INSERT INTO region (id, code, sort_order) VALUES
@@ -135,43 +136,43 @@ class AdminWriteIT {
                   ('cc000000-0000-4000-8000-00000000a003','VN','ADULT',      18, NULL, 0.0000, 1);
                 """);
 
-        String bam = new BCryptPasswordEncoder().encode(MAT_KHAU);
-        themNhanVien("cc100000-0000-4000-8000-000000000001", "admin@travel.test", "Quản trị", bam, "ADMIN");
-        themNhanVien("cc100000-0000-4000-8000-000000000002", "editor@travel.test", "Biên tập", bam, "EDITOR");
+        String hash = new BCryptPasswordEncoder().encode(PASSWORD);
+        addStaff("cc100000-0000-4000-8000-000000000001", "admin@travel.test", "Quản trị", hash, "ADMIN");
+        addStaff("cc100000-0000-4000-8000-000000000002", "editor@travel.test", "Biên tập", hash, "EDITOR");
     }
 
     // ------------------------------------------------------------ vòng khép kín
 
     @Test
     @DisplayName("Mở bán một tour mới từ đầu đến cuối, rồi thấy nó ở bề mặt khách")
-    void moBanMotTourMoiTuDauDenCuoi() {
-        Phien admin = dangNhap("admin@travel.test");
+    void launchNewTourEndToEnd() {
+        Phien admin = login("admin@travel.test");
 
         // Bước 1–4 của docs/22 mục 5: tạo, viết bản `da`, điền phần riêng của
         // loại, xuất bản bản nguồn.
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("halong-rundrejse"),
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("halong-rundrejse"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
-        assertEquals(1, demDong("SELECT count(*) FROM product_group_tour WHERE product_id = ?", sp.getId()));
+        assertEquals(1, countRows("SELECT count(*) FROM product_group_tour WHERE product_id = ?", sp.getId()));
 
         // Bước 5: dịch sang `vi` và xuất bản.
-        assertEquals(HttpStatus.OK, admin.goi(HttpMethod.PUT,
+        assertEquals(HttpStatus.OK, admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/translations/vi",
-                banDich("ha-long-tron-goi", "Hạ Long trọn gói"), String.class).getStatusCode());
+                translationBody("ha-long-tron-goi", "Hạ Long trọn gói"), String.class).getStatusCode());
 
         // Chưa gán thị trường thì bề mặt khách KHÔNG thấy gì, dù đã dịch xong.
         // Đây là cổng chặn của docs/01 mục 4.4, và nó phải đóng ở đúng đây.
-        assertEquals(0, khachThay("da").getTotalItems());
+        assertEquals(0, publicSees("da").getTotalItems());
 
         // Bước 6: gán thị trường và bật bán.
-        AdminProductMarketState gan = admin.goi(HttpMethod.PUT,
+        AdminProductMarketState assign = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":true}", AdminProductMarketState.class).getBody();
-        assertNotNull(gan);
-        assertTrue(gan.getPublished());
+        assertNotNull(assign);
+        assertTrue(assign.getPublished());
 
         // Bước 7: ngày khởi hành, rồi bảng giá.
-        AdminDeparture ngay = admin.taoJson(
+        AdminDeparture ngay = admin.toJson(
                 "/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
@@ -181,7 +182,7 @@ class AdminWriteIT {
                 "returnDate suy ra từ departDate + days - 1, không nhận từ client");
         assertTrue(ngay.getPrices().isEmpty(), "ngày mới chưa có giá");
 
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"},
@@ -189,7 +190,7 @@ class AdminWriteIT {
                 """, String.class);
 
         // Và bây giờ khách thấy nó — đủ giá, đúng thị trường, đúng ngôn ngữ.
-        ProductPage trang = khachThay("da");
+        ProductPage trang = publicSees("da");
         assertEquals(1L, trang.getTotalItems());
         assertEquals("Halong rundrejse", trang.getItems().get(0).getTitle());
 
@@ -204,13 +205,13 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Thiếu khối riêng của loại thì báo rõ thiếu khối nào")
-    void thieuKhoiRiengCuaLoai() {
-        ResponseEntity<ErrorResponse> loi = dangNhap("admin@travel.test").goi(
+    void missingTypeBlockNamesTheMissingOne() {
+        ResponseEntity<ErrorResponse> loi = login("admin@travel.test").call(
                 HttpMethod.POST, "/api/v1/admin/products",
                 """
                 {"productType":"GROUP_TOUR","primaryDestinationId":"%s","durationDays":14,
                  "heroImage":"/img/x.jpg","source":%s}
-                """.formatted(DIEM_DEN, nguon("halong", "Halong")),
+                """.formatted(DIEM_DEN, source("halong", "Halong")),
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, loi.getStatusCode());
@@ -221,14 +222,14 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Gửi khối của loại khác cũng bị từ chối")
-    void guiKhoiCuaLoaiKhac() {
-        ResponseEntity<ErrorResponse> loi = dangNhap("admin@travel.test").goi(
+    void blockOfAnotherTypeRejected() {
+        ResponseEntity<ErrorResponse> loi = login("admin@travel.test").call(
                 HttpMethod.POST, "/api/v1/admin/products",
                 """
                 {"productType":"GROUP_TOUR","primaryDestinationId":"%s","durationDays":14,
                  "heroImage":"/img/x.jpg","source":%s,
                  "cruise":{"shipName":"Bhaya","portCount":4}}
-                """.formatted(DIEM_DEN, nguon("halong", "Halong")),
+                """.formatted(DIEM_DEN, source("halong", "Halong")),
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, loi.getStatusCode());
@@ -237,25 +238,25 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("DAY_TOUR không được có durationDays, loại khác thì bắt buộc")
-    void luatSoNgayTheoLoai() {
-        Phien admin = dangNhap("admin@travel.test");
+    void durationDaysRuleByProductType() {
+        Phien admin = login("admin@travel.test");
 
-        ResponseEntity<ErrorResponse> thua = admin.goi(HttpMethod.POST, "/api/v1/admin/products",
+        ResponseEntity<ErrorResponse> thua = admin.call(HttpMethod.POST, "/api/v1/admin/products",
                 """
                 {"productType":"DAY_TOUR","primaryDestinationId":"%s","durationDays":1,
                  "heroImage":"/img/x.jpg","source":%s,
                  "dayTour":{"durationHours":6,"cutoffHours":24}}
-                """.formatted(DIEM_DEN, nguon("dagstur", "Dagstur")),
+                """.formatted(DIEM_DEN, source("dagstur", "Dagstur")),
                 ErrorResponse.class);
         assertEquals("DURATION_DAYS_RULE_VIOLATED", thua.getBody().getCode());
 
-        ResponseEntity<ErrorResponse> thieu = admin.goi(HttpMethod.POST, "/api/v1/admin/products",
+        ResponseEntity<ErrorResponse> thieu = admin.call(HttpMethod.POST, "/api/v1/admin/products",
                 """
                 {"productType":"GROUP_TOUR","primaryDestinationId":"%s",
                  "heroImage":"/img/x.jpg","source":%s,
                  "groupTour":{"minPax":12,"maxPax":20,"guaranteedThreshold":12,
                               "tourLeaderLanguage":"da","fitnessLevel":2}}
-                """.formatted(DIEM_DEN, nguon("rundrejse", "Rundrejse")),
+                """.formatted(DIEM_DEN, source("rundrejse", "Rundrejse")),
                 ErrorResponse.class);
         assertEquals("DURATION_DAYS_RULE_VIOLATED", thieu.getBody().getCode());
     }
@@ -264,12 +265,12 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Ghi quản trị mà không kèm thẻ CSRF thì bị từ chối — MỌI đường dẫn")
-    void ghiQuanTriKhongTheCsrfThiBiTuChoi() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("csrf"),
+    void adminWriteWithoutCsrfRejectedEverywhere() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("csrf"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
@@ -285,7 +286,7 @@ class AdminWriteIT {
                 {"PATCH", "/api/v1/admin/departures/" + ngay.getId(), "{\"capacity\":22}"},
         }) {
             assertEquals(HttpStatus.FORBIDDEN,
-                    admin.goiKhongCsrf(HttpMethod.valueOf(loiGoi[0]), loiGoi[1], loiGoi[2],
+                    admin.callWithoutCsrf(HttpMethod.valueOf(loiGoi[0]), loiGoi[1], loiGoi[2],
                             String.class).getStatusCode(),
                     loiGoi[0] + " " + loiGoi[1] + " phải bị CSRF chặn");
         }
@@ -293,7 +294,7 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Bề mặt công khai vẫn ghi được không cần thẻ CSRF")
-    void beMatCongKhaiKhongCanCsrf() {
+    void publicSurfaceWritesNeedNoCsrf() {
         // Khách không đăng nhập nên không có cookie phiên để ai lừa gửi; chống
         // gọi lại là việc của Idempotency-Key. Miễn CSRF ở đây là có chủ ý, và
         // bài test này giữ cho lần sửa CSRF không vô tình chặn luôn đường đặt tour.
@@ -301,7 +302,7 @@ class AdminWriteIT {
         // 400 chứ không phải 403: thiếu header Accept-Language nên nó dừng ở bước
         // kiểm dữ liệu vào — tức là đã ĐI QUA được bộ lọc CSRF.
         assertEquals(HttpStatus.BAD_REQUEST, new Phien()
-                .goiKhongCsrf(HttpMethod.POST, "/api/v1/dk/pricing/preview", "{}", String.class)
+                .callWithoutCsrf(HttpMethod.POST, "/api/v1/dk/pricing/preview", "{}", String.class)
                 .getStatusCode());
     }
 
@@ -309,20 +310,20 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Biên tập viên tạo được sản phẩm nhưng KHÔNG gán được thị trường")
-    void bienTapVienKhongGanDuocThiTruong() {
-        Phien editor = dangNhap("editor@travel.test");
+    void editorCanCreateProductButNotAssignMarket() {
+        Phien editor = login("editor@travel.test");
 
-        AdminProductDetail sp = editor.taoJson("/api/v1/admin/products", tourDoan("editor-tour"),
+        AdminProductDetail sp = editor.toJson("/api/v1/admin/products", groupTour("editor-tour"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
         // docs/22 mục 2.1: chỉ ADMIN gán được sản phẩm vào thị trường. Đó là
         // công tắc doanh thu, không phải một trường nội dung.
-        assertEquals(HttpStatus.FORBIDDEN, editor.goi(HttpMethod.PUT,
+        assertEquals(HttpStatus.FORBIDDEN, editor.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":true}", ErrorResponse.class).getStatusCode());
 
-        assertEquals(HttpStatus.FORBIDDEN, editor.goi(HttpMethod.DELETE,
+        assertEquals(HttpStatus.FORBIDDEN, editor.call(HttpMethod.DELETE,
                 "/api/v1/admin/products/" + sp.getId(), null, ErrorResponse.class).getStatusCode());
     }
 
@@ -330,49 +331,49 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Xoá mềm lan xuống cả chùm, và trả lại slug cho tour sau")
-    void xoaMemLanCaChum() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("sap-xoa"),
+    void softDeleteCascadesAndFreesSlug() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("sap-xoa"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class);
 
-        assertEquals(HttpStatus.NO_CONTENT, admin.goi(HttpMethod.DELETE,
+        assertEquals(HttpStatus.NO_CONTENT, admin.call(HttpMethod.DELETE,
                 "/api/v1/admin/products/" + sp.getId(), null, String.class).getStatusCode());
 
         // Xoá mềm KHÔNG lan như ON DELETE CASCADE — nó chỉ lan vì service tự
         // lan. Bỏ sót một bảng ở đó là để lại dữ liệu mồ côi không truy vấn nào
         // lọc ra, nên phải kiểm từng bảng một.
-        assertEquals(0, demDong(
+        assertEquals(0, countRows(
                 "SELECT count(*) FROM product_translation WHERE product_id = ? AND NOT soft_delete",
                 sp.getId()));
-        assertEquals(0, demDong(
+        assertEquals(0, countRows(
                 "SELECT count(*) FROM departure WHERE product_id = ? AND NOT soft_delete",
                 sp.getId()));
 
-        assertEquals(HttpStatus.NOT_FOUND, admin.goi(HttpMethod.GET,
+        assertEquals(HttpStatus.NOT_FOUND, admin.call(HttpMethod.GET,
                 "/api/v1/admin/products/" + sp.getId(), null, ErrorResponse.class).getStatusCode());
 
         // Và slug được trả lại: khoá duy nhất là index BỘ PHẬN theo soft_delete,
         // nên tour mới dùng lại được slug cũ. Không có tính chất đó thì biên tập
         // viên bị từ chối với một thông báo chẳng nói gì về nguyên nhân thật.
-        assertEquals(HttpStatus.CREATED, admin.goi(HttpMethod.POST, "/api/v1/admin/products",
-                tourDoan("sap-xoa"), String.class).getStatusCode());
+        assertEquals(HttpStatus.CREATED, admin.call(HttpMethod.POST, "/api/v1/admin/products",
+                groupTour("sap-xoa"), String.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Không xoá được sản phẩm còn đơn chưa kết thúc")
-    void khongXoaDuocKhiConDonChuaKetThuc() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("co-don"),
+    void cannotDeleteWithOpenBookings() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("co-booking"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
@@ -384,10 +385,10 @@ class AdminWriteIT {
                                      contact_email, contact_phone)
                 VALUES (gen_random_uuid(), 'TEST-0001', 'DK', 'da', ?, ?,
                         'CONFIRMED', 'Halong rundrejse', 24990.00, 6247.00, 'DKK',
-                        'khach@example.com', '+4512345678')
+                        'client@example.com', '+4512345678')
                 """, sp.getId(), ngay.getId());
 
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.DELETE,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.DELETE,
                 "/api/v1/admin/products/" + sp.getId(), null, ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, loi.getStatusCode());
@@ -398,20 +399,20 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Không hạ sức chứa xuống dưới số chỗ đã bán")
-    void khongHaSucChuaDuoiSoDaBan() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("suc-chua"),
+    void cannotLowerCapacityBelowSeatsSold() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("suc-fits"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
         assertNotNull(ngay);
         jdbc.update("UPDATE departure SET seats_booked = 8 WHERE id = ?", ngay.getId());
 
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PATCH,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.PATCH,
                 "/api/v1/admin/departures/" + ngay.getId(), "{\"capacity\":5}", ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, loi.getStatusCode());
@@ -421,13 +422,13 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Hạng cabin chỉ dùng được với CRUISE")
-    void cabinChiChoCruise() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("khong-cabin"),
+    void cabinTiersOnlyForCruise() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("khong-cabin"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.POST,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.POST,
                 "/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20,
@@ -442,29 +443,29 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Nhân bản lịch sang thị trường kia — nhưng KHÔNG nhân bản giá")
-    void nhanBanLichNhungKhongNhanBanGia() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("hai-thi-truong"),
+    void duplicateScheduleWithoutPrices() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("hai-thi-truong"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":true}", String.class);
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/products/" + sp.getId() + "/markets/VN",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/products/" + sp.getId() + "/markets/VN",
                 "{\"published\":true}", String.class);
 
-        AdminDeparture dk = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture dk = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
         assertNotNull(dk);
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + dk.getId() + "/prices",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/departures/" + dk.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
                 """, String.class);
 
-        AdminDepartureCopyResult ket_qua = admin.goi(HttpMethod.POST,
+        AdminDepartureCopyResult ket_qua = admin.call(HttpMethod.POST,
                 "/api/v1/admin/products/" + sp.getId() + "/departures/copy",
                 "{\"fromMarket\":\"DK\",\"toMarket\":\"VN\"}",
                 AdminDepartureCopyResult.class).getBody();
@@ -477,7 +478,7 @@ class AdminWriteIT {
         // là vi phạm điều 4 của CLAUDE.md: tour bán cho khách Đan gồm vé bay
         // quốc tế, bán cho khách Việt thì không — hai sản phẩm khác nhau. Và nó
         // trông rất giống một tiện ích tử tế, nên nó sẽ được ai đó "sửa" một ngày.
-        List<AdminDeparture> vn = List.of(admin.goi(HttpMethod.GET,
+        List<AdminDeparture> vn = List.of(admin.call(HttpMethod.GET,
                 "/api/v1/admin/products/" + sp.getId() + "/departures?market=VN",
                 null, AdminDeparture[].class).getBody());
         assertEquals(1, vn.size());
@@ -495,52 +496,52 @@ class AdminWriteIT {
                 BigDecimal.class, sp.getId())));
 
         // Gọi lại lần hai: không tạo bản sao thứ hai, không xoá gì.
-        AdminDepartureCopyResult lanHai = admin.goi(HttpMethod.POST,
+        AdminDepartureCopyResult secondAttempt = admin.call(HttpMethod.POST,
                 "/api/v1/admin/products/" + sp.getId() + "/departures/copy",
                 "{\"fromMarket\":\"DK\",\"toMarket\":\"VN\"}",
                 AdminDepartureCopyResult.class).getBody();
-        assertNotNull(lanHai);
-        assertEquals(0, lanHai.getCreated());
-        assertEquals(1, lanHai.getSkipped());
+        assertNotNull(secondAttempt);
+        assertEquals(0, secondAttempt.getCreated());
+        assertEquals(1, secondAttempt.getSkipped());
     }
 
     // ------------------------------------------------------------ bảng giá
 
     @Test
     @DisplayName("Tiền tệ lấy từ thị trường của ngày khởi hành, không nhận từ client")
-    void tienTeLayTuThiTruong() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("tien-te"),
+    void currencyComesFromDepartureMarket() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("tien-te"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture vn = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture vn = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"VN","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
         assertNotNull(vn);
 
-        List<AdminDeparturePrice> gia = List.of(admin.goi(HttpMethod.PUT,
+        List<AdminDeparturePrice> price = List.of(admin.call(HttpMethod.PUT,
                 "/api/v1/admin/departures/" + vn.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"18500000"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"22000000"}]
                 """, AdminDeparturePrice[].class).getBody());
 
-        assertEquals(2, gia.size());
-        assertTrue(gia.stream().allMatch(g -> "VND".equals(g.getAmount().getCurrency())),
+        assertEquals(2, price.size());
+        assertTrue(price.stream().allMatch(g -> "VND".equals(g.getAmount().getCurrency())),
                 "thị trường quyết định tiền tệ — client không có tiếng nói ở đây");
     }
 
     @Test
     @DisplayName("Mã loại khách không có ở thị trường này thì báo đúng mã nào")
-    void maLoaiKhachLa() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("pax-la"),
+    void unknownPaxTypeCodeIsNamed() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("pax-la"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture vn = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture vn = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"VN","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
@@ -548,7 +549,7 @@ class AdminWriteIT {
 
         // CHILD_5_11 có ở DK nhưng KHÔNG có ở VN — pax_type là dữ liệu riêng
         // từng thị trường, không phải danh sách chung.
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/departures/" + vn.getId() + "/prices",
                 """
                 [{"paxTypeCode":"CHILD_5_11","occupancy":"DOUBLE","amount":"1000000"}]
@@ -564,20 +565,20 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Bảng giá của tour có lưu trú mà thiếu dòng phòng đơn thì bị từ chối")
-    void bangGiaThieuPhongDonBiTuChoi() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("thieu-phong-don"),
+    void priceTierMissingSingleRoomRejected() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("thieu-phong-booking"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
         assertNotNull(ngay);
 
         // Một bảng giá đầy đủ trước đã, để câu kiểm cuối bài có thứ mà mất.
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
@@ -587,7 +588,7 @@ class AdminWriteIT {
         // không làm gì hỏng cả: máy tính giá lấy `phòng đơn − phòng đôi`, không
         // thấy dòng nào thì phụ thu bằng 0, và khách đi MỘT MÌNH đặt được nguyên
         // chuyến ở giá chia đôi phòng.
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/departures/" + ngay.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"23990.00"}]
@@ -597,10 +598,10 @@ class AdminWriteIT {
         assertNotNull(loi.getBody());
         assertEquals("SINGLE_PRICE_MISSING", loi.getBody().getCode());
 
-        // `luuGia` thay TOÀN BỘ bảng giá — xoá rồi ghi lại. Luật phải chặn TRƯỚC
+        // `savePrices` thay TOÀN BỘ bảng giá — xoá rồi ghi lại. Luật phải chặn TRƯỚC
         // khi xoá, nếu không thì một lần bấm nhầm là mất sạch giá của ngày đó và
         // ngày ấy tụt xuống trạng thái tệ hơn hẳn cái mà luật vừa từ chối.
-        assertEquals(2, demDong("SELECT count(*) FROM departure_price WHERE departure_id = ?",
+        assertEquals(2, countRows("SELECT count(*) FROM departure_price WHERE departure_id = ?",
                 ngay.getId()));
         assertEquals("24990.00", jdbc.queryForObject(
                 "SELECT amount::text FROM departure_price WHERE departure_id = ? "
@@ -610,19 +611,19 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Giá phòng đơn không cao hơn phòng đôi cũng bị từ chối — phụ thu vẫn ra 0")
-    void giaPhongDonKhongCaoHonThiBiTuChoi() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("phong-don-bang-gia"),
+    void singleRoomPriceNotHigherRejected() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("phong-booking-table-price"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
         assertNotNull(ngay);
 
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/departures/" + ngay.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
@@ -637,38 +638,38 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Tour trong ngày KHÔNG bị đòi giá phòng đơn — nó không có đêm nào")
-    void tourTrongNgayKhongBiDoiGiaPhongDon() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourTrongNgay("mot-ngay-o-hoi-an"),
+    void dayTourDoesNotRequireSingleRoomPrice() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", dayTour("mot-ngay-o-hoi-an"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":1,"capacity":16}
                 """, AdminDeparture.class).getBody();
         assertNotNull(ngay);
 
-        ResponseEntity<AdminDeparturePrice[]> gia = admin.goi(HttpMethod.PUT,
+        ResponseEntity<AdminDeparturePrice[]> price = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/departures/" + ngay.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"645.00"}]
                 """, AdminDeparturePrice[].class);
 
-        assertEquals(HttpStatus.OK, gia.getStatusCode());
-        assertNotNull(gia.getBody());
-        assertEquals(1, gia.getBody().length);
+        assertEquals(HttpStatus.OK, price.getStatusCode());
+        assertNotNull(price.getBody());
+        assertEquals(1, price.getBody().length);
     }
 
     @Test
     @DisplayName("Bật bán khi còn ngày khởi hành thiếu giá phòng đơn thì bị chặn")
-    void batBanKhiConNgayThieuGiaPhongDon() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("bat-ban-thieu-gia"),
+    void publishBlockedWhenDepartureLacksSingleRoomPrice() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("bat-ban-thieu-price"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminDeparture ngay = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture ngay = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
@@ -677,7 +678,7 @@ class AdminWriteIT {
         // Ngày mới chưa có giá nào — kể cả giá phòng đôi. Bật bán ở trạng thái
         // này là đưa lên web một ngày khởi hành mà khách đi một mình đặt được ở
         // giá chia đôi phòng.
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":true}", ErrorResponse.class);
 
@@ -689,37 +690,37 @@ class AdminWriteIT {
 
         // TẮT bán thì không kiểm: chặn cả đường ra là giam sản phẩm dữ liệu sai
         // ở trạng thái đang bán, tức là làm điều ngược hẳn với ý định.
-        assertEquals(HttpStatus.OK, admin.goi(HttpMethod.PUT,
+        assertEquals(HttpStatus.OK, admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":false}", String.class).getStatusCode());
 
         // Nhập đủ bảng giá rồi bật lại thì qua.
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/departures/" + ngay.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
                 """, String.class);
 
-        assertEquals(HttpStatus.OK, admin.goi(HttpMethod.PUT,
+        assertEquals(HttpStatus.OK, admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":true}", String.class).getStatusCode());
     }
 
     @Test
     @DisplayName("priceFrom theo giá phòng đôi rẻ nhất, và tụt theo khi giá giảm")
-    void priceFromChayTheoGiaReNhat() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("gia-tu"),
+    void priceFromTracksCheapestDoubleRoom() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("price-tu"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/products/" + sp.getId() + "/markets/DK",
                 "{\"published\":true}", String.class);
 
-        AdminDeparture som = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture som = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-03-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
-        AdminDeparture muon = admin.taoJson("/api/v1/admin/products/" + sp.getId() + "/departures",
+        AdminDeparture muon = admin.toJson("/api/v1/admin/products/" + sp.getId() + "/departures",
                 """
                 {"market":"DK","departDate":"2027-05-14","days":14,"capacity":20}
                 """, AdminDeparture.class).getBody();
@@ -730,44 +731,44 @@ class AdminWriteIT {
         // buộc phải có (quy tắc kiểm 23). Nó cũng làm bài test này mạnh hơn —
         // 26990 là mức giá thấp hơn 29990 nhưng KHÔNG được thành "giá từ", vì
         // giá từ chỉ đọc dòng phòng đôi.
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + som.getId() + "/prices",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/departures/" + som.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"24990.00"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"29990.00"}]
                 """, String.class);
-        admin.goi(HttpMethod.PUT, "/api/v1/admin/departures/" + muon.getId() + "/prices",
+        admin.call(HttpMethod.PUT, "/api/v1/admin/departures/" + muon.getId() + "/prices",
                 """
                 [{"paxTypeCode":"ADULT","occupancy":"DOUBLE","amount":"21990.00"},
                  {"paxTypeCode":"ADULT","occupancy":"SINGLE","amount":"26990.00"}]
                 """, String.class);
 
-        assertEquals("21990.00", khachThay("da").getItems().get(0).getPriceFrom().getAmount());
+        assertEquals("21990.00", publicSees("da").getItems().get(0).getPriceFrom().getAmount());
 
         // Gỡ ngày rẻ nhất khỏi lịch: giá từ phải TĂNG lên. Không tính lại thì
         // website quảng cáo một mức giá không còn đặt được, và đó là chuyện pháp
         // lý chứ không phải chuyện hiển thị.
         jdbc.update("UPDATE departure SET soft_delete = TRUE WHERE id = ?", muon.getId());
-        assertEquals("24990.00", khachThay("da").getItems().get(0).getPriceFrom().getAmount());
+        assertEquals("24990.00", publicSees("da").getItems().get(0).getPriceFrom().getAmount());
     }
 
     // ------------------------------------------------------------ thang giá
 
     @Test
     @DisplayName("Thang giá phải liền mạch")
-    void thangGiaPhaiLienMach() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products",
+    void priceTiersMustBeContiguous() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products",
                 """
                 {"productType":"PRIVATE_TOUR","primaryDestinationId":"%s","durationDays":10,
                  "heroImage":"/img/p.jpg","source":%s,
                  "privateTour":{"leadTimeDays":30,"quoteValidDays":14}}
-                """.formatted(DIEM_DEN, nguon("privat-rejse", "Privat rejse")),
+                """.formatted(DIEM_DEN, source("privat-rejse", "Privat rejse")),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
         // Hở giữa 4 và 6: nhóm đúng 5 người không có giá, và không ai phát hiện
         // cho tới khi đúng nhóm đó hỏi.
-        ResponseEntity<ErrorResponse> ho = admin.goi(HttpMethod.PUT,
+        ResponseEntity<ErrorResponse> ho = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/price-tiers?market=DK",
                 """
                 [{"minPax":2,"maxPax":4,"pricePerPerson":"30000.00"},
@@ -776,7 +777,7 @@ class AdminWriteIT {
         assertEquals(HttpStatus.BAD_REQUEST, ho.getStatusCode());
         assertEquals("PRICE_TIER_NOT_CONTIGUOUS", ho.getBody().getCode());
 
-        List<AdminPriceTier> thang = List.of(admin.goi(HttpMethod.PUT,
+        List<AdminPriceTier> thang = List.of(admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/price-tiers?market=DK",
                 """
                 [{"minPax":2,"maxPax":4,"pricePerPerson":"30000.00"},
@@ -790,13 +791,13 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("Thang giá chỉ dành cho PRIVATE_TOUR")
-    void thangGiaChiChoTourRieng() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("khong-bac-gia"),
+    void priceTiersOnlyForPrivateTour() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("khong-bac-price"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        ResponseEntity<ErrorResponse> loi = admin.goi(HttpMethod.PUT,
+        ResponseEntity<ErrorResponse> loi = admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + sp.getId() + "/price-tiers?market=DK",
                 """
                 [{"minPax":2,"pricePerPerson":"30000.00"}]
@@ -810,35 +811,35 @@ class AdminWriteIT {
 
     @Test
     @DisplayName("PATCH chỉ đụng trường được gửi, và sửa được phần riêng của loại")
-    void patchChiDungTruongDuocGui() {
-        Phien admin = dangNhap("admin@travel.test");
-        AdminProductDetail sp = admin.taoJson("/api/v1/admin/products", tourDoan("sua-dan"),
+    void patchTouchesOnlySentFields() {
+        Phien admin = login("admin@travel.test");
+        AdminProductDetail sp = admin.toJson("/api/v1/admin/products", groupTour("sua-dan"),
                 AdminProductDetail.class).getBody();
         assertNotNull(sp);
 
-        AdminProductDetail daSua = admin.goi(HttpMethod.PATCH, "/api/v1/admin/products/" + sp.getId(),
+        AdminProductDetail edited = admin.call(HttpMethod.PATCH, "/api/v1/admin/products/" + sp.getId(),
                 """
                 {"isNew":true,"groupTour":{"minPax":10,"maxPax":18,"guaranteedThreshold":10,
                                            "tourLeaderLanguage":"vi","fitnessLevel":3}}
                 """, AdminProductDetail.class).getBody();
 
-        assertNotNull(daSua);
-        assertTrue(daSua.getIsNew());
-        assertEquals(18, daSua.getGroupTour().getMaxPax());
-        assertEquals(3, daSua.getGroupTour().getFitnessLevel());
+        assertNotNull(edited);
+        assertTrue(edited.getIsNew());
+        assertEquals(18, edited.getGroupTour().getMaxPax());
+        assertEquals(3, edited.getGroupTour().getFitnessLevel());
         // Trường không gửi thì giữ nguyên — không có cách xoá một giá trị qua
         // endpoint này, và đó là chủ ý.
-        assertEquals("/img/hero.jpg", daSua.getHeroImage());
-        assertEquals(14, daSua.getDurationDays());
+        assertEquals("/img/hero.jpg", edited.getHeroImage());
+        assertEquals(14, edited.getDurationDays());
     }
 
     @Test
     @DisplayName("Sản phẩm vừa tạo hiện ngay ở danh sách quản trị, chưa gán thị trường nào")
-    void hienNgayODanhSachQuanTri() {
-        Phien admin = dangNhap("admin@travel.test");
-        admin.taoJson("/api/v1/admin/products", tourDoan("moi-tinh"), AdminProductDetail.class);
+    void newProductAppearsInAdminListUnassigned() {
+        Phien admin = login("admin@travel.test");
+        admin.toJson("/api/v1/admin/products", groupTour("moi-tinh"), AdminProductDetail.class);
 
-        AdminProductPage trang = admin.goi(HttpMethod.GET, "/api/v1/admin/products", null,
+        AdminProductPage trang = admin.call(HttpMethod.GET, "/api/v1/admin/products", null,
                 AdminProductPage.class).getBody();
 
         assertNotNull(trang);
@@ -851,42 +852,42 @@ class AdminWriteIT {
 
     // ------------------------------------------------------------ tiện ích
 
-    private static String tourDoan(String slug) {
+    private static String groupTour(String slug) {
         return """
                 {"productType":"GROUP_TOUR","primaryDestinationId":"%s","durationDays":14,
                  "heroImage":"/img/hero.jpg","source":%s,
                  "groupTour":{"minPax":12,"maxPax":20,"guaranteedThreshold":12,
                               "tourLeaderLanguage":"da","fitnessLevel":2}}
-                """.formatted(DIEM_DEN, nguon(slug, "Halong rundrejse"));
+                """.formatted(DIEM_DEN, source(slug, "Halong rundrejse"));
     }
 
     /** Không có {@code durationDays} — {@code ck_product_duration} đòi đúng thế. */
-    private static String tourTrongNgay(String slug) {
+    private static String dayTour(String slug) {
         return """
                 {"productType":"DAY_TOUR","primaryDestinationId":"%s",
                  "heroImage":"/img/hero.jpg","source":%s,
                  "dayTour":{"durationHours":8,"cutoffHours":24}}
-                """.formatted(DIEM_DEN, nguon(slug, "Hoi An paa en dag"));
+                """.formatted(DIEM_DEN, source(slug, "Hoi An paa en dag"));
     }
 
-    private static String nguon(String slug, String tieuDe) {
+    private static String source(String slug, String title) {
         return ("{\"slug\":\"%s\",\"title\":\"%s\",\"shortDescription\":\"Hele landet.\","
                 + "\"longDescription\":[\"Et.\",\"To.\"],"
                 + "\"whyChooseThis\":[\"A\",\"B\",\"C\"],"
                 + "\"heroImageAlt\":\"Rismarker\",\"status\":\"PUBLISHED\"}")
-                .formatted(slug, tieuDe);
+                .formatted(slug, title);
     }
 
-    private static String banDich(String slug, String tieuDe) {
+    private static String translationBody(String slug, String title) {
         return ("{\"slug\":\"%s\",\"title\":\"%s\",\"shortDescription\":\"Cả nước.\","
                 + "\"longDescription\":[\"Một.\",\"Hai.\"],"
                 + "\"whyChooseThis\":[\"A\",\"B\",\"C\"],"
                 + "\"heroImageAlt\":\"Ruộng bậc thang\",\"status\":\"PUBLISHED\"}")
-                .formatted(slug, tieuDe);
+                .formatted(slug, title);
     }
 
     /** Bề mặt khách — không đăng nhập, không cookie. */
-    private ProductPage khachThay(String locale) {
+    private ProductPage publicSees(String locale) {
         ProductPage trang = RestClient.builder()
                 .baseUrl("http://localhost:" + cong)
                 .build()
@@ -899,26 +900,26 @@ class AdminWriteIT {
         return trang;
     }
 
-    private int demDong(String sql, Object... thamSo) {
-        Integer so = jdbc.queryForObject(sql, Integer.class, thamSo);
-        return so == null ? 0 : so;
+    private int countRows(String sql, Object... params) {
+        Integer count = jdbc.queryForObject(sql, Integer.class, params);
+        return count == null ? 0 : count;
     }
 
-    private void themNhanVien(String id, String email, String ten, String bam, String vaiTro) {
+    private void addStaff(String id, String email, String name, String hash, String roles) {
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash)
                 VALUES (CAST(? AS uuid), ?, ?, ?)
-                """, id, email, ten, bam);
+                """, id, email, name, hash);
         jdbc.update("""
                 INSERT INTO staff_user_role (id, staff_user_id, role_code)
                 VALUES (gen_random_uuid(), CAST(? AS uuid), ?)
-                """, id, vaiTro);
+                """, id, roles);
     }
 
-    private Phien dangNhap(String email) {
-        Phien phien = new Phien();
-        assertEquals(HttpStatus.NO_CONTENT, phien.dangNhap(email, MAT_KHAU).getStatusCode());
-        return phien;
+    private Phien login(String email) {
+        Phien session = new Phien();
+        assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
+        return session;
     }
 
     /** Giữ cookie phiên và thẻ CSRF giữa các lời gọi — đúng như trình duyệt làm. */
@@ -926,67 +927,67 @@ class AdminWriteIT {
 
         private final List<String> cookies = new ArrayList<>();
 
-        ResponseEntity<String> dangNhap(String email, String matKhau) {
-            return goi(HttpMethod.POST, "/api/v1/admin/session",
-                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, matKhau),
+        ResponseEntity<String> login(String email, String password) {
+            return call(HttpMethod.POST, "/api/v1/admin/session",
+                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password),
                     String.class);
         }
 
-        <T> ResponseEntity<T> taoJson(String duongDan, String than, Class<T> kieu) {
-            ResponseEntity<T> phanHoi = goi(HttpMethod.POST, duongDan, than, kieu);
-            assertEquals(HttpStatus.CREATED, phanHoi.getStatusCode(), duongDan);
-            return phanHoi;
+        <T> ResponseEntity<T> toJson(String path, String body, Class<T> type) {
+            ResponseEntity<T> response = call(HttpMethod.POST, path, body, type);
+            assertEquals(HttpStatus.CREATED, response.getStatusCode(), path);
+            return response;
         }
 
         /** Cố tình KHÔNG gửi thẻ CSRF — dùng để kiểm bộ lọc CSRF có chạy không. */
-        <T> ResponseEntity<T> goiKhongCsrf(HttpMethod phuongThuc, String duongDan, String than,
-                                           Class<T> kieu) {
-            return goiCoThe(phuongThuc, duongDan, than, kieu, false);
+        <T> ResponseEntity<T> callWithoutCsrf(HttpMethod httpMethod, String path, String body,
+                                           Class<T> type) {
+            return callWithTags(httpMethod, path, body, type, false);
         }
 
-        <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan, String than, Class<T> kieu) {
-            return goiCoThe(phuongThuc, duongDan, than, kieu, true);
+        <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
+            return callWithTags(httpMethod, path, body, type, true);
         }
 
-        private <T> ResponseEntity<T> goiCoThe(HttpMethod phuongThuc, String duongDan, String than,
-                                               Class<T> kieu, boolean kemThe) {
-            RestClient.RequestBodySpec yeuCau = RestClient.builder()
+        private <T> ResponseEntity<T> callWithTags(HttpMethod httpMethod, String path, String body,
+                                               Class<T> type, boolean withTags) {
+            RestClient.RequestBodySpec request = RestClient.builder()
                     .baseUrl("http://localhost:" + cong)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
-                    .method(phuongThuc)
-                    .uri(duongDan);
+                    .method(httpMethod)
+                    .uri(path);
 
             for (String c : cookies) {
-                yeuCau.header(HttpHeaders.COOKIE, c);
+                request.header(HttpHeaders.COOKIE, c);
             }
-            if (kemThe) {
-                thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
-            }
-
-            if (than != null) {
-                yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);
+            if (withTags) {
+                csrfToken().ifPresent(t -> request.header("X-XSRF-TOKEN", t));
             }
 
-            ResponseEntity<T> phanHoi = yeuCau.retrieve().toEntity(kieu);
-            nhoCookie(phanHoi);
-            return phanHoi;
+            if (body != null) {
+                request.contentType(MediaType.APPLICATION_JSON).body(body);
+            }
+
+            ResponseEntity<T> response = request.retrieve().toEntity(type);
+            nhoCookie(response);
+            return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> phanHoi) {
-            List<String> moi = phanHoi.getHeaders().get(HttpHeaders.SET_COOKIE);
+        private void nhoCookie(ResponseEntity<?> response) {
+            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
             if (moi == null) {
                 return;
             }
             for (String c : moi) {
-                String rutGon = c.split(";", 2)[0];
-                String ten = rutGon.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(ten + "="));
-                cookies.add(rutGon);
+                String summary = c.split(";", 2)[0];
+                String name = summary.split("=", 2)[0];
+                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.add(summary);
             }
         }
 
-        private Optional<String> thecCsrf() {
+        private Optional<String> csrfToken() {
             return cookies.stream()
                     .filter(c -> c.startsWith("XSRF-TOKEN="))
                     .map(c -> c.substring("XSRF-TOKEN=".length()))

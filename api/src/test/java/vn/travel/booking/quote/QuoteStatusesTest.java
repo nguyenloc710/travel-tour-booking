@@ -29,16 +29,16 @@ class QuoteStatusesTest {
 
         @Test
         @DisplayName("DRAFT gửi được")
-        void draftGuiDuoc() {
-            assertTrue(QuoteStatuses.diDuoc(QuoteStatus.DRAFT, QuoteStatus.SENT));
+        void draftCanBeSent() {
+            assertTrue(QuoteStatuses.canTransitionTo(QuoteStatus.DRAFT, QuoteStatus.SENT));
         }
 
         @Test
         @DisplayName("SENT đi được cả ba nhánh: khách nhận, khách từ chối, hết hạn")
-        void sentBaNhanh() {
-            assertTrue(QuoteStatuses.diDuoc(QuoteStatus.SENT, QuoteStatus.ACCEPTED));
-            assertTrue(QuoteStatuses.diDuoc(QuoteStatus.SENT, QuoteStatus.REJECTED));
-            assertTrue(QuoteStatuses.diDuoc(QuoteStatus.SENT, QuoteStatus.EXPIRED));
+        void sentHasThreeBranches() {
+            assertTrue(QuoteStatuses.canTransitionTo(QuoteStatus.SENT, QuoteStatus.ACCEPTED));
+            assertTrue(QuoteStatuses.canTransitionTo(QuoteStatus.SENT, QuoteStatus.REJECTED));
+            assertTrue(QuoteStatuses.canTransitionTo(QuoteStatus.SENT, QuoteStatus.EXPIRED));
         }
     }
 
@@ -56,11 +56,11 @@ class QuoteStatusesTest {
          */
         @Test
         @DisplayName("DRAFT KHÔNG nhảy thẳng sang ACCEPTED — cam kết giá phải có hạn")
-        void draftKhongNhayThangSangAccepted() {
-            assertFalse(QuoteStatuses.diDuoc(QuoteStatus.DRAFT, QuoteStatus.ACCEPTED));
+        void draftCannotJumpToAccepted() {
+            assertFalse(QuoteStatuses.canTransitionTo(QuoteStatus.DRAFT, QuoteStatus.ACCEPTED));
 
             QuoteErrors.NotAcceptable ex = assertThrows(QuoteErrors.NotAcceptable.class,
-                    () -> QuoteStatuses.phaiDiDuoc(QuoteStatus.DRAFT, QuoteStatus.ACCEPTED));
+                    () -> QuoteStatuses.requireTransition(QuoteStatus.DRAFT, QuoteStatus.ACCEPTED));
 
             assertEquals("DRAFT", ex.params().get("from"));
             assertEquals("ACCEPTED", ex.params().get("to"));
@@ -68,15 +68,15 @@ class QuoteStatusesTest {
 
         @Test
         @DisplayName("Không có bước lùi: ba trạng thái cuối không đi đâu được nữa")
-        void khongCoBuocLui() {
-            for (QuoteStatus cuoi : EnumSet.of(
+        void noBackwardTransitions() {
+            for (QuoteStatus last : EnumSet.of(
                     QuoteStatus.ACCEPTED, QuoteStatus.REJECTED, QuoteStatus.EXPIRED)) {
 
-                assertTrue(QuoteStatuses.daChot(cuoi), cuoi + " phải là trạng thái đã chốt");
+                assertTrue(QuoteStatuses.isClosed(last), last + " phải là trạng thái đã chốt");
 
-                for (QuoteStatus sang : QuoteStatus.values()) {
-                    assertFalse(QuoteStatuses.diDuoc(cuoi, sang),
-                            cuoi + " không được đi sang " + sang);
+                for (QuoteStatus to : QuoteStatus.values()) {
+                    assertFalse(QuoteStatuses.canTransitionTo(last, to),
+                            last + " không được đi sang " + to);
                 }
             }
         }
@@ -84,15 +84,15 @@ class QuoteStatusesTest {
         /** Quy tắc 4: hết hạn thì khách yêu cầu lại, báo giá cũ không sống lại. */
         @Test
         @DisplayName("EXPIRED không quay lại SENT — không tự gia hạn")
-        void expiredKhongGiaHan() {
-            assertFalse(QuoteStatuses.diDuoc(QuoteStatus.EXPIRED, QuoteStatus.SENT));
+        void expiredDoesNotRenew() {
+            assertFalse(QuoteStatuses.canTransitionTo(QuoteStatus.EXPIRED, QuoteStatus.SENT));
         }
 
         @Test
         @DisplayName("Không quay ngược về DRAFT từ bất cứ đâu")
-        void khongVeLaiDraft() {
+        void cannotReturnToDraft() {
             for (QuoteStatus tu : QuoteStatus.values()) {
-                assertFalse(QuoteStatuses.diDuoc(tu, QuoteStatus.DRAFT),
+                assertFalse(QuoteStatuses.canTransitionTo(tu, QuoteStatus.DRAFT),
                         tu + " không được quay về DRAFT");
             }
         }
@@ -104,11 +104,11 @@ class QuoteStatusesTest {
 
         @Test
         @DisplayName("Chỉ DRAFT còn sửa được bảng giá")
-        void chiDraftSuaDuoc() {
-            assertTrue(QuoteStatuses.suaBangGiaDuoc(QuoteStatus.DRAFT));
+        void onlyDraftCanEditPriceTiers() {
+            assertTrue(QuoteStatuses.canEditPriceTiers(QuoteStatus.DRAFT));
 
             for (QuoteStatus khac : EnumSet.complementOf(EnumSet.of(QuoteStatus.DRAFT))) {
-                assertFalse(QuoteStatuses.suaBangGiaDuoc(khac),
+                assertFalse(QuoteStatuses.canEditPriceTiers(khac),
                         khac + " không được sửa bảng giá — khách đang cầm bản đã gửi");
             }
         }
@@ -116,8 +116,8 @@ class QuoteStatusesTest {
 
     @Test
     @DisplayName("DRAFT và SENT chưa chốt — còn phải theo dõi")
-    void haiTrangThaiConSong() {
-        assertFalse(QuoteStatuses.daChot(QuoteStatus.DRAFT));
-        assertFalse(QuoteStatuses.daChot(QuoteStatus.SENT));
+    void draftAndSentAreStillOpen() {
+        assertFalse(QuoteStatuses.isClosed(QuoteStatus.DRAFT));
+        assertFalse(QuoteStatuses.isClosed(QuoteStatus.SENT));
     }
 }

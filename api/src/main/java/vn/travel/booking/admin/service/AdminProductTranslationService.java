@@ -32,16 +32,16 @@ import java.util.UUID;
 @Service
 public class AdminProductTranslationService {
 
-    private final AdminProductTranslationRepository banDich;
+    private final AdminProductTranslationRepository translationService;
 
-    public AdminProductTranslationService(AdminProductTranslationRepository banDich) {
-        this.banDich = banDich;
+    public AdminProductTranslationService(AdminProductTranslationRepository translationService) {
+        this.translationService = translationService;
     }
 
     @Transactional(readOnly = true)
-    public List<ProductTranslationView> danhSach(UUID productId) {
-        phaiTonTai(productId);
-        return banDich.findAll(productId);
+    public List<ProductTranslationView> list(UUID productId) {
+        requireExists(productId);
+        return translationService.findAll(productId);
     }
 
     /**
@@ -49,25 +49,25 @@ public class AdminProductTranslationService {
      * @param roles        vai trò của người đang đăng nhập
      */
     @Transactional
-    public ProductTranslationView luu(UUID productId, String locale, String sourceLocale,
+    public ProductTranslationView save(UUID productId, String locale, String sourceLocale,
                                       Set<String> roles, ProductTranslationInput input) {
-        phaiTonTai(productId);
+        requireExists(productId);
 
         boolean laNguon = sourceLocale.equals(locale);
-        boolean duocPhep = roles.contains("ADMIN")
+        boolean allowed = roles.contains("ADMIN")
                 || (laNguon ? roles.contains("EDITOR") : roles.contains("TRANSLATOR"));
 
-        if (!duocPhep) {
+        if (!allowed) {
             throw new ForbiddenException(laNguon
                     ? "chỉ EDITOR hoặc ADMIN sửa được bản ngôn ngữ nguồn"
                     : "chỉ TRANSLATOR hoặc ADMIN sửa được bản dịch");
         }
 
-        return banDich.save(productId, locale, input);
+        return translationService.save(productId, locale, input);
     }
 
-    private void phaiTonTai(UUID productId) {
-        if (!banDich.productExists(productId)) {
+    private void requireExists(UUID productId) {
+        if (!translationService.productExists(productId)) {
             throw new NotFoundException("product id=" + productId);
         }
     }

@@ -49,58 +49,58 @@ public class BootstrapAdminRunner implements ApplicationRunner {
     private static final int DAI_TOI_THIEU = 12;
 
     private final JdbcTemplate jdbc;
-    private final PasswordEncoder maHoa;
+    private final PasswordEncoder passwordEncoder;
     private final String email;
-    private final String tenHienThi;
-    private final String matKhau;
+    private final String displayName;
+    private final String password;
 
     public BootstrapAdminRunner(
             JdbcTemplate jdbc,
-            PasswordEncoder maHoa,
+            PasswordEncoder passwordEncoder,
             @Value("${travel.bootstrap-admin.email:}") String email,
-            @Value("${travel.bootstrap-admin.display-name:Quản trị viên}") String tenHienThi,
-            @Value("${travel.bootstrap-admin.password:}") String matKhau) {
+            @Value("${travel.bootstrap-admin.display-name:Quản trị viên}") String displayName,
+            @Value("${travel.bootstrap-admin.password:}") String password) {
         this.jdbc = jdbc;
-        this.maHoa = maHoa;
+        this.passwordEncoder = passwordEncoder;
         // Hạ chữ thường ngay tại đây: StaffUserDetailsService tra cứu bằng email
         // đã hạ chữ thường, nên một địa chỉ có chữ hoa trong `.env` sẽ tạo được
         // tài khoản mà không đăng nhập được vào.
         this.email = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
-        this.tenHienThi = tenHienThi;
-        this.matKhau = matKhau == null ? "" : matKhau;
+        this.displayName = displayName;
+        this.password = password == null ? "" : password;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (email.isEmpty() && matKhau.isEmpty()) {
+        if (email.isEmpty() && password.isEmpty()) {
             return;   // không cấu hình — trạng thái bình thường của dev và test
         }
-        if (email.isEmpty() || matKhau.isEmpty()) {
+        if (email.isEmpty() || password.isEmpty()) {
             log.warn("Bỏ qua tạo ADMIN khởi tạo: phải đặt CẢ HAI biến "
                     + "BOOTSTRAP_ADMIN_EMAIL và BOOTSTRAP_ADMIN_PASSWORD.");
             return;
         }
-        if (matKhau.length() < DAI_TOI_THIEU) {
+        if (password.length() < DAI_TOI_THIEU) {
             log.warn("Bỏ qua tạo ADMIN khởi tạo: mật khẩu ngắn hơn {} ký tự.", DAI_TOI_THIEU);
             return;
         }
 
         // Đếm MỌI dòng ADMIN, kể cả của người đã tắt hoặc đã xoá mềm.
-        Integer daCoAdmin = jdbc.queryForObject(
+        Integer adminExists = jdbc.queryForObject(
                 "SELECT count(*) FROM staff_user_role WHERE role_code = 'ADMIN'",
                 Integer.class);
-        if (daCoAdmin != null && daCoAdmin > 0) {
+        if (adminExists != null && adminExists > 0) {
             log.info("Đã có ADMIN trong hệ thống — bỏ qua tạo tài khoản khởi tạo.");
             return;
         }
 
         // Địa chỉ đã có chủ nhưng chưa mang vai trò ADMIN: dừng lại thay vì cấp
         // thêm quyền cho một tài khoản mình không tạo ra.
-        Integer trungEmail = jdbc.queryForObject(
+        Integer duplicateEmail = jdbc.queryForObject(
                 "SELECT count(*) FROM staff_user WHERE email = ? AND NOT soft_delete",
                 Integer.class, email);
-        if (trungEmail != null && trungEmail > 0) {
+        if (duplicateEmail != null && duplicateEmail > 0) {
             log.warn("Bỏ qua tạo ADMIN khởi tạo: đã có tài khoản mang địa chỉ này.");
             return;
         }
@@ -109,7 +109,7 @@ public class BootstrapAdminRunner implements ApplicationRunner {
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash, is_active)
                 VALUES (?, ?, ?, ?, TRUE)
-                """, id, email, tenHienThi, maHoa.encode(matKhau));
+                """, id, email, displayName, passwordEncoder.encode(password));
         jdbc.update("""
                 INSERT INTO staff_user_role (id, staff_user_id, role_code)
                 VALUES (?, ?, 'ADMIN')

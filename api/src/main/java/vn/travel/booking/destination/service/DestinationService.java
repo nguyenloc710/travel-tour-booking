@@ -21,13 +21,13 @@ public class DestinationService {
     }
 
     @Transactional(readOnly = true)
-    public List<DestinationSummary> danhSach(String market, String locale, String regionSlug) {
+    public List<DestinationSummary> list(String market, String locale, String regionSlug) {
         markets.requireActive(market);
         return destinations.findDestinations(market, locale, regionSlug);
     }
 
     @Transactional(readOnly = true)
-    public DestinationSummary chiTiet(String market, String locale, String slug) {
+    public DestinationSummary detail(String market, String locale, String slug) {
         markets.requireActive(market);
         return destinations.findDestination(market, locale, slug)
                 .orElseThrow(() -> new NotFoundException(

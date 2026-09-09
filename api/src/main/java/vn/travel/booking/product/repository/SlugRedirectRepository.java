@@ -72,7 +72,7 @@ public class SlugRedirectRepository {
                 """, locale, slugCu);
     }
 
-    private Optional<String> mot(String sql, Object... thamSo) {
-        return jdbc.query(sql, (rs, i) -> rs.getString(1), thamSo).stream().findFirst();
+    private Optional<String> mot(String sql, Object... params) {
+        return jdbc.query(sql, (rs, i) -> rs.getString(1), params).stream().findFirst();
     }
 }

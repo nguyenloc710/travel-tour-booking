@@ -32,11 +32,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final List<String> gocChoPhep;
+    private final List<String> allowedOrigins;
 
     public SecurityConfig(
-            @Value("${travel.cors.allowed-origins}") List<String> gocChoPhep) {
-        this.gocChoPhep = gocChoPhep;
+            @Value("${travel.cors.allowed-origins}") List<String> allowedOrigins) {
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
@@ -98,6 +98,19 @@ public class SecurityConfig {
                                 "/api/v1/admin/session"))
 
                 .authorizeHttpRequests(a -> a
+                        // Swagger UI và spec springdoc sinh ra từ annotation.
+                        //
+                        // CẢNH BÁO: trang này liệt kê ĐỦ cả bề mặt quản trị —
+                        // đường dẫn, tham số, thân yêu cầu. Mở nó ra Internet là
+                        // đưa sẵn bản đồ tấn công, và chế độ chạy bằng IP hiện
+                        // tại còn không có HTTPS. Bản chạy thật phải tắt bằng
+                        // SPRINGDOC_API_DOCS_ENABLED=false và
+                        // SPRINGDOC_SWAGGER_UI_ENABLED=false — xem application.yml.
+                        //
+                        // Tắt bằng hai biến đó thì các đường dẫn dưới đây không
+                        // tồn tại nữa, nên dòng permitAll này thành vô hại.
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**",
+                                "/v3/api-docs", "/v3/api-docs/**").permitAll()
                         // Đăng nhập phải mở, nếu không thì không ai vào được.
                         .requestMatchers("/api/v1/admin/session").permitAll()
                         .requestMatchers("/api/v1/admin/**").authenticated()
@@ -150,7 +163,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration c = new CorsConfiguration();
-        c.setAllowedOrigins(gocChoPhep);
+        c.setAllowedOrigins(allowedOrigins);
         c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         // Ba header của riêng dự án này, ngoài các header đơn giản: Idempotency-Key
         // cho đường ghi công khai, X-XSRF-TOKEN cho bề mặt quản trị, và
@@ -163,9 +176,9 @@ public class SecurityConfig {
         // hai vòng mạng.
         c.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource nguon = new UrlBasedCorsConfigurationSource();
-        nguon.registerCorsConfiguration("/api/**", c);
-        return nguon;
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", c);
+        return source;
     }
 
     /**
@@ -178,7 +191,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration cauHinh) throws Exception {
-        return cauHinh.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 }

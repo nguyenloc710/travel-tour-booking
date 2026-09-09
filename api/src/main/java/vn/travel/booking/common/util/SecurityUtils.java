@@ -18,17 +18,17 @@ public final class SecurityUtils {
     private SecurityUtils() {
     }
 
-    public static StaffPrincipal nhanVienHienTai() {
+    public static StaffPrincipal currentStaff() {
         Authentication xacThuc = SecurityContextHolder.getContext().getAuthentication();
-        if (xacThuc != null && xacThuc.getPrincipal() instanceof StaffPrincipal nhanVien) {
-            return nhanVien;
+        if (xacThuc != null && xacThuc.getPrincipal() instanceof StaffPrincipal staff) {
+            return staff;
         }
         // Không xảy ra được với đường dẫn /admin/** vì chuỗi lọc đã chặn trước,
         // nhưng ném rõ ràng còn hơn trả null cho chỗ gọi tự đoán.
         throw new IllegalStateException("không có nhân viên nào trong ngữ cảnh bảo mật");
     }
 
-    public static Set<String> vaiTro() {
-        return Set.copyOf(nhanVienHienTai().roleList());
+    public static Set<String> roles() {
+        return Set.copyOf(currentStaff().roleList());
     }
 }

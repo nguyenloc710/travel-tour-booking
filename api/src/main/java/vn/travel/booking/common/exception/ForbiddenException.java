@@ -10,7 +10,7 @@ package vn.travel.booking.common.exception;
  */
 public class ForbiddenException extends RuntimeException {
 
-    public ForbiddenException(String chiTiet) {
-        super(chiTiet);
+    public ForbiddenException(String detail) {
+        super(detail);
     }
 }

@@ -64,18 +64,18 @@ public class AdminBookingRepository {
     }
 
     public PagedResult<AdminBookingRow> findBookings(AdminBookingQuery query) {
-        List<Object> thamSo = new ArrayList<>();
-        String loc = dungMenhDeLoc(query, thamSo);
+        List<Object> params = new ArrayList<>();
+        String loc = buildFilterClause(query, params);
 
         Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, thamSo.toArray());
+                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
         long totalItems = tong == null ? 0L : tong;
 
-        List<Object> thamSoTrang = new ArrayList<>(thamSo);
+        List<Object> thamSoTrang = new ArrayList<>(params);
         thamSoTrang.add(query.size());
         thamSoTrang.add((long) query.page() * query.size());
 
-        List<AdminBookingRow> dong = jdbc.query(
+        List<AdminBookingRow> row = jdbc.query(
                 """
                 SELECT b.id, b.reference, b.status, b.market, b.locale, b.product_title,
                        b.total, b.currency, b.contact_email, b.created_at,
@@ -91,8 +91,8 @@ public class AdminBookingRepository {
                         + "ORDER BY b.created_at DESC, b.id\n"
                         + "LIMIT ? OFFSET ?",
                 (rs, i) -> {
-                    String tienTe = rs.getString("currency");
-                    int soLe = rs.getInt("fraction_digits");
+                    String currency = rs.getString("currency");
+                    int fractionDigits = rs.getInt("fraction_digits");
                     Date ngay = rs.getDate("depart_date");
                     return new AdminBookingRow(
                             rs.getObject("id", UUID.class),
@@ -103,13 +103,13 @@ public class AdminBookingRepository {
                             rs.getString("product_title"),
                             ngay == null ? null : ngay.toLocalDate(),
                             rs.getInt("pax_count"),
-                            new Money(rs.getBigDecimal("total"), tienTe).round(soLe),
+                            new Money(rs.getBigDecimal("total"), currency).round(fractionDigits),
                             rs.getString("contact_email"),
                             rs.getObject("created_at", OffsetDateTime.class));
                 },
                 thamSoTrang.toArray());
 
-        return new PagedResult<>(dong, query.page(), query.size(), totalItems);
+        return new PagedResult<>(row, query.page(), query.size(), totalItems);
     }
 
     /**
@@ -133,10 +133,10 @@ public class AdminBookingRepository {
                 """,
                 (rs, i) -> {
                     UUID id = rs.getObject("id", UUID.class);
-                    String tienTe = rs.getString("currency");
-                    int soLe = rs.getInt("fraction_digits");
-                    Money tong = new Money(rs.getBigDecimal("total"), tienTe);
-                    Money coc = new Money(rs.getBigDecimal("deposit"), tienTe);
+                    String currency = rs.getString("currency");
+                    int fractionDigits = rs.getInt("fraction_digits");
+                    Money tong = new Money(rs.getBigDecimal("total"), currency);
+                    Money deposit = new Money(rs.getBigDecimal("deposit"), currency);
 
                     return new AdminBookingDetailView(
                             id,
@@ -151,8 +151,8 @@ public class AdminBookingRepository {
                             rs.getString("contact_email"),
                             rs.getString("contact_phone"),
                             rs.getObject("created_at", OffsetDateTime.class),
-                            new PriceBreakdown(dongGia(id, tienTe), tong.round(soLe), coc.round(soLe),
-                                    tong.minus(coc).round(soLe)),
+                            new PriceBreakdown(dongGia(id, currency), tong.round(fractionDigits), deposit.round(fractionDigits),
+                                    tong.minus(deposit).round(fractionDigits)),
                             hanhKhach(id),
                             nhatKy(id));
                 },
@@ -210,20 +210,20 @@ public class AdminBookingRepository {
      * trigger — api/CLAUDE.md mục 7b. Đặt tay cột thời gian ở đây là tạo ra chỗ
      * thứ hai cùng ghi một cột.
      */
-    public void datTrangThai(UUID bookingId, BookingStatus sang, UUID nhanVienId) {
+    public void setStatus(UUID bookingId, BookingStatus sang, UUID staffUserId) {
         jdbc.update("UPDATE booking SET status = ?, last_modified_by = ? WHERE id = ?",
-                sang.name(), nhanVienId, bookingId);
+                sang.name(), staffUserId, bookingId);
     }
 
-    public void ghiNhatKy(UUID bookingId, BookingStatus tu, BookingStatus sang,
-                          UUID nhanVienId, String note) {
+    public void writeAuditLog(UUID bookingId, BookingStatus tu, BookingStatus sang,
+                          UUID staffUserId, String note) {
         jdbc.update("""
                 INSERT INTO booking_event (id, booking_id, from_status, to_status,
                                            actor_type, actor_id, note)
                 VALUES (?, ?, ?, ?, 'STAFF', ?, ?)
                 """,
                 UUID.randomUUID(), bookingId, tu == null ? null : tu.name(), sang.name(),
-                nhanVienId, note);
+                staffUserId, note);
     }
 
     /**
@@ -234,17 +234,17 @@ public class AdminBookingRepository {
      * thầm. Nếu nó chạm 0 mà đáng lẽ không nên thì dữ liệu đã lệch từ trước —
      * xem ghi chú ở {@code AdminBookingService.doiTrangThai}.
      */
-    public void traChoVeKho(UUID departureId, int soKhach) {
+    public void releaseSeats(UUID departureId, int paxCount) {
         jdbc.update("""
                 UPDATE departure
                 SET seats_booked = GREATEST(seats_booked - ?, 0)
                 WHERE id = ?
-                """, soKhach, departureId);
+                """, paxCount, departureId);
     }
 
     // ------------------------------------------------------------ ba khối con
 
-    private List<PriceLine> dongGia(UUID bookingId, String tienTe) {
+    private List<PriceLine> dongGia(UUID bookingId, String currency) {
         return jdbc.query("""
                 SELECT line_key, label_key, quantity, unit_amount, amount
                 FROM booking_line WHERE booking_id = ? ORDER BY seq
@@ -254,8 +254,8 @@ public class AdminBookingRepository {
                         rs.getString("label_key"),
                         rs.getBigDecimal("quantity"),
                         rs.getBigDecimal("unit_amount") == null ? null
-                                : new Money(rs.getBigDecimal("unit_amount"), tienTe),
-                        new Money(rs.getBigDecimal("amount"), tienTe)),
+                                : new Money(rs.getBigDecimal("unit_amount"), currency),
+                        new Money(rs.getBigDecimal("amount"), currency)),
                 bookingId);
     }
 
@@ -317,22 +317,22 @@ public class AdminBookingRepository {
 
     // ------------------------------------------------------------ lọc
 
-    private static String dungMenhDeLoc(AdminBookingQuery query, List<Object> thamSo) {
+    private static String buildFilterClause(AdminBookingQuery query, List<Object> params) {
         StringBuilder sb = new StringBuilder();
 
         // status tường minh thắng scope. Xem AdminBookingQuery.
         if (query.status() != null) {
             sb.append(" AND b.status = ?");
-            thamSo.add(query.status());
+            params.add(query.status());
         } else if (!"ALL".equals(query.scope())) {
             String o = AdminBookingQuery.CAN_XU_LY.stream()
                     .map(x -> "?").collect(Collectors.joining(","));
             sb.append(" AND b.status IN (").append(o).append(')');
-            thamSo.addAll(AdminBookingQuery.CAN_XU_LY);
+            params.addAll(AdminBookingQuery.CAN_XU_LY);
         }
         if (query.market() != null) {
             sb.append(" AND b.market = ?");
-            thamSo.add(query.market());
+            params.add(query.market());
         }
         // Biên ngày dựng ở Java theo UTC chứ không để Postgres tự ép date sang
         // timestamptz: phép ép đó dùng múi giờ của PHIÊN, nên cùng một câu truy
@@ -340,19 +340,19 @@ public class AdminBookingRepository {
         // khi một đơn đặt lúc nửa đêm rơi nhầm sang ngày hôm trước.
         if (query.from() != null) {
             sb.append(" AND b.created_at >= ?");
-            thamSo.add(query.from().atStartOfDay().atOffset(ZoneOffset.UTC));
+            params.add(query.from().atStartOfDay().atOffset(ZoneOffset.UTC));
         }
         if (query.to() != null) {
             sb.append(" AND b.created_at < ?");
-            thamSo.add(query.to().plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC));
+            params.add(query.to().plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC));
         }
         if (query.q() != null && !query.q().isBlank()) {
             // Mã tra cứu HOẶC email: tổng đài có trong tay một trong hai, và
             // không biết mình đang cầm cái nào cho tới khi gõ xong.
             sb.append(" AND (b.reference ILIKE '%' || ? || '%'"
                     + " OR b.contact_email ILIKE '%' || ? || '%')");
-            thamSo.add(query.q().trim());
-            thamSo.add(query.q().trim());
+            params.add(query.q().trim());
+            params.add(query.q().trim());
         }
         return sb.isEmpty() ? "" : sb.append('\n').toString();
     }

@@ -63,31 +63,31 @@ class CorsIT {
 
     @Test
     @DisplayName("preflight của site khách được chấp nhận, kèm đủ header của đường ghi")
-    void preflightSiteKhach() {
+    void preflightFromPublicSite() {
         ResponseHeaders kq = preflight("http://localhost:3000", "POST",
                 "content-type,idempotency-key,accept-language");
 
-        assertEquals(HttpStatus.OK, kq.trangThai);
+        assertEquals(HttpStatus.OK, kq.status);
         assertEquals("http://localhost:3000", kq.headers.getFirst("Access-Control-Allow-Origin"));
 
         // Idempotency-Key là header của RIÊNG dự án này, nên trình duyệt chỉ gửi
         // nó sau khi preflight nói rõ là được. Thiếu nó thì đặt tour chết mà
         // không ai biết vì sao.
-        String choPhep = kq.headers.getFirst("Access-Control-Allow-Headers");
-        assertTrue(choPhep != null && choPhep.toLowerCase().contains("idempotency-key"),
-                "phải cho phép Idempotency-Key, đang là: " + choPhep);
+        String allowed = kq.headers.getFirst("Access-Control-Allow-Headers");
+        assertTrue(allowed != null && allowed.toLowerCase().contains("idempotency-key"),
+                "phải cho phép Idempotency-Key, đang là: " + allowed);
 
-        String phuongThuc = kq.headers.getFirst("Access-Control-Allow-Methods");
-        assertTrue(phuongThuc != null && phuongThuc.contains("POST"),
-                "phải cho phép POST, đang là: " + phuongThuc);
+        String httpMethod = kq.headers.getFirst("Access-Control-Allow-Methods");
+        assertTrue(httpMethod != null && httpMethod.contains("POST"),
+                "phải cho phép POST, đang là: " + httpMethod);
     }
 
     @Test
     @DisplayName("trang quản trị được gửi kèm cookie phiên")
-    void preflightTrangQuanTri() {
+    void preflightFromAdminSendsCookies() {
         ResponseHeaders kq = preflight("http://localhost:3001", "PUT", "content-type,x-xsrf-token");
 
-        assertEquals(HttpStatus.OK, kq.trangThai);
+        assertEquals(HttpStatus.OK, kq.status);
         assertEquals("http://localhost:3001", kq.headers.getFirst("Access-Control-Allow-Origin"));
 
         // Trang quản trị xác thực bằng cookie phiên, nên nếu thiếu dòng này thì
@@ -97,28 +97,28 @@ class CorsIT {
 
     @Test
     @DisplayName("gốc lạ bị từ chối — danh sách là danh sách cho phép, không phải trang trí")
-    void gocLaBiTuChoi() {
+    void unknownOriginRejected() {
         ResponseHeaders kq = preflight("https://ke-tan-cong.example", "POST", "content-type");
 
         // Spring trả 403 cho preflight của gốc không nằm trong danh sách. Điều
         // quan trọng hơn mã trạng thái: KHÔNG có Allow-Origin, nên dù mã có là
         // gì thì trình duyệt cũng chặn.
         assertNull(kq.headers.getFirst("Access-Control-Allow-Origin"));
-        assertEquals(HttpStatus.FORBIDDEN, kq.trangThai);
+        assertEquals(HttpStatus.FORBIDDEN, kq.status);
     }
 
-    private ResponseHeaders preflight(String goc, String phuongThuc, String header) {
+    private ResponseHeaders preflight(String origin, String httpMethod, String header) {
         var kq = client()
                 .method(HttpMethod.OPTIONS)
                 .uri("/api/v1/dk/seat-holds")
-                .header(HttpHeaders.ORIGIN, goc)
-                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, phuongThuc)
+                .header(HttpHeaders.ORIGIN, origin)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, httpMethod)
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, header)
                 .retrieve()
-                .onStatus(trangThai -> true, (yc, pt) -> { })
+                .onStatus(status -> true, (yc, pt) -> { })
                 .toBodilessEntity();
         return new ResponseHeaders(HttpStatus.valueOf(kq.getStatusCode().value()), kq.getHeaders());
     }
 
-    private record ResponseHeaders(HttpStatus trangThai, HttpHeaders headers) { }
+    private record ResponseHeaders(HttpStatus status, HttpHeaders headers) { }
 }

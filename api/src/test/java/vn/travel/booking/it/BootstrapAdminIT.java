@@ -41,17 +41,17 @@ class BootstrapAdminIT {
                     .withPassword("travel");
 
     /** Có chữ HOA và khoảng trắng thừa — cả hai phải bị chuẩn hoá. */
-    private static final String EMAIL_NHAP = "  Quan.Tri@Travel.Test  ";
-    private static final String EMAIL_CHUAN = "quan.tri@travel.test";
-    private static final String MAT_KHAU = "mat-khau-du-dai";
+    private static final String EMAIL_INPUT = "  Quan.Tri@Travel.Test  ";
+    private static final String EMAIL_NORMALIZED = "quan.tri@travel.test";
+    private static final String PASSWORD = "mat-khau-du-dai";
 
     @DynamicPropertySource
-    static void cauHinh(DynamicPropertyRegistry registry) {
+    static void configure(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("travel.bootstrap-admin.email", () -> EMAIL_NHAP);
-        registry.add("travel.bootstrap-admin.password", () -> MAT_KHAU);
+        registry.add("travel.bootstrap-admin.email", () -> EMAIL_INPUT);
+        registry.add("travel.bootstrap-admin.password", () -> PASSWORD);
     }
 
     @Autowired
@@ -61,16 +61,16 @@ class BootstrapAdminIT {
     BootstrapAdminRunner runner;
 
     @Autowired
-    PasswordEncoder maHoa;
+    PasswordEncoder passwordEncoder;
 
     @Test
     @Order(1)
     @DisplayName("CSDL trống: khởi động tạo đúng một ADMIN, email đã hạ chữ thường")
-    void tao_admin_tren_csdl_trong() {
-        assertEquals(1, demNguoiDung(),
+    void createsAdminOnEmptyDatabase() {
+        assertEquals(1, countUsers(),
                 "runner phải chạy lúc khởi động, sau Flyway");
 
-        assertEquals(EMAIL_CHUAN, jdbc.queryForObject(
+        assertEquals(EMAIL_NORMALIZED, jdbc.queryForObject(
                 "SELECT email FROM staff_user", String.class),
                 "email phải hạ chữ thường và cắt khoảng trắng — "
                         + "StaffUserDetailsService tra cứu bằng dạng đã hạ");
@@ -84,27 +84,27 @@ class BootstrapAdminIT {
 
         // Mật khẩu phải nằm trong CSDL dưới dạng băm BCrypt kiểm được, không
         // phải chữ thường.
-        String bam = jdbc.queryForObject("SELECT password_hash FROM staff_user", String.class);
-        assertTrue(maHoa.matches(MAT_KHAU, bam));
+        String hash = jdbc.queryForObject("SELECT password_hash FROM staff_user", String.class);
+        assertTrue(passwordEncoder.matches(PASSWORD, hash));
     }
 
     @Test
     @Order(2)
     @DisplayName("Chạy lại khi đã có ADMIN: không tạo thêm")
-    void chay_lai_khong_tao_them() {
+    void rerunCreatesNothing() {
         runner.run(null);
-        assertEquals(1, demNguoiDung());
+        assertEquals(1, countUsers());
     }
 
     @Test
     @Order(3)
     @DisplayName("ADMIN đã bị tắt bằng tay: khởi động lại KHÔNG hồi sinh nó")
-    void khong_hoi_sinh_admin_da_tat() {
+    void doesNotReviveDisabledAdmin() {
         jdbc.update("UPDATE staff_user SET is_active = FALSE");
 
         runner.run(null);
 
-        assertEquals(1, demNguoiDung(), "không được tạo tài khoản thứ hai");
+        assertEquals(1, countUsers(), "không được tạo tài khoản thứ hai");
         assertFalse(jdbc.queryForObject(
                 "SELECT is_active FROM staff_user", Boolean.class),
                 "tắt tài khoản là một quyết định — biến môi trường không được lật lại nó");
@@ -113,53 +113,53 @@ class BootstrapAdminIT {
     @Test
     @Order(4)
     @DisplayName("Mật khẩu quá ngắn: bỏ qua, không làm ứng dụng chết")
-    void bo_qua_mat_khau_ngan() {
-        xoaSachNguoiDung();
+    void skipsShortPassword() {
+        deleteAllUsers();
 
-        new BootstrapAdminRunner(jdbc, maHoa, "ngan@travel.test", "Ngắn", "ngan")
+        new BootstrapAdminRunner(jdbc, passwordEncoder, "ngan@travel.test", "Ngắn", "ngan")
                 .run(null);
 
-        assertEquals(0, demNguoiDung());
+        assertEquals(0, countUsers());
     }
 
     @Test
     @Order(5)
     @DisplayName("Thiếu một trong hai biến: bỏ qua")
-    void bo_qua_khi_thieu_mot_bien() {
-        xoaSachNguoiDung();
+    void skipsWhenOneVariableMissing() {
+        deleteAllUsers();
 
-        new BootstrapAdminRunner(jdbc, maHoa, "co-email@travel.test", "Tên", "")
+        new BootstrapAdminRunner(jdbc, passwordEncoder, "co-email@travel.test", "Tên", "")
                 .run(null);
-        assertEquals(0, demNguoiDung());
+        assertEquals(0, countUsers());
 
-        new BootstrapAdminRunner(jdbc, maHoa, "", "Tên", MAT_KHAU).run(null);
-        assertEquals(0, demNguoiDung());
+        new BootstrapAdminRunner(jdbc, passwordEncoder, "", "Tên", PASSWORD).run(null);
+        assertEquals(0, countUsers());
     }
 
     @Test
     @Order(6)
     @DisplayName("Email đã có chủ nhưng chưa là ADMIN: không cấp thêm quyền cho nó")
-    void khong_cap_quyen_cho_tai_khoan_co_san() {
-        xoaSachNguoiDung();
+    void doesNotGrantAdminToExistingAccount() {
+        deleteAllUsers();
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash, is_active)
                 VALUES (gen_random_uuid(), ?, 'Biên tập', 'x', TRUE)
-                """, EMAIL_CHUAN);
+                """, EMAIL_NORMALIZED);
 
-        new BootstrapAdminRunner(jdbc, maHoa, EMAIL_CHUAN, "Tên", MAT_KHAU).run(null);
+        new BootstrapAdminRunner(jdbc, passwordEncoder, EMAIL_NORMALIZED, "Tên", PASSWORD).run(null);
 
-        assertEquals(1, demNguoiDung(), "không được tạo thêm dòng trùng email");
+        assertEquals(1, countUsers(), "không được tạo thêm dòng trùng email");
         assertEquals(0, (int) jdbc.queryForObject("""
                 SELECT count(*) FROM staff_user_role WHERE role_code = 'ADMIN'
                 """, Integer.class),
                 "không được nâng quyền một tài khoản mà runner không tạo ra");
     }
 
-    private int demNguoiDung() {
+    private int countUsers() {
         return jdbc.queryForObject("SELECT count(*) FROM staff_user", Integer.class);
     }
 
-    private void xoaSachNguoiDung() {
+    private void deleteAllUsers() {
         jdbc.execute("DELETE FROM staff_user_role; DELETE FROM staff_user;");
     }
 }

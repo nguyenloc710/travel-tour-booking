@@ -28,28 +28,28 @@ import java.util.UUID;
 public class AdminPriceTierService {
 
     private final PriceTierWriteRepository bacGia;
-    private final ProductWriteRepository sanPham;
+    private final ProductWriteRepository product;
     private final MarketRepository market;
 
     public AdminPriceTierService(PriceTierWriteRepository bacGia,
-                                 ProductWriteRepository sanPham,
+                                 ProductWriteRepository product,
                                  MarketRepository market) {
         this.bacGia = bacGia;
-        this.sanPham = sanPham;
+        this.product = product;
         this.market = market;
     }
 
     @Transactional(readOnly = true)
-    public List<PriceTierView> danhSach(UUID productId, String maThiTruong) {
-        return bacGia.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, maThiTruong)
+    public List<PriceTierView> list(UUID productId, String marketCode) {
+        return bacGia.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, marketCode)
                 .stream()
                 .map(AdminPriceTierService::sangView)
                 .toList();
     }
 
     @Transactional
-    public List<PriceTierView> luu(UUID productId, String maThiTruong, List<PriceTierInput> thang) {
-        ProductEntity sp = sanPham.findByIdAndSoftDeleteFalse(productId)
+    public List<PriceTierView> save(UUID productId, String marketCode, List<PriceTierInput> thang) {
+        ProductEntity sp = product.findByIdAndSoftDeleteFalse(productId)
                 .orElseThrow(() -> new NotFoundException("product id=" + productId));
 
         if (!"PRIVATE_TOUR".equals(sp.getProductType())) {
@@ -57,29 +57,29 @@ public class AdminPriceTierService {
                     sp.getProductType(), "privateTour", 0);
         }
 
-        MarketRepository.CauHinh cauHinh = market.cauHinh(maThiTruong)
-                .orElseThrow(() -> new NotFoundException("market=" + maThiTruong));
+        MarketRepository.CauHinh config = market.config(marketCode)
+                .orElseThrow(() -> new NotFoundException("market=" + marketCode));
 
         List<PriceTierInput> daSap = thang.stream()
                 .sorted(Comparator.comparing(PriceTierInput::minPax))
                 .toList();
-        kiemLienMach(daSap);
+        validateContiguous(daSap);
 
         // Xoá MỀM bậc cũ, không xoá cứng: price_tier thuộc nhóm A của docs/11
         // mục 11.2, và một báo giá đã gửi cho khách tham chiếu tới bậc giá lúc
         // đó. Xoá cứng là làm báo giá cũ mất chỗ dựa.
-        bacGia.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, maThiTruong)
+        bacGia.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, marketCode)
                 .forEach(cu -> cu.setSoftDelete(true));
         bacGia.flush();
 
         List<PriceTierEntity> moi = new ArrayList<>();
         for (PriceTierInput bac : daSap) {
-            moi.add(new PriceTierEntity(UUID.randomUUID(), productId, maThiTruong,
-                    bac.minPax(), bac.maxPax(), bac.pricePerPerson(), cauHinh.currency()));
+            moi.add(new PriceTierEntity(UUID.randomUUID(), productId, marketCode,
+                    bac.minPax(), bac.maxPax(), bac.pricePerPerson(), config.currency()));
         }
         bacGia.saveAllAndFlush(moi);
 
-        return danhSach(productId, maThiTruong);
+        return list(productId, marketCode);
     }
 
     /**
@@ -92,7 +92,7 @@ public class AdminPriceTierService {
      * <p>CSDL không diễn đạt được luật này bằng một {@code CHECK} — nó nói về
      * quan hệ giữa các dòng trong cùng một nhóm — nên nó phải sống ở đây.
      */
-    private static void kiemLienMach(List<PriceTierInput> daSap) {
+    private static void validateContiguous(List<PriceTierInput> daSap) {
         for (int i = 0; i < daSap.size(); i++) {
             PriceTierInput bac = daSap.get(i);
             boolean bacCuoi = i == daSap.size() - 1;

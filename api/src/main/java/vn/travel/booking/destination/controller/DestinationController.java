@@ -1,5 +1,10 @@
 package vn.travel.booking.destination.controller;
 
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.common.util.RequestScope;
 import org.springframework.http.CacheControl;
@@ -10,7 +15,6 @@ import vn.travel.booking.destination.dto.DestinationSummary;
 import vn.travel.booking.web.generated.model.GalleryImage;
 import vn.travel.booking.destination.service.DestinationService;
 import vn.travel.booking.destination.service.DestinationService;
-import vn.travel.booking.web.generated.api.DestinationsApi;
 import vn.travel.booking.web.generated.model.Destination;
 
 import java.time.Duration;
@@ -20,7 +24,8 @@ import java.util.List;
  * Controller {@code implements} interface sinh từ {@code contracts/openapi.yaml}.
  */
 @RestController
-public class DestinationController implements DestinationsApi {
+@Validated
+public class DestinationController {
 
     private final DestinationService destinations;
 
@@ -28,31 +33,45 @@ public class DestinationController implements DestinationsApi {
         this.destinations = destinations;
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/destinations",
+        produces = { "application/json" }
+    )
     public ResponseEntity<List<Destination>> listDestinations(
-            String market, String acceptLanguage, String region) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @Valid @RequestParam(value = "region", required = false) @Nullable String region
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
         List<Destination> than = destinations
-                .danhSach(RequestScope.market(market), locale, region).stream()
-                .map(DestinationController::sang)
+                .list(RequestScope.market(market), locale, region).stream()
+                .map(DestinationController::toView)
                 .toList();
 
         return phanHoi(locale).body(than);
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/destinations/{slug}",
+        produces = { "application/json" }
+    )
     public ResponseEntity<Destination> getDestination(
-            String market, String acceptLanguage, String slug) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("slug") String slug
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        return phanHoi(locale).body(sang(
-                destinations.chiTiet(RequestScope.market(market), locale, slug)));
+        return phanHoi(locale).body(toView(
+                destinations.detail(RequestScope.market(market), locale, slug)));
     }
 
-    private static Destination sang(DestinationSummary d) {
+    private static Destination toView(DestinationSummary d) {
         return new Destination(
                 d.slug(),
                 d.name(),

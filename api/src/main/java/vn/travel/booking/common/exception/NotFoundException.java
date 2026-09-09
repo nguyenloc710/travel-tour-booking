@@ -10,7 +10,7 @@ package vn.travel.booking.common.exception;
  */
 public class NotFoundException extends RuntimeException {
 
-    public NotFoundException(String chiTiet) {
-        super(chiTiet);
+    public NotFoundException(String detail) {
+        super(detail);
     }
 }

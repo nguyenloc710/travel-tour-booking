@@ -90,7 +90,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AdminErrors.CabinCategoryNotAllowed.class)
-    public ResponseEntity<ErrorResponse> cabinSaiLoai(AdminErrors.CabinCategoryNotAllowed ex) {
+    public ResponseEntity<ErrorResponse> cabinWrongProductType(AdminErrors.CabinCategoryNotAllowed ex) {
         log.debug("400 CABIN_CATEGORY_NOT_ALLOWED: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(loi("CABIN_CATEGORY_NOT_ALLOWED", ex));
     }
@@ -102,7 +102,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AdminErrors.PriceTierNotContiguous.class)
-    public ResponseEntity<ErrorResponse> thangGiaHo(AdminErrors.PriceTierNotContiguous ex) {
+    public ResponseEntity<ErrorResponse> priceTierGap(AdminErrors.PriceTierNotContiguous ex) {
         log.debug("400 PRICE_TIER_NOT_CONTIGUOUS: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(loi("PRICE_TIER_NOT_CONTIGUOUS", ex));
     }
@@ -116,7 +116,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AdminErrors.DestinationInUse.class)
-    public ResponseEntity<ErrorResponse> diemDenConDungToi(AdminErrors.DestinationInUse ex) {
+    public ResponseEntity<ErrorResponse> destinationStillInUse(AdminErrors.DestinationInUse ex) {
         log.debug("409 DESTINATION_IN_USE: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DESTINATION_IN_USE", ex));
     }
@@ -127,7 +127,7 @@ public class GlobalExceptionHandler {
      * lúc khác, khi đã có ADMIN thứ hai, thì được.
      */
     @ExceptionHandler(AdminErrors.LastAdmin.class)
-    public ResponseEntity<ErrorResponse> adminCuoiCung(AdminErrors.LastAdmin ex) {
+    public ResponseEntity<ErrorResponse> lastAdmin(AdminErrors.LastAdmin ex) {
         log.warn("409 LAST_ADMIN: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("LAST_ADMIN", ex));
     }
@@ -167,14 +167,14 @@ public class GlobalExceptionHandler {
      * hai nhận 409 vì bước chuyển đã xảy ra rồi.
      */
     @ExceptionHandler(IllegalBookingTransitionException.class)
-    public ResponseEntity<ErrorResponse> buocChuyenSai(IllegalBookingTransitionException ex) {
+    public ResponseEntity<ErrorResponse> invalidTransition(IllegalBookingTransitionException ex) {
         log.debug("409 BOOKING_TRANSITION_NOT_ALLOWED: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("BOOKING_TRANSITION_NOT_ALLOWED").params(ex.params()));
     }
 
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<ErrorResponse> khongTimThay(NotFoundException ex) {
+    public ResponseEntity<ErrorResponse> notFound(NotFoundException ex) {
         log.debug("404 NOT_FOUND: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(loi("NOT_FOUND"));
     }
@@ -184,7 +184,7 @@ public class GlobalExceptionHandler {
      * nhập — đây là API, không phải trang web có form.
      */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ErrorResponse> chuaDangNhap(AuthenticationException ex) {
+    public ResponseEntity<ErrorResponse> notLoggedIn(AuthenticationException ex) {
         log.debug("401 UNAUTHENTICATED: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(loi("UNAUTHENTICATED"));
     }
@@ -198,7 +198,7 @@ public class GlobalExceptionHandler {
      * người dùng thì cả hai đều là "bạn không được làm việc này".
      */
     @ExceptionHandler({AccessDeniedException.class, ForbiddenException.class})
-    public ResponseEntity<ErrorResponse> khongDuQuyen(Exception ex) {
+    public ResponseEntity<ErrorResponse> forbidden(Exception ex) {
         log.debug("403 FORBIDDEN: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(loi("FORBIDDEN"));
     }
@@ -240,7 +240,7 @@ public class GlobalExceptionHandler {
             // có tỷ giá ở đâu cả (CLAUDE.md điều 4).
             QuoteErrors.CurrencyMismatch.class
     })
-    public ResponseEntity<ErrorResponse> dauVaoSai(Exception ex) {
+    public ResponseEntity<ErrorResponse> invalidInput(Exception ex) {
         log.debug("400 VALIDATION_FAILED: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(loi("VALIDATION_FAILED"));
     }
@@ -259,7 +259,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BookingErrors.SeatHoldExpired.class)
-    public ResponseEntity<ErrorResponse> giuChoHetHan(BookingErrors.SeatHoldExpired ex) {
+    public ResponseEntity<ErrorResponse> holdExpired(BookingErrors.SeatHoldExpired ex) {
         log.debug("409 SEAT_HOLD_EXPIRED: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("SEAT_HOLD_EXPIRED"));
     }
@@ -276,7 +276,7 @@ public class GlobalExceptionHandler {
     // thì được", 422 là "yêu cầu này không bao giờ hợp lệ".
 
     @ExceptionHandler(QuoteErrors.QuoteExpired.class)
-    public ResponseEntity<ErrorResponse> baoGiaHetHan(QuoteErrors.QuoteExpired ex) {
+    public ResponseEntity<ErrorResponse> quoteExpired(QuoteErrors.QuoteExpired ex) {
         log.debug("409 QUOTE_EXPIRED: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("QUOTE_EXPIRED"));
     }
@@ -288,21 +288,21 @@ public class GlobalExceptionHandler {
      * frontend dựng được câu cụ thể.
      */
     @ExceptionHandler(QuoteErrors.NotAcceptable.class)
-    public ResponseEntity<ErrorResponse> baoGiaSaiTrangThai(QuoteErrors.NotAcceptable ex) {
+    public ResponseEntity<ErrorResponse> quoteWrongStatus(QuoteErrors.NotAcceptable ex) {
         log.debug("409 QUOTE_NOT_ACCEPTABLE: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("QUOTE_NOT_ACCEPTABLE").params(ex.params()));
     }
 
     @ExceptionHandler(QuoteErrors.LeadTimeNotMet.class)
-    public ResponseEntity<ErrorResponse> chuaDuHanBaoTruoc(QuoteErrors.LeadTimeNotMet ex) {
+    public ResponseEntity<ErrorResponse> notEnoughNotice(QuoteErrors.LeadTimeNotMet ex) {
         log.debug("422 LEAD_TIME_NOT_MET: {}", ex.getMessage());
         return ResponseEntity.unprocessableEntity()
                 .body(new ErrorResponse("LEAD_TIME_NOT_MET").params(ex.params()));
     }
 
     @ExceptionHandler(QuoteErrors.ProductNotQuotable.class)
-    public ResponseEntity<ErrorResponse> khongHoiGiaDuoc(QuoteErrors.ProductNotQuotable ex) {
+    public ResponseEntity<ErrorResponse> cannotQuote(QuoteErrors.ProductNotQuotable ex) {
         log.debug("422 PRODUCT_NOT_QUOTABLE: {}", ex.getMessage());
         return ResponseEntity.unprocessableEntity().body(loi("PRODUCT_NOT_QUOTABLE"));
     }
@@ -312,7 +312,7 @@ public class GlobalExceptionHandler {
      * khác. Trả kết quả cũ trong tình huống đó là im lặng nuốt mất một đơn thật.
      */
     @ExceptionHandler(IdempotencyConflictException.class)
-    public ResponseEntity<ErrorResponse> trungKhoa(IdempotencyConflictException ex) {
+    public ResponseEntity<ErrorResponse> duplicateKey(IdempotencyConflictException ex) {
         log.warn("409 IDEMPOTENCY_KEY_REUSED: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("IDEMPOTENCY_KEY_REUSED"));
     }
@@ -322,20 +322,20 @@ public class GlobalExceptionHandler {
      * và lúc khác cũng vẫn không cho phép.
      */
     @ExceptionHandler(BookingErrors.ProductNotBookable.class)
-    public ResponseEntity<ErrorResponse> khongDatDuoc(BookingErrors.ProductNotBookable ex) {
+    public ResponseEntity<ErrorResponse> cannotBook(BookingErrors.ProductNotBookable ex) {
         log.debug("422 PRODUCT_NOT_BOOKABLE: {}", ex.getMessage());
         return ResponseEntity.unprocessableEntity().body(loi("PRODUCT_NOT_BOOKABLE"));
     }
 
     @ExceptionHandler(PartySizeOutOfRangeException.class)
-    public ResponseEntity<ErrorResponse> soKhachNgoaiBac(PartySizeOutOfRangeException ex) {
+    public ResponseEntity<ErrorResponse> paxOutsideNorth(PartySizeOutOfRangeException ex) {
         log.debug("422 PARTY_SIZE_OUT_OF_RANGE: {}", ex.getMessage());
         return ResponseEntity.unprocessableEntity().body(loi("PARTY_SIZE_OUT_OF_RANGE"));
     }
 
     /** Đường dẫn không tồn tại — vẫn phải là JSON, không phải trang lỗi HTML. */
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> khongCoDuongDan(NoResourceFoundException ex) {
+    public ResponseEntity<ErrorResponse> noPath(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(loi("NOT_FOUND"));
     }
 

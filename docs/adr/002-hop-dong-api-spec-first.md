@@ -1,9 +1,14 @@
 # ADR-002 — Hợp đồng API viết trước, sinh code từ spec
 
 ```
-Trạng thái: Đã chốt
+Trạng thái: Đã chốt, sửa một phần bởi ADR-012 (09/09/2026)
 Ngày: 31/08/2026
 ```
+
+> **ADR-012 đã bỏ cơ chế bắt buộc mô tả ở đây.** Controller không còn
+> `implements` interface sinh ra, nên câu "đổi spec mà quên sửa controller là lỗi
+> biên dịch" **không còn đúng**. `contracts/openapi.yaml` vẫn là nguồn sự thật;
+> cái mất là ràng buộc máy. Đọc ADR-012 trước khi dựa vào mục nào bên dưới.
 
 ## Bối cảnh
 

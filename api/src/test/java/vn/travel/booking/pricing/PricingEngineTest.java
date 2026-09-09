@@ -37,19 +37,19 @@ class PricingEngineTest {
     private static final int SO_LE_VND = 0;
     private static final BigDecimal COC_DK = new BigDecimal("0.2500");
 
-    private static Money kr(String so) {
-        return Money.of(so, DKK);
+    private static Money kr(String count) {
+        return Money.of(count, DKK);
     }
 
-    private static Money dong(String so) {
-        return Money.of(so, VND);
+    private static Money row(String count) {
+        return Money.of(count, VND);
     }
 
     // ------------------------------------------------------------ cơ bản
 
     @Test
     @DisplayName("Hai người phòng đôi, không tuỳ chọn nào")
-    void haiNguoiPhongDoi() {
+    void twoPaxDoubleRoom() {
         PriceBreakdown kq = PricingEngine.tinh(
                 PricingInput.cua(List.of(PaxLine.of("ADULT", 2, kr("24990.00"))), SO_LE_DKK, COC_DK));
 
@@ -59,19 +59,19 @@ class PricingEngineTest {
 
     @Test
     @DisplayName("Một người ở phòng đơn thì có dòng phụ thu")
-    void motNguoiPhongDon() {
+    void soloPaxAddsSingleSupplement() {
         PriceBreakdown kq = PricingEngine.tinh(
                 PricingInput.cua(List.of(PaxLine.of("ADULT", 1, kr("24990.00"))), SO_LE_DKK, COC_DK)
                         .phongDon(1, kr("4500.00")));
 
         assertEquals(kr("29490.00"), kq.total());
-        assertTrue(coDong(kq, PriceLineKind.SINGLE_SUPPLEMENT));
+        assertTrue(hasRows(kq, PriceLineKind.SINGLE_SUPPLEMENT));
     }
 
     @Test
     @DisplayName("Ví dụ đủ một đơn của docs/14 mục 4 ra đúng 52.760 kr")
-    void viDuDayDu() {
-        PriceBreakdown kq = PricingEngine.tinh(donDayDu());
+    void fullWorkedExample() {
+        PriceBreakdown kq = PricingEngine.tinh(fullBooking());
 
         assertEquals(kr("52760.00"), kq.total());
         assertEquals(kr("13190.00"), kq.deposit());
@@ -82,22 +82,22 @@ class PricingEngineTest {
 
     @Test
     @DisplayName("Giảm đặt sớm trừ TRƯỚC phí xử lý — thứ tự nằm trong kết quả, không chỉ trong tài liệu")
-    void thuTuGiamTruocPhi() {
-        List<PriceLineKind> thuTu = PricingEngine.tinh(donDayDu()).lines().stream()
+    void discountAppliedBeforeHandlingFee() {
+        List<PriceLineKind> order = PricingEngine.tinh(fullBooking()).lines().stream()
                 .map(PriceLine::kind)
                 .toList();
 
-        int viTriGiam = thuTu.indexOf(PriceLineKind.EARLY_BIRD_DISCOUNT);
-        int viTriPhi = thuTu.indexOf(PriceLineKind.PROCESSING_FEE);
+        int discountIndex = order.indexOf(PriceLineKind.EARLY_BIRD_DISCOUNT);
+        int feeIndex = order.indexOf(PriceLineKind.PROCESSING_FEE);
 
-        assertTrue(viTriGiam >= 0 && viTriPhi > viTriGiam,
+        assertTrue(discountIndex >= 0 && feeIndex > discountIndex,
                 "Đảo hai dòng cuối ra con số khác — docs/14 mục 2.1");
     }
 
     @Test
     @DisplayName("Tám dòng giữ đúng thứ tự cộng dồn của docs/14 mục 2.1")
-    void thuTuTamDong() {
-        List<PriceLineKind> thuTu = PricingEngine.tinh(donDayDu()).lines().stream()
+    void eightLinesKeepAccumulationOrder() {
+        List<PriceLineKind> order = PricingEngine.tinh(fullBooking()).lines().stream()
                 .map(PriceLine::kind)
                 .toList();
 
@@ -107,36 +107,36 @@ class PricingEngineTest {
                 PriceLineKind.INSURANCE,
                 PriceLineKind.PRE_TOUR_HOTEL,
                 PriceLineKind.EARLY_BIRD_DISCOUNT,
-                PriceLineKind.PROCESSING_FEE), thuTu);
+                PriceLineKind.PROCESSING_FEE), order);
     }
 
     // ------------------------------------------------------------ dòng rỗng
 
     @Test
     @DisplayName("Dòng bằng 0 KHÔNG xuất hiện trong bảng phân rã")
-    void dongBangKhongBienMat() {
+    void zeroLinesAreOmitted() {
         PriceBreakdown kq = PricingEngine.tinh(
                 PricingInput.cua(List.of(PaxLine.of("ADULT", 2, kr("24990.00"))), SO_LE_DKK, COC_DK)
                         // Không ai ở phòng đơn: dòng phụ thu ra 0.
                         .phongDon(0, kr("4500.00"))
-                        .baoHiem(kr("0.00")));
+                        .insurance(kr("0.00")));
 
-        assertFalse(coDong(kq, PriceLineKind.SINGLE_SUPPLEMENT), "Không hiện dòng 0 kr.");
-        assertFalse(coDong(kq, PriceLineKind.INSURANCE));
+        assertFalse(hasRows(kq, PriceLineKind.SINGLE_SUPPLEMENT), "Không hiện dòng 0 kr.");
+        assertFalse(hasRows(kq, PriceLineKind.INSURANCE));
         assertEquals(1, kq.lines().size());
     }
 
     @Test
     @DisplayName("Dòng không áp dụng cho loại sản phẩm thì không có mặt")
-    void dongKhongApDung() {
+    void inapplicableLinesAreAbsent() {
         // PRIVATE_TOUR: không phụ thu phòng đơn, không nâng cabin, không giảm đặt sớm.
         PriceBreakdown kq = PricingEngine.tinh(
                 PricingInput.cua(List.of(PaxLine.of("ADULT", 4, kr("31000.00"))), SO_LE_DKK, COC_DK)
                         .phiXuLy(kr("295.00")));
 
         assertEquals(2, kq.lines().size());
-        assertFalse(coDong(kq, PriceLineKind.CABIN_UPGRADE));
-        assertFalse(coDong(kq, PriceLineKind.EARLY_BIRD_DISCOUNT));
+        assertFalse(hasRows(kq, PriceLineKind.CABIN_UPGRADE));
+        assertFalse(hasRows(kq, PriceLineKind.EARLY_BIRD_DISCOUNT));
     }
 
     // ------------------------------------------------------------ làm tròn
@@ -147,14 +147,14 @@ class PricingEngineTest {
 
         @Test
         @DisplayName("Làm tròn TỪNG DÒNG: các dòng cộng lại bằng đúng tổng")
-        void congTungDongBangTong() {
+        void roundedLinesSumToTotal() {
             // Đơn giá lẻ để phép nhân sinh phần thập phân thứ ba.
             PriceBreakdown kq = PricingEngine.tinh(
                     PricingInput.cua(List.of(
                                     new PaxLine("ADULT", 3, kr("1333.333"), BigDecimal.ZERO),
                                     new PaxLine("CHILD", 2, kr("999.999"), BigDecimal.ZERO)),
                             SO_LE_DKK, COC_DK)
-                            .baoHiem(kr("333.333"))
+                            .insurance(kr("333.333"))
                             .phiXuLy(kr("295.00")));
 
             assertEquals(kq.total(), kq.sumOfLines(),
@@ -163,11 +163,11 @@ class PricingEngineTest {
 
         @Test
         @DisplayName("VND có 0 chữ số thập phân: không dòng nào có phần lẻ")
-        void vndKhongCoPhanLe() {
+        void vndHasNoFractionalPart() {
             PriceBreakdown kq = PricingEngine.tinh(
                     PricingInput.cua(List.of(
-                                    new PaxLine("ADULT", 2, dong("18900000"), BigDecimal.ZERO),
-                                    new PaxLine("CHILD", 1, dong("4290000"), new BigDecimal("0.25"))),
+                                    new PaxLine("ADULT", 2, row("18900000"), BigDecimal.ZERO),
+                                    new PaxLine("CHILD", 1, row("4290000"), new BigDecimal("0.25"))),
                             SO_LE_VND, BigDecimal.ZERO));
 
             for (PriceLine d : kq.lines()) {
@@ -179,19 +179,19 @@ class PricingEngineTest {
 
         @Test
         @DisplayName("Giảm 25% trên 4.290.000 ra 3.217.500 — không làm tròn tới nghìn")
-        void khongTuLamTronToiNghin() {
+        void doesNotRoundToThousands() {
             PriceBreakdown kq = PricingEngine.tinh(
                     PricingInput.cua(List.of(
-                                    new PaxLine("CHILD", 1, dong("4290000"), new BigDecimal("0.25"))),
+                                    new PaxLine("CHILD", 1, row("4290000"), new BigDecimal("0.25"))),
                             SO_LE_VND, BigDecimal.ZERO));
 
-            assertEquals(dong("3217500"), kq.total(),
+            assertEquals(row("3217500"), kq.total(),
                     "Làm tròn tới nghìn đồng là một quy tắc KHÁC, chưa ai chốt — docs/14 mục 3");
         }
 
         @Test
         @DisplayName("Số chữ số lấy từ tham số, không hardcode: cùng đầu vào, hai thị trường hai kết quả")
-        void soLeLayTuThamSo() {
+        void fractionDigitsComeFromParams() {
             List<PaxLine> pax = List.of(new PaxLine("ADULT", 3, kr("1000.335"), BigDecimal.ZERO));
 
             assertEquals(new BigDecimal("3001.01"),
@@ -209,16 +209,16 @@ class PricingEngineTest {
 
         @Test
         @DisplayName("deposit + balance = total, tiền DKK")
-        void batBienDkk() {
-            PriceBreakdown kq = PricingEngine.tinh(donDayDu());
+        void depositPlusBalanceEqualsTotalDkk() {
+            PriceBreakdown kq = PricingEngine.tinh(fullBooking());
             assertEquals(kq.total(), kq.deposit().plus(kq.balance()));
         }
 
         @Test
         @DisplayName("deposit + balance = total, tiền VND")
-        void batBienVnd() {
+        void depositPlusBalanceEqualsTotalVnd() {
             PriceBreakdown kq = PricingEngine.tinh(
-                    PricingInput.cua(List.of(PaxLine.of("ADULT", 3, dong("18900001"))),
+                    PricingInput.cua(List.of(PaxLine.of("ADULT", 3, row("18900001"))),
                             SO_LE_VND, new BigDecimal("0.3333")));
 
             assertEquals(kq.total(), kq.deposit().plus(kq.balance()));
@@ -226,7 +226,7 @@ class PricingEngineTest {
 
         @Test
         @DisplayName("Đặt cọc làm tròn XUỐNG, phần còn lại lấy bằng hiệu")
-        void datCocLamTronXuong() {
+        void depositRoundsDown() {
             PriceBreakdown kq = PricingEngine.tinh(
                     PricingInput.cua(List.of(PaxLine.of("ADULT", 1, kr("999.99"))),
                             SO_LE_DKK, new BigDecimal("0.3333")));
@@ -239,12 +239,12 @@ class PricingEngineTest {
 
         @Test
         @DisplayName("Tỷ lệ đặt cọc 0 — thị trường chưa chốt con số vẫn tính được đơn")
-        void tyLeKhong() {
+        void zeroDepositRate() {
             PriceBreakdown kq = PricingEngine.tinh(
-                    PricingInput.cua(List.of(PaxLine.of("ADULT", 2, dong("18900000"))),
+                    PricingInput.cua(List.of(PaxLine.of("ADULT", 2, row("18900000"))),
                             SO_LE_VND, BigDecimal.ZERO));
 
-            assertEquals(dong("0"), kq.deposit());
+            assertEquals(row("0"), kq.deposit());
             assertEquals(kq.total(), kq.balance(),
                     "Engine nhận hằng số làm tham số nên thiếu con số nghiệp vụ không chặn được nó");
         }
@@ -253,17 +253,17 @@ class PricingEngineTest {
     // ------------------------------------------------------------ tiện ích
 
     /** Đúng ví dụ ở docs/14 mục 4. */
-    private static PricingInput donDayDu() {
+    private static PricingInput fullBooking() {
         return PricingInput.cua(List.of(PaxLine.of("ADULT", 2, kr("24990.00"))), SO_LE_DKK, COC_DK)
                 .phongDon(0, kr("4500.00"))
                 .phuThuDiemKhoiHanh(kr("800.00"))
-                .baoHiem(kr("895.00"))
-                .demKhachSanTruocBay(1, 1, kr("1095.00"))
+                .insurance(kr("895.00"))
+                .countHotelsBeforeFlight(1, 1, kr("1095.00"))
                 .giamDatSom(kr("1000.00"))
                 .phiXuLy(kr("295.00"));
     }
 
-    private static boolean coDong(PriceBreakdown kq, PriceLineKind loai) {
-        return kq.lines().stream().anyMatch(d -> d.kind() == loai);
+    private static boolean hasRows(PriceBreakdown kq, PriceLineKind type) {
+        return kq.lines().stream().anyMatch(d -> d.kind() == type);
     }
 }

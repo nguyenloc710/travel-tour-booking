@@ -126,22 +126,22 @@ public class AdminContentRepository {
      * <p>Đó đúng là điều {@code PATCH} nói, và viết bằng SQL thì không phải dựng
      * câu động theo số trường có mặt — thứ luôn sinh ra một nhánh không ai test.
      */
-    public void patchDestination(UUID id, UUID regionId, Integer sortOrder, UUID nhanVienId) {
+    public void patchDestination(UUID id, UUID regionId, Integer sortOrder, UUID staffUserId) {
         jdbc.update("""
                 UPDATE destination
                 SET region_id = COALESCE(?, region_id),
                     sort_order = COALESCE(?, sort_order),
                     last_modified_by = ?
                 WHERE id = ?
-                """, regionId, sortOrder, nhanVienId, id);
+                """, regionId, sortOrder, staffUserId, id);
     }
 
     public int countProductsOfDestination(UUID id) {
-        Integer so = jdbc.queryForObject("""
+        Integer count = jdbc.queryForObject("""
                 SELECT count(*) FROM product
                 WHERE primary_destination_id = ? AND NOT soft_delete
                 """, Integer.class, id);
-        return so == null ? 0 : so;
+        return count == null ? 0 : count;
     }
 
     /**
@@ -153,17 +153,17 @@ public class AdminContentRepository {
      * lại điểm đến cùng slug bị từ chối, mà thông báo lỗi không nói gì về nguyên
      * nhân thật.
      */
-    public void softDeleteDestination(UUID id, UUID nhanVienId) {
+    public void softDeleteDestination(UUID id, UUID staffUserId) {
         jdbc.update("UPDATE destination SET soft_delete = TRUE, last_modified_by = ? WHERE id = ?",
-                nhanVienId, id);
+                staffUserId, id);
         jdbc.update("""
                 UPDATE destination_translation SET soft_delete = TRUE, last_modified_by = ?
                 WHERE destination_id = ?
-                """, nhanVienId, id);
+                """, staffUserId, id);
     }
 
     public void saveDestinationTranslation(UUID id, String locale,
-                                           DestinationTranslationInput input, UUID nhanVienId) {
+                                           DestinationTranslationInput input, UUID staffUserId) {
         jdbc.update("""
                 INSERT INTO destination_translation
                        (destination_id, locale, slug, name, summary, created_by, last_modified_by)
@@ -175,7 +175,7 @@ public class AdminContentRepository {
                     soft_delete = FALSE,
                     last_modified_by = EXCLUDED.last_modified_by
                 """,
-                id, locale, input.slug(), input.name(), input.summary(), nhanVienId, nhanVienId);
+                id, locale, input.slug(), input.name(), input.summary(), staffUserId, staffUserId);
     }
 
     // ==================================================== thẻ
@@ -204,7 +204,7 @@ public class AdminContentRepository {
 
     public PagedResult<PostRow> findPosts(String q, int page, int size, String sourceLocale) {
         String loc = "";
-        List<Object> thamSo = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
         if (q != null && !q.isBlank()) {
             // Khớp tiêu đề ở BẤT KỲ ngôn ngữ nào: nhân viên nhớ tên bài bằng
             // thứ tiếng họ đang làm việc, không phải bằng ngôn ngữ nguồn.
@@ -213,19 +213,19 @@ public class AdminContentRepository {
                                 WHERE pt.post_id = p.id AND NOT pt.soft_delete
                                   AND pt.title ILIKE '%' || ? || '%')
                   """;
-            thamSo.add(q.trim());
+            params.add(q.trim());
         }
 
         Long tong = jdbc.queryForObject(
                 "SELECT count(*) FROM post p WHERE NOT p.soft_delete\n" + loc,
-                Long.class, thamSo.toArray());
+                Long.class, params.toArray());
         long totalItems = tong == null ? 0L : tong;
 
-        List<Object> thamSoTrang = new ArrayList<>(thamSo);
+        List<Object> thamSoTrang = new ArrayList<>(params);
         thamSoTrang.add(size);
         thamSoTrang.add((long) page * size);
 
-        List<PostRow> dong = jdbc.query(
+        List<PostRow> row = jdbc.query(
                 """
                 SELECT p.id, p.hero_image, p.published_at,
                        p.last_modified_at, s.display_name AS nguoi_sua
@@ -252,7 +252,7 @@ public class AdminContentRepository {
                 },
                 thamSoTrang.toArray());
 
-        return new PagedResult<>(dong, page, size, totalItems);
+        return new PagedResult<>(row, page, size, totalItems);
     }
 
     /**
@@ -272,7 +272,7 @@ public class AdminContentRepository {
     }
 
     private Map<String, ContentLocaleState> postLocales(UUID id) {
-        return trangThaiLocale("""
+        return localeStatus("""
                 SELECT l.code, pt.status
                 FROM locale l
                 LEFT JOIN post_translation pt
@@ -339,26 +339,26 @@ public class AdminContentRepository {
                 sourceLocale, id);
     }
 
-    public UUID createPost(PostCreateInput input, String sourceLocale, UUID nhanVienId) {
+    public UUID createPost(PostCreateInput input, String sourceLocale, UUID staffUserId) {
         UUID id = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO post (id, hero_image, published_at, created_by, last_modified_by)
                 VALUES (?, ?, ?, ?, ?)
-                """, id, input.heroImage(), input.publishedAt(), nhanVienId, nhanVienId);
+                """, id, input.heroImage(), input.publishedAt(), staffUserId, staffUserId);
 
-        savePostTranslation(id, sourceLocale, input.translation(), nhanVienId);
+        savePostTranslation(id, sourceLocale, input.translation(), staffUserId);
         datTheChoBaiViet(id, input.tagIds() == null ? List.of() : input.tagIds());
         return id;
     }
 
-    public void patchPost(UUID id, PostPatchInput input, UUID nhanVienId) {
+    public void patchPost(UUID id, PostPatchInput input, UUID staffUserId) {
         jdbc.update("""
                 UPDATE post
                 SET hero_image = COALESCE(?, hero_image),
                     published_at = COALESCE(?, published_at),
                     last_modified_by = ?
                 WHERE id = ?
-                """, input.heroImage(), input.publishedAt(), nhanVienId, id);
+                """, input.heroImage(), input.publishedAt(), staffUserId, id);
     }
 
     /**
@@ -376,17 +376,17 @@ public class AdminContentRepository {
         }
     }
 
-    public void softDeletePost(UUID id, UUID nhanVienId) {
+    public void softDeletePost(UUID id, UUID staffUserId) {
         jdbc.update("UPDATE post SET soft_delete = TRUE, last_modified_by = ? WHERE id = ?",
-                nhanVienId, id);
+                staffUserId, id);
         jdbc.update("""
                 UPDATE post_translation SET soft_delete = TRUE, last_modified_by = ?
                 WHERE post_id = ?
-                """, nhanVienId, id);
+                """, staffUserId, id);
     }
 
     public void savePostTranslation(UUID id, String locale, PostTranslationInput input,
-                                    UUID nhanVienId) {
+                                    UUID staffUserId) {
         jdbc.update("""
                 INSERT INTO post_translation
                        (post_id, locale, slug, title, excerpt, body, status,
@@ -405,7 +405,7 @@ public class AdminContentRepository {
                 """,
                 id, locale, input.slug(), input.title(), input.excerpt(),
                 input.body().toArray(new String[0]), input.status(),
-                nhanVienId, nhanVienId, nhanVienId);
+                staffUserId, staffUserId, staffUserId);
     }
 
     // ==================================================== buổi thuyết trình
@@ -421,7 +421,7 @@ public class AdminContentRepository {
                 "SELECT count(*) FROM lecture WHERE NOT soft_delete", Long.class);
         long totalItems = tong == null ? 0L : tong;
 
-        List<LectureRow> dong = jdbc.query("""
+        List<LectureRow> row = jdbc.query("""
                 SELECT l.id, l.market, l.event_date, l.start_time, l.city, l.venue,
                        l.seats, l.seats_taken, l.last_modified_at, s.display_name AS nguoi_sua
                 FROM lecture l
@@ -448,7 +448,7 @@ public class AdminContentRepository {
                 },
                 size, (long) page * size);
 
-        return new PagedResult<>(dong, page, size, totalItems);
+        return new PagedResult<>(row, page, size, totalItems);
     }
 
     private String lectureTitle(UUID id, String sourceLocale) {
@@ -471,7 +471,7 @@ public class AdminContentRepository {
      * (docs/12 mục 10).
      */
     private Map<String, ContentLocaleState> lectureLocales(UUID id) {
-        return trangThaiLocale("""
+        return localeStatus("""
                 SELECT l.code, CASE WHEN lt.lecture_id IS NULL THEN NULL ELSE 'PUBLISHED' END
                 FROM locale l
                 LEFT JOIN lecture_translation lt
@@ -525,12 +525,12 @@ public class AdminContentRepository {
     }
 
     public int seatsTaken(UUID id) {
-        Integer so = jdbc.queryForObject(
+        Integer count = jdbc.queryForObject(
                 "SELECT seats_taken FROM lecture WHERE id = ?", Integer.class, id);
-        return so == null ? 0 : so;
+        return count == null ? 0 : count;
     }
 
-    public UUID createLecture(LectureCreateInput input, String sourceLocale, UUID nhanVienId) {
+    public UUID createLecture(LectureCreateInput input, String sourceLocale, UUID staffUserId) {
         UUID id = UUID.randomUUID();
         jdbc.update("""
                 INSERT INTO lecture (id, market, event_date, start_time, city, venue,
@@ -539,13 +539,13 @@ public class AdminContentRepository {
                 """,
                 id, input.market(), Date.valueOf(input.eventDate()),
                 input.startTime() == null ? null : Time.valueOf(input.startTime()),
-                input.city(), input.venue(), input.seats(), nhanVienId, nhanVienId);
+                input.city(), input.venue(), input.seats(), staffUserId, staffUserId);
 
-        saveLectureTranslation(id, sourceLocale, input.translation(), nhanVienId);
+        saveLectureTranslation(id, sourceLocale, input.translation(), staffUserId);
         return id;
     }
 
-    public void patchLecture(UUID id, LecturePatchInput input, UUID nhanVienId) {
+    public void patchLecture(UUID id, LecturePatchInput input, UUID staffUserId) {
         jdbc.update("""
                 UPDATE lecture
                 SET event_date = COALESCE(?, event_date),
@@ -558,20 +558,20 @@ public class AdminContentRepository {
                 """,
                 input.eventDate() == null ? null : Date.valueOf(input.eventDate()),
                 input.startTime() == null ? null : Time.valueOf(input.startTime()),
-                input.city(), input.venue(), input.seats(), nhanVienId, id);
+                input.city(), input.venue(), input.seats(), staffUserId, id);
     }
 
-    public void softDeleteLecture(UUID id, UUID nhanVienId) {
+    public void softDeleteLecture(UUID id, UUID staffUserId) {
         jdbc.update("UPDATE lecture SET soft_delete = TRUE, last_modified_by = ? WHERE id = ?",
-                nhanVienId, id);
+                staffUserId, id);
         jdbc.update("""
                 UPDATE lecture_translation SET soft_delete = TRUE, last_modified_by = ?
                 WHERE lecture_id = ?
-                """, nhanVienId, id);
+                """, staffUserId, id);
     }
 
     public void saveLectureTranslation(UUID id, String locale, LectureTranslationInput input,
-                                       UUID nhanVienId) {
+                                       UUID staffUserId) {
         jdbc.update("""
                 INSERT INTO lecture_translation
                        (lecture_id, locale, title, description, created_by, last_modified_by)
@@ -581,7 +581,7 @@ public class AdminContentRepository {
                     description = EXCLUDED.description,
                     soft_delete = FALSE,
                     last_modified_by = EXCLUDED.last_modified_by
-                """, id, locale, input.title(), input.description(), nhanVienId, nhanVienId);
+                """, id, locale, input.title(), input.description(), staffUserId, staffUserId);
     }
 
     // ==================================================== dùng chung
@@ -593,23 +593,23 @@ public class AdminContentRepository {
      * chưa có dòng nào sẽ vắng mặt khỏi kết quả, và màn hình mất đúng thông tin
      * quan trọng nhất — bài này <b>chưa</b> có bản tiếng Việt.
      */
-    private Map<String, ContentLocaleState> trangThaiLocale(String sql, UUID id) {
+    private Map<String, ContentLocaleState> localeStatus(String sql, UUID id) {
         Map<String, ContentLocaleState> ket_qua = new LinkedHashMap<>();
         jdbc.query(sql, rs -> {
-            String trangThai = rs.getString(2);
-            ket_qua.put(rs.getString(1), trangThai == null
+            String status = rs.getString(2);
+            ket_qua.put(rs.getString(1), status == null
                     ? ContentLocaleState.MISSING
-                    : ContentLocaleState.valueOf(trangThai));
+                    : ContentLocaleState.valueOf(status));
         }, id);
         return ket_qua;
     }
 
-    private static List<String> mangChu(ResultSet rs, String cot) throws SQLException {
-        java.sql.Array mang = rs.getArray(cot);
-        if (mang == null) {
+    private static List<String> mangChu(ResultSet rs, String column) throws SQLException {
+        java.sql.Array array = rs.getArray(column);
+        if (array == null) {
             return List.of();
         }
-        return List.of((String[]) mang.getArray());
+        return List.of((String[]) array.getArray());
     }
 
     private static LocalDate ngay(Date d) {

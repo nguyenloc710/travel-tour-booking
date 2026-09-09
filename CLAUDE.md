@@ -145,17 +145,21 @@ Trước khi báo hoàn thành, chạy phần liên quan tới thứ mình sửa
 
 ## Đổi hợp đồng API
 
-Spec-first (ADR-002). Thứ tự bắt buộc:
+Spec-first (ADR-002), nhưng **ADR-012 đã bỏ cách bắt buộc nó**. Thứ tự vẫn vậy:
 
 ```
 1. Sửa contracts/openapi.yaml     ← pull request riêng, có người duyệt
-2. pnpm contracts:generate
-3. Sửa controller cho khớp interface mới  ← quên bước này là lỗi biên dịch
+2. pnpm contracts:generate        ← sinh MODEL; không còn sinh interface
+3. Sửa annotation trên controller cho khớp
 4. Sửa frontend
 ```
 
-Không bao giờ đi ngược: sửa controller trước rồi cập nhật spec sau là code-first,
-và ADR-002 đã bác bỏ.
+**Bước 3 không còn là lỗi biên dịch.** Controller thôi `implements` interface
+sinh ra, nên quên bước 3 thì build vẫn xanh và cái sai lộ ra lúc chạy. Lưới còn
+lại chỉ so **đường dẫn** (`SwaggerIT`), không so tham số hay kiểu dữ liệu.
+
+Không bao giờ đi ngược: sửa controller trước rồi cập nhật spec sau là code-first.
+Giờ không còn gì chặn việc đó ngoài người rà soát mã — nên nó càng phải được rà.
 
 ---
 

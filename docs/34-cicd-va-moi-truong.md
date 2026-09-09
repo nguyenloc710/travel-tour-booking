@@ -107,7 +107,7 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 
 ## 3. Biến môi trường
 
-Ứng dụng đọc sáu biến, tất cả đều có giá trị mặc định dùng được cho `dev`:
+Ứng dụng đọc chín biến, tất cả đều có giá trị mặc định dùng được cho `dev`:
 
 | Biến | Mặc định | Bí mật |
 |---|---|---|
@@ -117,6 +117,18 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 | `PORT` | `8080` | Không |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Không |
 | `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/travel-media` | Không |
+| `BOOTSTRAP_ADMIN_EMAIL` | rỗng — không tạo gì | Không |
+| `BOOTSTRAP_ADMIN_PASSWORD` | rỗng — không tạo gì | **Có** ở `prod` |
+| `BOOTSTRAP_ADMIN_NAME` | `Quản trị viên` | Không |
+
+**`CORS_ALLOWED_ORIGINS` phải liệt kê HAI gốc, không phải một** — chú ý rằng
+mặc định của `dev` cũng có hai. Gốc thứ hai là trang quản trị, và nó cần thiết
+kể cả khi trang quản trị gọi API qua proxy `rewrites()` của Next: request tới
+API mang URL nội bộ `http://api:8080`, còn header `Origin` mà Next chuyển tiếp
+là địa chỉ công khai của trang quản trị. Hai giá trị đó không bao giờ bằng nhau,
+nên Spring xếp lời gọi vào diện CORS và trả `403 Invalid CORS request`. Triệu
+chứng: đăng nhập trang quản trị hỏng, còn log API **không ghi một dòng nào** —
+bộ lọc CORS chặn trước khi tới controller.
 
 Thêm bốn thuộc tính chuẩn của Spring mà **chỉ `prod` mới đặt**, và cả bốn đều là
 cấu hình chứ không phải sửa code:
@@ -476,6 +488,7 @@ Bốn ô đầu nay **đã có chỗ để làm** — cột bên phải nói ch�
 | [ ] | `DB_PASSWORD` thật, không phải `travel` | `.env` trên máy chủ, `openssl rand -base64 32` |
 | [ ] | `MINIO_ROOT_PASSWORD` thật | cùng file |
 | [ ] | `BOOTSTRAP_ADMIN_EMAIL` và `BOOTSTRAP_ADMIN_PASSWORD` | `.env` trên máy chủ. **Không có nó thì không ai đăng nhập được vào trang quản trị** — hợp đồng API không có đường tạo người dùng, `22` mục 9.1 |
+| [ ] | Tắt Swagger: `SPRINGDOC_API_DOCS_ENABLED=false` và `SPRINGDOC_SWAGGER_UI_ENABLED=false` | `.env` trên máy chủ. Trang đó liệt kê **đủ cả bề mặt quản trị** — đường dẫn, tham số, thân yêu cầu — và chế độ IP chưa có HTTPS. ADR-012 |
 | [ ] | `logging.level.vn.travel.booking` hạ xuống `INFO` | `LOGGING_LEVEL_VN_TRAVEL_BOOKING` — đã đặt sẵn trong `compose.prod.yaml` |
 | [ ] | `NEXT_PUBLIC_SITE_URL` trỏ địa chỉ thật | GitHub Variable `PUBLIC_SITE_URL` — **lúc build**, xem mục 5.3 |
 | [ ] | Cookie phiên đặt `Secure` | `SERVER_SERVLET_SESSION_COOKIE_SECURE` + `SERVER_FORWARD_HEADERS_STRATEGY`, cả hai đã đặt sẵn trong `compose.prod.yaml`. Không phải sửa code |

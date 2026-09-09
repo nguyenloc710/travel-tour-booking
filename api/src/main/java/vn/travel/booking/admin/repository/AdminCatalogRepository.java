@@ -62,15 +62,15 @@ public class AdminCatalogRepository {
     }
 
     public PagedResult<AdminProductRow> findProducts(String localeNguon, AdminProductQuery query) {
-        List<Object> thamSo = new ArrayList<>();
-        thamSo.add(localeNguon);
-        String loc = dungMenhDeLoc(query, thamSo);
+        List<Object> params = new ArrayList<>();
+        params.add(localeNguon);
+        String loc = buildFilterClause(query, params);
 
         Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, thamSo.toArray());
+                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
         long totalItems = tong == null ? 0L : tong;
 
-        List<Object> thamSoTrang = new ArrayList<>(thamSo);
+        List<Object> thamSoTrang = new ArrayList<>(params);
         thamSoTrang.add(query.size());
         thamSoTrang.add((long) query.page() * query.size());
 
@@ -123,19 +123,19 @@ public class AdminCatalogRepository {
 
     // ------------------------------------------------------------ lọc
 
-    private static String dungMenhDeLoc(AdminProductQuery query, List<Object> thamSo) {
+    private static String buildFilterClause(AdminProductQuery query, List<Object> params) {
         StringBuilder sb = new StringBuilder();
 
         if (query.productType() != null) {
             sb.append(" AND p.product_type = ?");
-            thamSo.add(query.productType());
+            params.add(query.productType());
         }
         if (query.market() != null) {
             // EXISTS chứ không JOIN: JOIN product_market nhân đôi số dòng khi một
             // sản phẩm bán ở cả hai thị trường (ADR-006), và tổng đếm ra sai.
             sb.append(" AND EXISTS (SELECT 1 FROM product_market pm"
                     + " WHERE pm.product_id = p.id AND pm.market = ?)");
-            thamSo.add(query.market());
+            params.add(query.market());
         }
         if (query.q() != null && !query.q().isBlank()) {
             // Tìm trong tiêu đề của MỌI locale: nhân viên gõ "Hội An" hay "Halong"
@@ -145,7 +145,7 @@ public class AdminCatalogRepository {
             sb.append(" AND EXISTS (SELECT 1 FROM product_translation q2"
                     + " WHERE q2.product_id = p.id AND NOT q2.soft_delete"
                     + " AND f_unaccent(q2.title) ILIKE '%' || f_unaccent(?) || '%')");
-            thamSo.add(query.q().trim());
+            params.add(query.q().trim());
         }
         if ("MISSING".equals(query.gap())) {
             sb.append(" AND EXISTS (SELECT 1 FROM locale l"
@@ -182,7 +182,7 @@ public class AdminCatalogRepository {
             thamSoDich[i + 1] = ids.get(i);
         }
 
-        Map<UUID, List<TranslationState>> banDich = new LinkedHashMap<>();
+        Map<UUID, List<TranslationState>> translationService = new LinkedHashMap<>();
         jdbc.query(
                 "SELECT t.product_id, t.locale, t.status, t.translated_at,\n"
                         + "       l.is_source, s.last_modified_at AS source_modified\n"
@@ -196,21 +196,21 @@ public class AdminCatalogRepository {
                     boolean laNguon = rs.getBoolean("is_source");
                     OffsetDateTime dichLuc = rs.getObject("translated_at", OffsetDateTime.class);
                     OffsetDateTime nguonSuaLuc = rs.getObject("source_modified", OffsetDateTime.class);
-                    banDich.computeIfAbsent(rs.getObject("product_id", UUID.class), k -> new ArrayList<>())
+                    translationService.computeIfAbsent(rs.getObject("product_id", UUID.class), k -> new ArrayList<>())
                             .add(new TranslationState(
                                     rs.getString("locale"), rs.getString("status"), laNguon,
                                     !laNguon && (dichLuc == null || nguonSuaLuc.isAfter(dichLuc))));
                 },
                 thamSoDich);
 
-        Map<UUID, List<MarketState>> thiTruong = new LinkedHashMap<>();
+        Map<UUID, List<MarketState>> market = new LinkedHashMap<>();
         jdbc.query("SELECT product_id, market, is_published FROM product_market"
                         + " WHERE product_id IN (" + o + ") ORDER BY market",
                 rs -> {
                     // Thân lambda phải là KHỐI: `add()` trả về boolean, và khi đó
                     // trình biên dịch không phân biệt được RowCallbackHandler với
                     // ResultSetExtractor — lỗi "reference to query is ambiguous".
-                    thiTruong.computeIfAbsent(rs.getObject("product_id", UUID.class), k -> new ArrayList<>())
+                    market.computeIfAbsent(rs.getObject("product_id", UUID.class), k -> new ArrayList<>())
                             .add(new MarketState(rs.getString("market"), rs.getBoolean("is_published")));
                 },
                 ids.toArray());
@@ -218,8 +218,8 @@ public class AdminCatalogRepository {
         return khung.stream()
                 .map(r -> new AdminProductRow(
                         r.id(), r.productType(), r.sourceTitle(), r.sourceStatus(),
-                        thiTruong.getOrDefault(r.id(), List.of()),
-                        banDich.getOrDefault(r.id(), List.of()),
+                        market.getOrDefault(r.id(), List.of()),
+                        translationService.getOrDefault(r.id(), List.of()),
                         r.lastModifiedAt()))
                 .toList();
     }

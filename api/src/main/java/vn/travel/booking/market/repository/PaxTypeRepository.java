@@ -30,7 +30,7 @@ public class PaxTypeRepository {
     }
 
     /** Mã loại khách sang id, trong phạm vi một thị trường. Sắp theo thứ tự hiển thị. */
-    public Map<String, UUID> theoMa(String market) {
+    public Map<String, UUID> byCode(String market) {
         Map<String, UUID> ket_qua = new LinkedHashMap<>();
         jdbc.query("""
                 SELECT code, id FROM pax_type
@@ -45,9 +45,9 @@ public class PaxTypeRepository {
     }
 
     /** Id sang mã — để trả về bảng giá bằng mã người đọc được, không phải UUID. */
-    public Map<UUID, String> theoId(String market) {
+    public Map<UUID, String> byId(String market) {
         Map<UUID, String> ket_qua = new LinkedHashMap<>();
-        theoMa(market).forEach((ma, id) -> ket_qua.put(id, ma));
+        byCode(market).forEach((ma, id) -> ket_qua.put(id, ma));
         return ket_qua;
     }
 }

@@ -44,10 +44,10 @@ public record ProductTypeBlocks(
 
     /** Rỗng hoàn toàn — dùng cho {@code PATCH} không đụng tới phần riêng của loại. */
     public boolean trong() {
-        return soKhoi() == 0;
+        return blockCount() == 0;
     }
 
-    public int soKhoi() {
+    public int blockCount() {
         int n = 0;
         if (groupTour != null) {
             n++;
@@ -71,7 +71,7 @@ public record ProductTypeBlocks(
     }
 
     /** Tên khối khớp với một {@code productType} — dùng cho thông báo lỗi. */
-    public static String tenKhoi(String productType) {
+    public static String blockName(String productType) {
         return switch (productType) {
             case "GROUP_TOUR" -> "groupTour";
             case "INDIVIDUAL_PACKAGE" -> "individualPackage";
@@ -83,7 +83,7 @@ public record ProductTypeBlocks(
         };
     }
 
-    public Object khoiCua(String productType) {
+    public Object blocksFor(String productType) {
         return switch (productType) {
             case "GROUP_TOUR" -> groupTour;
             case "INDIVIDUAL_PACKAGE" -> individualPackage;

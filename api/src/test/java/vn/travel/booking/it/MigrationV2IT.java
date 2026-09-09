@@ -53,7 +53,7 @@ class MigrationV2IT {
     JdbcTemplate jdbc;
 
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM slug_history;
                 DELETE FROM staff_user_role;
@@ -102,16 +102,16 @@ class MigrationV2IT {
 
     @Test
     @DisplayName("Bốn vai trò nạp từ dữ liệu tra cứu, không nhập tay")
-    void bonVaiTro() {
-        List<String> ma = jdbc.queryForList(
+    void fourRolesFromLookupData() {
+        List<String> reference = jdbc.queryForList(
                 "SELECT code FROM role ORDER BY sort_order", String.class);
 
-        assertEquals(List.of("CONSULTANT", "EDITOR", "TRANSLATOR", "ADMIN"), ma);
+        assertEquals(List.of("CONSULTANT", "EDITOR", "TRANSLATOR", "ADMIN"), reference);
     }
 
     @Test
     @DisplayName("Thu quyền rồi cấp lại được — khoá duy nhất phải là index bộ phận")
-    void capLaiVaiTroDaThu() {
+    void revokedRoleCanBeRegranted() {
         capQuyen("d1000000-0000-4000-8000-000000000001", "ADMIN");
 
         // Thu quyền = soft_delete, KHÔNG phải DELETE: xoá cứng là xoá bằng chứng
@@ -123,13 +123,13 @@ class MigrationV2IT {
         // và không ai hiểu vì sao không cấp lại quyền cho người cũ được.
         capQuyen("d1000000-0000-4000-8000-000000000002", "ADMIN");
 
-        assertEquals(1, dem("SELECT count(*) FROM staff_user_role WHERE NOT soft_delete"));
-        assertEquals(2, dem("SELECT count(*) FROM staff_user_role"));
+        assertEquals(1, count("SELECT count(*) FROM staff_user_role WHERE NOT soft_delete"));
+        assertEquals(2, count("SELECT count(*) FROM staff_user_role"));
     }
 
     @Test
     @DisplayName("Cấp trùng một vai trò đang còn hiệu lực thì bị chặn")
-    void capTrungVaiTro() {
+    void duplicateActiveRoleRejected() {
         capQuyen("d1000000-0000-4000-8000-000000000003", "EDITOR");
 
         assertThrows(DataIntegrityViolationException.class,
@@ -140,7 +140,7 @@ class MigrationV2IT {
 
     @Test
     @DisplayName("Ảnh không phải tự chụp mà thiếu chứng từ giấy phép thì bị từ chối")
-    void anhThieuGiayPhep() {
+    void imageWithoutLicenceRejected() {
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("""
                 INSERT INTO media_asset (id, path, width, height, byte_size, source)
                 VALUES ('e1000000-0000-4000-8000-000000000001','/img/doi-tac.jpg',
@@ -154,27 +154,27 @@ class MigrationV2IT {
                 VALUES ('e1000000-0000-4000-8000-000000000001','/img/doi-tac.jpg',
                         1600,1067,180000,'PARTNER','Thư đồng ý 2026-08-14 từ khách sạn')
                 """);
-        assertEquals(1, dem("SELECT count(*) FROM media_asset"));
+        assertEquals(1, count("SELECT count(*) FROM media_asset"));
     }
 
     @Test
     @DisplayName("Gỡ ảnh khỏi bộ ảnh không làm mất ảnh lẫn chứng từ giấy phép")
-    void goAnhKhoiBoAnh() {
-        themAnh("e1000000-0000-4000-8000-000000000002", "/img/sapa.jpg");
+    void removingImageFromSetKeepsLicence() {
+        addImage("e1000000-0000-4000-8000-000000000002", "/img/sapa.jpg");
         jdbc.update("INSERT INTO product_image (product_id, asset_id, sort_order) "
                 + "VALUES (CAST(? AS uuid), CAST(? AS uuid), 1)",
                 "a0000000-0000-4000-8000-0000000000d1", "e1000000-0000-4000-8000-000000000002");
 
         jdbc.update("DELETE FROM product_image");
 
-        assertEquals(1, dem("SELECT count(*) FROM media_asset"),
+        assertEquals(1, count("SELECT count(*) FROM media_asset"),
                 "Ảnh và giấy phép của nó phải ở lại — nó còn dùng cho sản phẩm khác");
     }
 
     @Test
     @DisplayName("Không xoá cứng được ảnh đang nằm trong một bộ ảnh")
-    void khongXoaDuocAnhDangDung() {
-        themAnh("e1000000-0000-4000-8000-000000000003", "/img/halong.jpg");
+    void cannotHardDeleteImageInUse() {
+        addImage("e1000000-0000-4000-8000-000000000003", "/img/halong.jpg");
         jdbc.update("INSERT INTO product_image (product_id, asset_id, sort_order) "
                 + "VALUES (CAST(? AS uuid), CAST(? AS uuid), 1)",
                 "a0000000-0000-4000-8000-0000000000d1", "e1000000-0000-4000-8000-000000000003");
@@ -186,8 +186,8 @@ class MigrationV2IT {
 
     @Test
     @DisplayName("Alt của ảnh phụ thuộc locale, ảnh thì không")
-    void altPhuThuocLocale() {
-        themAnh("e1000000-0000-4000-8000-000000000004", "/img/hoi-an.jpg");
+    void altDependsOnLocaleImageDoesNot() {
+        addImage("e1000000-0000-4000-8000-000000000004", "/img/hoi-an.jpg");
         jdbc.update("""
                 INSERT INTO media_asset_translation (asset_id, locale, alt) VALUES
                   ('e1000000-0000-4000-8000-000000000004','da','Lanterner i Hoi An'),
@@ -203,31 +203,31 @@ class MigrationV2IT {
 
     @Test
     @DisplayName("Đổi slug thì trigger tự ghi slug cũ — không trông vào code ứng dụng")
-    void doiSlugGhiLichSu() {
-        doiSlug("slug-moi-hon");
+    void slugChangeRecordedByTrigger() {
+        changeSlug("slug-moi-hon");
 
-        Map<String, Object> dong = jdbc.queryForMap("SELECT * FROM slug_history");
+        Map<String, Object> row = jdbc.queryForMap("SELECT * FROM slug_history");
 
-        assertEquals("PRODUCT", dong.get("entity_type"));
-        assertEquals("slug-cu-nhat", dong.get("old_slug"));
-        assertEquals("da", dong.get("locale"));
-        assertNotNull(dong.get("created_by"), "Ai đổi slug phải lấy được từ last_modified_by");
+        assertEquals("PRODUCT", row.get("entity_type"));
+        assertEquals("slug-cu-nhat", row.get("old_slug"));
+        assertEquals("da", row.get("locale"));
+        assertNotNull(row.get("created_by"), "Ai đổi slug phải lấy được từ last_modified_by");
     }
 
     @Test
     @DisplayName("Sửa trường khác không sinh dòng lịch sử nào")
-    void suaTruongKhacKhongGhi() {
+    void editingOtherFieldsRecordsNoHistory() {
         jdbc.update("UPDATE product_translation SET title = 'Tên khác' "
                 + "WHERE product_id = CAST(? AS uuid)", "a0000000-0000-4000-8000-0000000000d1");
 
-        assertEquals(0, dem("SELECT count(*) FROM slug_history"));
+        assertEquals(0, count("SELECT count(*) FROM slug_history"));
     }
 
     @Test
     @DisplayName("Quay lại slug cũ thì dòng chuyển hướng bị dọn — không sinh vòng lặp")
-    void quayLaiSlugCu() {
-        doiSlug("slug-giua-chung");
-        doiSlug("slug-cu-nhat");
+    void revertingToOldSlugCleansRedirect() {
+        changeSlug("slug-giua-chung");
+        changeSlug("slug-cu-nhat");
 
         List<String> con_lai = jdbc.queryForList(
                 "SELECT old_slug FROM slug_history", String.class);
@@ -238,38 +238,38 @@ class MigrationV2IT {
 
     @Test
     @DisplayName("Slug có dấu bị từ chối ngay ở tầng CSDL")
-    void slugCoDauBiTuChoi() {
-        assertThrows(DataIntegrityViolationException.class, () -> doiSlug("việt-nam"));
+    void accentedSlugRejectedByDatabase() {
+        assertThrows(DataIntegrityViolationException.class, () -> changeSlug("việt-nam"));
     }
 
     // ------------------------------------------------------------ hành khách
 
     @Test
     @DisplayName("Số hộ chiếu không kèm ngày hết hạn bị từ chối")
-    void hoChieuThieuHan() {
-        Integer soCot = jdbc.queryForObject(
+    void passportWithoutExpiryRejected() {
+        Integer columnCount = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'booking_passenger'", Integer.class);
-        assertEquals(8, soCot);
+        assertEquals(8, columnCount);
 
-        Integer coKiemToan = jdbc.queryForObject(
+        Integer hasAuditColumns = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'booking_passenger' "
                         + "AND column_name IN ('soft_delete','last_modified_by')", Integer.class);
-        assertEquals(0, coKiemToan,
+        assertEquals(0, hasAuditColumns,
                 "booking_passenger thuộc nhóm C: vòng đời theo booking, không cột kiểm toán");
 
-        Boolean coRangBuoc = jdbc.queryForObject(
+        Boolean hasConstraint = jdbc.queryForObject(
                 "SELECT count(*) > 0 FROM pg_constraint WHERE conname = 'ck_bp_passport'",
                 Boolean.class);
-        assertEquals(Boolean.TRUE, coRangBuoc);
+        assertEquals(Boolean.TRUE, hasConstraint);
     }
 
     // ------------------------------------------------------------ chung
 
     @Test
     @DisplayName("Mọi bảng có last_modified_at đều có trigger — quy tắc kiểm 17 của docs/12")
-    void moiBangDeuCoTrigger() {
+    void everyTableWithLastModifiedHasTrigger() {
         List<String> thieu = jdbc.queryForList("""
                 SELECT c.table_name
                 FROM information_schema.columns c
@@ -288,25 +288,25 @@ class MigrationV2IT {
 
     // ------------------------------------------------------------ tiện ích
 
-    private void capQuyen(String id, String vaiTro) {
+    private void capQuyen(String id, String roles) {
         jdbc.update("INSERT INTO staff_user_role (id, staff_user_id, role_code, created_by) "
                 + "VALUES (CAST(? AS uuid), CAST(? AS uuid), ?, CAST(? AS uuid))",
-                id, NHAN_VIEN, vaiTro, NHAN_VIEN);
+                id, NHAN_VIEN, roles, NHAN_VIEN);
     }
 
-    private void themAnh(String id, String duongDan) {
+    private void addImage(String id, String path) {
         jdbc.update("INSERT INTO media_asset (id, path, width, height, byte_size, source) "
-                + "VALUES (CAST(? AS uuid), ?, 1600, 1067, 180000, 'SELF')", id, duongDan);
+                + "VALUES (CAST(? AS uuid), ?, 1600, 1067, 180000, 'SELF')", id, path);
     }
 
-    private void doiSlug(String slugMoi) {
+    private void changeSlug(String newSlug) {
         jdbc.update("UPDATE product_translation SET slug = ?, last_modified_by = CAST(? AS uuid) "
                 + "WHERE product_id = CAST(? AS uuid) AND locale = 'da'",
-                slugMoi, NHAN_VIEN, "a0000000-0000-4000-8000-0000000000d1");
+                newSlug, NHAN_VIEN, "a0000000-0000-4000-8000-0000000000d1");
     }
 
-    private int dem(String sql) {
-        Integer so = jdbc.queryForObject(sql, Integer.class);
-        return so == null ? 0 : so;
+    private int count(String sql) {
+        Integer count = jdbc.queryForObject(sql, Integer.class);
+        return count == null ? 0 : count;
     }
 }

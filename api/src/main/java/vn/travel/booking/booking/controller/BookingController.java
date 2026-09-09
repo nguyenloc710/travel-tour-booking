@@ -1,5 +1,10 @@
 package vn.travel.booking.booking.controller;
 
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.common.util.Idempotency;
 import vn.travel.booking.common.util.RequestScope;
@@ -18,7 +23,6 @@ import vn.travel.booking.booking.dto.SeatHoldView;
 import vn.travel.booking.quote.dto.QuoteReceiptView;
 import vn.travel.booking.quote.dto.QuoteRequestCommand;
 import vn.travel.booking.quote.service.QuoteService;
-import vn.travel.booking.web.generated.api.BookingApi;
 import vn.travel.booking.web.generated.model.Booking;
 import vn.travel.booking.web.generated.model.BookingRequest;
 import vn.travel.booking.web.generated.model.BookingStatus;
@@ -45,95 +49,138 @@ import java.util.UUID;
  * dịch sẽ thất bại ở bước cuối (docs/13 mục 8).
  */
 @RestController
-public class BookingController implements BookingApi {
+@Validated
+public class BookingController {
 
-    private final BookingService datTour;
-    private final QuoteService baoGia;
-    private final Idempotency motLan;
+    private final BookingService bookingService;
+    private final QuoteService quoteService;
+    private final Idempotency idempotency;
 
-    public BookingController(BookingService datTour, QuoteService baoGia, Idempotency motLan) {
-        this.datTour = datTour;
-        this.baoGia = baoGia;
-        this.motLan = motLan;
+    public BookingController(BookingService bookingService, QuoteService quoteService, Idempotency idempotency) {
+        this.bookingService = bookingService;
+        this.quoteService = quoteService;
+        this.idempotency = idempotency;
     }
 
     // ------------------------------------------------------------ tính giá
 
     /** Không đòi {@code Idempotency-Key}: nó không tạo ra gì để mà trùng. */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/{market}/pricing/preview",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     public ResponseEntity<PriceBreakdown> xemTruocGia(
-            String market, String acceptLanguage, PricingRequest yeuCau) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @Valid @RequestBody PricingRequest request
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        var bang = datTour.xemTruocGia(RequestScope.market(market), new PricingQuery(
-                yeuCau.getDepartureId(),
-                soKhach(yeuCau.getPax()),
-                yeuCau.getSingleTravellers() == null ? 0 : yeuCau.getSingleTravellers(),
-                yeuCau.getDepartureOriginId()));
+        var table = bookingService.xemTruocGia(RequestScope.market(market), new PricingQuery(
+                request.getDepartureId(),
+                paxCount(request.getPax()),
+                request.getSingleTravellers() == null ? 0 : request.getSingleTravellers(),
+                request.getDepartureOriginId()));
 
-        return khongCache(locale).body(PricingMapper.sangBang(bang));
+        return noCache(locale).body(PricingMapper.sangBang(table));
     }
 
     // ------------------------------------------------------------ giữ chỗ
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/{market}/seat-holds",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     public ResponseEntity<SeatHold> giuCho(
-            String market, String acceptLanguage, UUID idempotencyKey, SeatHoldRequest yeuCau) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @NotNull  @RequestHeader(value = "Idempotency-Key", required = true) UUID idempotencyKey,
+            @Valid @RequestBody SeatHoldRequest request
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
-        String thiTruong = RequestScope.market(market);
+        String marketCode = RequestScope.market(market);
 
-        return motLan.chay(idempotencyKey, thiTruong, "seat-holds", yeuCau, SeatHold.class, () -> {
-            SeatHoldView giu = datTour.giuCho(thiTruong, yeuCau.getDepartureId(),
-                    yeuCau.getSeats(), idempotencyKey.toString());
+        return idempotency.run(idempotencyKey, marketCode, "seat-holds", request, SeatHold.class, () -> {
+            SeatHoldView hold = bookingService.giuCho(marketCode, request.getDepartureId(),
+                    request.getSeats(), idempotencyKey.toString());
 
             return daTao(locale)
-                    .body(new SeatHold(giu.id(), giu.departureId(), giu.seats(), giu.expiresAt()));
+                    .body(new SeatHold(hold.id(), hold.departureId(), hold.seats(), hold.expiresAt()));
         });
     }
 
-    @Override
-    public ResponseEntity<Void> boGiuCho(String market, String acceptLanguage, UUID id) {
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        value = "/api/v1/{market}/seat-holds/{id}",
+        produces = { "application/json" }
+    )
+    public ResponseEntity<Void> boGiuCho(
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("id") UUID id
+    ) {
         RequestScope.locale(acceptLanguage);
-        datTour.boGiuCho(RequestScope.market(market), id);
+        bookingService.boGiuCho(RequestScope.market(market), id);
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
     // ------------------------------------------------------------ đặt tour
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/{market}/bookings",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     public ResponseEntity<Booking> datTour(
-            String market, String acceptLanguage, UUID idempotencyKey, BookingRequest yeuCau) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @NotNull  @RequestHeader(value = "Idempotency-Key", required = true) UUID idempotencyKey,
+            @Valid @RequestBody BookingRequest request
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
-        String thiTruong = RequestScope.market(market);
+        String marketCode = RequestScope.market(market);
 
-        return motLan.chay(idempotencyKey, thiTruong, "bookings", yeuCau, Booking.class, () -> {
-            BookingView don = datTour.datTour(thiTruong, locale, new BookingCommand(
-                    yeuCau.getDepartureId(),
-                    yeuCau.getSeatHoldId(),
-                    soKhach(yeuCau.getPax()),
-                    yeuCau.getSingleTravellers() == null ? 0 : yeuCau.getSingleTravellers(),
-                    yeuCau.getDepartureOriginId(),
-                    yeuCau.getPassengers().stream()
+        return idempotency.run(idempotencyKey, marketCode, "bookings", request, Booking.class, () -> {
+            BookingView booking = bookingService.datTour(marketCode, locale, new BookingCommand(
+                    request.getDepartureId(),
+                    request.getSeatHoldId(),
+                    paxCount(request.getPax()),
+                    request.getSingleTravellers() == null ? 0 : request.getSingleTravellers(),
+                    request.getDepartureOriginId(),
+                    request.getPassengers().stream()
                             .map(k -> new PassengerDraft(k.getPaxTypeCode(), k.getFullName(),
                                     k.getDateOfBirth(), k.getNationality()))
                             .toList(),
-                    yeuCau.getContactEmail(),
-                    yeuCau.getContactPhone()));
+                    request.getContactEmail(),
+                    request.getContactPhone()));
 
-            return daTao(locale).body(sang(don));
+            return daTao(locale).body(toView(booking));
         });
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/bookings/{reference}",
+        produces = { "application/json" }
+    )
     public ResponseEntity<Booking> traDon(
-            String market, String acceptLanguage, String reference, String email) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("reference") String reference,
+            @NotNull @jakarta.validation.constraints.Email  @Valid @RequestParam(value = "email", required = true) String email
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
-        return khongCache(locale)
-                .body(sang(datTour.traDon(RequestScope.market(market), reference, email)));
+        return noCache(locale)
+                .body(toView(bookingService.traDon(RequestScope.market(market), reference, email)));
     }
 
     // ------------------------------------------------------------ báo giá
@@ -145,37 +192,46 @@ public class BookingController implements BookingApi {
      * Không phải vì nó tính tiền — nó không tính gì — mà vì khách bấm nút hai
      * lần thì tư vấn viên nhận hai yêu cầu giống hệt nhau và gọi điện hai lần.
      */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/{market}/quote-requests",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     public ResponseEntity<QuoteReceipt> guiYeuCauBaoGia(
-            String market, String acceptLanguage, UUID idempotencyKey, QuoteRequestInput yeuCau) {
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @NotNull  @RequestHeader(value = "Idempotency-Key", required = true) UUID idempotencyKey,
+            @Valid @RequestBody QuoteRequestInput request
+    ) {
 
         String locale = RequestScope.locale(acceptLanguage);
-        String thiTruong = RequestScope.market(market);
+        String marketCode = RequestScope.market(market);
 
-        return motLan.chay(idempotencyKey, thiTruong, "quote-requests", yeuCau,
+        return idempotency.run(idempotencyKey, marketCode, "quote-requests", request,
                 QuoteReceipt.class, () -> {
 
-            QuoteReceiptView bien_nhan = baoGia.guiYeuCau(thiTruong, locale,
+            QuoteReceiptView receipt = quoteService.submitRequest(marketCode, locale,
                     new QuoteRequestCommand(
-                            yeuCau.getProductSlug(),
-                            yeuCau.getPartySize(),
-                            yeuCau.getRequestedDate(),
-                            yeuCau.getContactName(),
-                            yeuCau.getContactEmail(),
-                            yeuCau.getContactPhone(),
-                            yeuCau.getMessage()));
+                            request.getProductSlug(),
+                            request.getPartySize(),
+                            request.getRequestedDate(),
+                            request.getContactName(),
+                            request.getContactEmail(),
+                            request.getContactPhone(),
+                            request.getMessage()));
 
             return daTao(locale).body(new QuoteReceipt(
-                    bien_nhan.reference(),
-                    QuoteStatus.fromValue(bien_nhan.status().name()),
-                    bien_nhan.createdAt()));
+                    receipt.reference(),
+                    QuoteStatus.fromValue(receipt.status().name()),
+                    receipt.createdAt()));
         });
     }
 
     // ------------------------------------------------------------ ánh xạ
 
-    private static Booking sang(BookingView d) {
-        List<PriceLine> dong = PricingMapper.sangDong(d.breakdown().lines());
+    private static Booking toView(BookingView d) {
+        List<PriceLine> row = PricingMapper.sangDong(d.breakdown().lines());
 
         return new Booking(
                 d.reference(),
@@ -184,24 +240,24 @@ public class BookingController implements BookingApi {
                 RefMapper.sangTien(d.breakdown().total()),
                 RefMapper.sangTien(d.breakdown().deposit()),
                 RefMapper.sangTien(d.breakdown().balance()),
-                dong)
+                row)
                 .departDate(d.departDate());
     }
 
     /** Số khách theo mã loại; giữ nguyên thứ tự client gửi để bảng phân rã đọc được. */
-    private static Map<String, Integer> soKhach(List<PaxCount> pax) {
-        Map<String, Integer> theoLoai = new LinkedHashMap<>();
+    private static Map<String, Integer> paxCount(List<PaxCount> pax) {
+        Map<String, Integer> byType = new LinkedHashMap<>();
         for (PaxCount p : pax) {
-            theoLoai.merge(p.getPaxTypeCode(), p.getCount(), Integer::sum);
+            byType.merge(p.getPaxTypeCode(), p.getCount(), Integer::sum);
         }
-        return theoLoai;
+        return byType;
     }
 
     private static ResponseEntity.BodyBuilder daTao(String locale) {
         return them(ResponseEntity.status(HttpStatus.CREATED), locale);
     }
 
-    private static ResponseEntity.BodyBuilder khongCache(String locale) {
+    private static ResponseEntity.BodyBuilder noCache(String locale) {
         return them(ResponseEntity.ok(), locale);
     }
 

@@ -24,20 +24,20 @@ import java.util.UUID;
 @Service
 public class AdminBookingService {
 
-    private final AdminBookingRepository don;
+    private final AdminBookingRepository booking;
 
-    public AdminBookingService(AdminBookingRepository don) {
-        this.don = don;
+    public AdminBookingService(AdminBookingRepository booking) {
+        this.booking = booking;
     }
 
     @Transactional(readOnly = true)
-    public PagedResult<AdminBookingRow> danhSach(AdminBookingQuery query) {
-        return don.findBookings(query);
+    public PagedResult<AdminBookingRow> list(AdminBookingQuery query) {
+        return booking.findBookings(query);
     }
 
     @Transactional(readOnly = true)
-    public AdminBookingDetailView chiTiet(String reference) {
-        return don.findByReference(reference)
+    public AdminBookingDetailView detail(String reference) {
+        return booking.findByReference(reference)
                 .orElseThrow(() -> new NotFoundException("không có đơn nào mang mã " + reference));
     }
 
@@ -60,28 +60,28 @@ public class AdminBookingService {
      * cho người sau ở docs/41 mục 6.2.
      */
     @Transactional
-    public AdminBookingDetailView doiTrangThai(String reference, BookingStatus sang,
-                                               UUID nhanVienId, String note) {
+    public AdminBookingDetailView changeStatus(String reference, BookingStatus sang,
+                                               UUID staffUserId, String note) {
 
-        AdminBookingRepository.DonDeDoi hienTai = don.khoaDon(reference)
+        AdminBookingRepository.DonDeDoi current = booking.khoaDon(reference)
                 .orElseThrow(() -> new NotFoundException("không có đơn nào mang mã " + reference));
 
         // Hàm thuần, không context, không CSDL — 9 test JUnit đã canh nó.
-        BookingStatuses.phaiDiDuoc(hienTai.status(), sang);
+        BookingStatuses.requireTransition(current.status(), sang);
 
-        don.datTrangThai(hienTai.id(), sang, nhanVienId);
-        don.ghiNhatKy(hienTai.id(), hienTai.status(), sang, nhanVienId, note);
+        booking.setStatus(current.id(), sang, staffUserId);
+        booking.writeAuditLog(current.id(), current.status(), sang, staffUserId, note);
 
         // Rời nhóm đang chiếm chỗ thì trả chỗ NGAY, không chờ hoàn tiền xong
         // (docs/14 mục 6.5). CONFIRMED → CANCELLED trả chỗ; CANCELLED →
         // REFUNDED thì không, vì chỗ đã về kho từ bước trước rồi.
-        boolean vuaNhaCho = BookingStatuses.dangChiemCho(hienTai.status())
+        boolean vuaNhaCho = BookingStatuses.dangChiemCho(current.status())
                 && !BookingStatuses.dangChiemCho(sang);
-        if (vuaNhaCho && hienTai.departureId() != null) {
-            don.traChoVeKho(hienTai.departureId(), hienTai.paxCount());
+        if (vuaNhaCho && current.departureId() != null) {
+            booking.releaseSeats(current.departureId(), current.paxCount());
         }
 
-        return don.findByReference(reference)
+        return booking.findByReference(reference)
                 .orElseThrow(() -> new IllegalStateException(
                         "đơn " + reference + " biến mất giữa transaction"));
     }

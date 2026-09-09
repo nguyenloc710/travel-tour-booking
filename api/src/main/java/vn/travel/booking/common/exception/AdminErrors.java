@@ -29,8 +29,8 @@ public final class AdminErrors {
 
         private final transient Map<String, Object> params;
 
-        protected CoThamSo(String chiTiet, Map<String, Object> params) {
-            super(chiTiet);
+        protected CoThamSo(String detail, Map<String, Object> params) {
+            super(detail);
             this.params = params;
         }
 
@@ -44,9 +44,9 @@ public final class AdminErrors {
      * hai khối. HTTP 400.
      */
     public static class ProductTypeBlockMismatch extends CoThamSo {
-        public ProductTypeBlockMismatch(String productType, String khoiCanCo, int soKhoi) {
-            super("cần đúng khối " + khoiCanCo + " cho " + productType + ", nhận " + soKhoi,
-                    Map.of("productType", productType, "expectedBlock", khoiCanCo, "blockCount", soKhoi));
+        public ProductTypeBlockMismatch(String productType, String requiredBlocks, int blockCount) {
+            super("cần đúng khối " + requiredBlocks + " cho " + productType + ", nhận " + blockCount,
+                    Map.of("productType", productType, "expectedBlock", requiredBlocks, "blockCount", blockCount));
         }
     }
 
@@ -112,9 +112,9 @@ public final class AdminErrors {
      * nó, nên không có lỗi nào ghi ra, và không ai nối được hai sự việc với nhau.
      */
     public static class DestinationInUse extends CoThamSo {
-        public DestinationInUse(int soSanPham) {
-            super("còn " + soSanPham + " sản phẩm trỏ tới điểm đến này",
-                    Map.of("productCount", soSanPham));
+        public DestinationInUse(int productCount) {
+            super("còn " + productCount + " sản phẩm trỏ tới điểm đến này",
+                    Map.of("productCount", productCount));
         }
     }
 
@@ -126,8 +126,8 @@ public final class AdminErrors {
      * liệu lúc nửa đêm.
      */
     public static class LastAdmin extends CoThamSo {
-        public LastAdmin(String chiTiet) {
-            super(chiTiet, Map.of());
+        public LastAdmin(String detail) {
+            super(detail, Map.of());
         }
     }
 
@@ -139,9 +139,9 @@ public final class AdminErrors {
      * đặt.
      */
     public static class ProductHasActiveBookings extends CoThamSo {
-        public ProductHasActiveBookings(int soDon) {
-            super("còn " + soDon + " đơn chưa kết thúc",
-                    Map.of("activeBookings", soDon));
+        public ProductHasActiveBookings(int bookingCount) {
+            super("còn " + bookingCount + " đơn chưa kết thúc",
+                    Map.of("activeBookings", bookingCount));
         }
     }
 }

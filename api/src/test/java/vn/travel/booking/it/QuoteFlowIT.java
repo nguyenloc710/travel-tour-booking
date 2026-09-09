@@ -46,12 +46,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Ba bài đáng chú ý nhất:
  *
  * <ul>
- *   <li>{@link #khongGuiDuocBaoGiaRong()} — một email báo giá không có dòng nào
+ *   <li>{@link #cannotSendEmptyQuote()} — một email báo giá không có dòng nào
  *       là một lần làm khách mất thời gian, và tư vấn viên không nhận ra vì màn
  *       hình của họ vẫn hiện đủ thông tin yêu cầu.
- *   <li>{@link #tongDoMayChuCongKhongNhanTuClient()} — client gửi tổng sai thì
+ *   <li>{@link #totalComputedByServerNotClient()} — client gửi tổng sai thì
  *       tổng vẫn đúng, vì không có chỗ nào nhận tổng từ client.
- *   <li>{@link #quaHanThiKhongChapNhanDuoc()} — quy tắc 4, không tự gia hạn.
+ *   <li>{@link #expiredQuoteCannotBeAccepted()} — quy tắc 4, không tự gia hạn.
  * </ul>
  *
  * <h2>Bộ dữ liệu</h2>
@@ -80,7 +80,7 @@ class QuoteFlowIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    private static final String MAT_KHAU = "mat-khau-rat-dai";
+    private static final String PASSWORD = "mat-khau-rat-dai";
     private static final int HAN_BAO_TRUOC = 7;
     private static final int SO_NGAY_HIEU_LUC = 14;
 
@@ -91,10 +91,10 @@ class QuoteFlowIT {
     JdbcTemplate jdbc;
 
     @Autowired
-    QuoteSweeper quetHan;
+    QuoteSweeper sweepExpiry;
 
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM staff_user_role;
                 DELETE FROM quote_line;
@@ -109,6 +109,7 @@ class QuoteFlowIT {
                 DELETE FROM destination;
                 DELETE FROM region_translation;
                 DELETE FROM region;
+                DELETE FROM slug_history;
                 DELETE FROM staff_user;
 
                 INSERT INTO region (id, code, sort_order) VALUES
@@ -155,42 +156,42 @@ class QuoteFlowIT {
                   ('cc000000-0000-4000-8000-000000000002','DK',TRUE);
                 """);
 
-        String bam = new BCryptPasswordEncoder().encode(MAT_KHAU);
-        themNhanVien("cc100000-0000-4000-8000-000000000001", "bientap@travel.test", "Biên tập", bam, "EDITOR");
-        themNhanVien("cc100000-0000-4000-8000-000000000002", "tuvan@travel.test", "Trần Tư Vấn", bam, "CONSULTANT");
+        String hash = new BCryptPasswordEncoder().encode(PASSWORD);
+        addStaff("cc100000-0000-4000-8000-000000000001", "bientap@travel.test", "Biên tập", hash, "EDITOR");
+        addStaff("cc100000-0000-4000-8000-000000000002", "tuvan@travel.test", "Trần Tư Vấn", hash, "CONSULTANT");
     }
 
     // ------------------------------------------------- khách gửi yêu cầu
 
     @Test
     @DisplayName("Khách gửi yêu cầu: sinh một quote ở DRAFT, mã có tiền tố Q-")
-    void guiYeuCauSinhDraft() {
-        ResponseEntity<QuoteReceipt> phanHoi = guiYeuCau("da", thanYeuCau(
+    void quoteRequestCreatesDraftWithQPrefix() {
+        ResponseEntity<QuoteReceipt> response = sendQuoteRequest("da", requestBody(
                 "privat-rundrejse", 4, LocalDate.now().plusDays(60)));
 
-        assertEquals(HttpStatus.CREATED, phanHoi.getStatusCode());
-        QuoteReceipt bienNhan = phanHoi.getBody();
-        assertNotNull(bienNhan);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        QuoteReceipt receipt = response.getBody();
+        assertNotNull(receipt);
 
-        assertEquals(QuoteStatus.DRAFT, bienNhan.getStatus());
+        assertEquals(QuoteStatus.DRAFT, receipt.getStatus());
         // Tiền tố Q- để tổng đài không lẫn mã báo giá với mã đơn khi khách đọc
         // qua điện thoại.
-        assertTrue(bienNhan.getReference().startsWith("Q-DK-"),
-                "mã báo giá phải có tiền tố Q-DK-, nhận được " + bienNhan.getReference());
-        assertNotNull(bienNhan.getCreatedAt());
+        assertTrue(receipt.getReference().startsWith("Q-DK-"),
+                "mã báo giá phải có tiền tố Q-DK-, nhận được " + receipt.getReference());
+        assertNotNull(receipt.getCreatedAt());
 
-        assertEquals(1, dem("SELECT count(*) FROM quote WHERE status = 'DRAFT'"));
+        assertEquals(1, count("SELECT count(*) FROM quote WHERE status = 'DRAFT'"));
     }
 
     @Test
     @DisplayName("Loại đặt thẳng được thì không hỏi giá — 422 PRODUCT_NOT_QUOTABLE")
-    void loaiKhacKhongHoiGiaDuoc() {
-        ResponseEntity<ErrorResponse> phanHoi = guiYeuCauLoi("da", thanYeuCau(
+    void directlyBookableTypeIsNotQuotable() {
+        ResponseEntity<ErrorResponse> response = sendQuoteRequestExpectingError("da", requestBody(
                 "nord-til-syd", 2, LocalDate.now().plusDays(60)));
 
-        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, phanHoi.getStatusCode());
-        assertEquals("PRODUCT_NOT_QUOTABLE", phanHoi.getBody().getCode());
-        assertEquals(0, dem("SELECT count(*) FROM quote"));
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
+        assertEquals("PRODUCT_NOT_QUOTABLE", response.getBody().getCode());
+        assertEquals(0, count("SELECT count(*) FROM quote"));
     }
 
     /**
@@ -201,12 +202,12 @@ class QuoteFlowIT {
      */
     @Test
     @DisplayName("Ngày quá gần: 422 LEAD_TIME_NOT_MET, kèm ngày sớm nhất")
-    void ngayQuaGan() {
-        ResponseEntity<ErrorResponse> phanHoi = guiYeuCauLoi("da", thanYeuCau(
+    void leadTimeNotMetReturns422() {
+        ResponseEntity<ErrorResponse> response = sendQuoteRequestExpectingError("da", requestBody(
                 "privat-rundrejse", 2, LocalDate.now().plusDays(HAN_BAO_TRUOC - 1)));
 
-        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, phanHoi.getStatusCode());
-        ErrorResponse loi = phanHoi.getBody();
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
+        ErrorResponse loi = response.getBody();
         assertEquals("LEAD_TIME_NOT_MET", loi.getCode());
 
         // Tham số là DỮ LIỆU, không phải câu tiếng người: frontend dựng câu
@@ -218,14 +219,14 @@ class QuoteFlowIT {
 
     @Test
     @DisplayName("Không có ngày mong muốn vẫn hỏi giá được")
-    void khongCoNgayVanHoiDuoc() {
-        String than = """
+    void quoteWorksWithoutPreferredDate() {
+        String body = """
                 {"productSlug":"privat-rundrejse","partySize":2,
                  "contactName":"Anne Sørensen","contactEmail":"anne@example.dk",
                  "contactPhone":"+4520000001"}
                 """;
 
-        assertEquals(HttpStatus.CREATED, guiYeuCau("da", than).getStatusCode());
+        assertEquals(HttpStatus.CREATED, sendQuoteRequest("da", body).getStatusCode());
     }
 
     /**
@@ -234,64 +235,64 @@ class QuoteFlowIT {
      */
     @Test
     @DisplayName("Slug của locale kia trả 404, không trả bản dịch thay thế")
-    void slugCuaLocaleKiaTra404() {
-        ResponseEntity<ErrorResponse> phanHoi = guiYeuCauLoi("vi", thanYeuCau(
+    void otherLocaleSlugReturns404() {
+        ResponseEntity<ErrorResponse> response = sendQuoteRequestExpectingError("vi", requestBody(
                 "privat-rundrejse", 2, LocalDate.now().plusDays(60)));
 
-        assertEquals(HttpStatus.NOT_FOUND, phanHoi.getStatusCode());
-        assertEquals("NOT_FOUND", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("NOT_FOUND", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Gọi lại cùng Idempotency-Key: cùng mã, một dòng duy nhất")
-    void goiLaiCungKhoa() {
-        UUID khoa = UUID.randomUUID();
-        String than = thanYeuCau("privat-rundrejse", 3, LocalDate.now().plusDays(60));
+    void sameIdempotencyKeyReturnsSameBooking() {
+        UUID key = UUID.randomUUID();
+        String body = requestBody("privat-rundrejse", 3, LocalDate.now().plusDays(60));
 
-        QuoteReceipt lanMot = guiYeuCau("da", than, khoa).getBody();
-        QuoteReceipt lanHai = guiYeuCau("da", than, khoa).getBody();
+        QuoteReceipt firstAttempt = sendQuoteRequest("da", body, key).getBody();
+        QuoteReceipt secondAttempt = sendQuoteRequest("da", body, key).getBody();
 
-        assertNotNull(lanMot);
-        assertNotNull(lanHai);
+        assertNotNull(firstAttempt);
+        assertNotNull(secondAttempt);
         // Khách bấm nút hai lần thì tư vấn viên KHÔNG được nhận hai yêu cầu
         // giống hệt nhau rồi gọi điện hai lần.
-        assertEquals(lanMot.getReference(), lanHai.getReference());
-        assertEquals(1, dem("SELECT count(*) FROM quote"));
+        assertEquals(firstAttempt.getReference(), secondAttempt.getReference());
+        assertEquals(1, count("SELECT count(*) FROM quote"));
     }
 
     // ------------------------------------------------- quyền của M8
 
     @Test
     @DisplayName("EDITOR không thấy màn hình báo giá — 403")
-    void bienTapKhongThayBaoGia() {
-        ResponseEntity<String> phanHoi = dangNhap("bientap@travel.test")
-                .lay("/api/v1/admin/quotes", String.class);
+    void editorCannotSeeQuotes() {
+        ResponseEntity<String> response = login("bientap@travel.test")
+                .get("/api/v1/admin/quotes", String.class);
 
         // Báo giá mang tên, điện thoại và yêu cầu riêng của khách; người viết
         // nội dung không có việc gì với dữ liệu đó (docs/31).
-        assertEquals(HttpStatus.FORBIDDEN, phanHoi.getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 
     @Test
     @DisplayName("Danh sách mặc định chỉ DRAFT — phần việc đang nợ")
-    void danhSachMacDinhChiDraft() {
-        guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, LocalDate.now().plusDays(60)));
-        String daGui = guiYeuCau("da", thanYeuCau("privat-rundrejse", 5, null))
+    void listDefaultsToDraftOnly() {
+        sendQuoteRequest("da", requestBody("privat-rundrejse", 2, LocalDate.now().plusDays(60)));
+        String sent = sendQuoteRequest("da", requestBody("privat-rundrejse", 5, null))
                 .getBody().getReference();
 
-        Phien phien = dangNhap("tuvan@travel.test");
-        dungBangGia(phien, daGui, "DKK", 1);
-        doiTrangThai(phien, daGui, "SENT");
+        Phien session = login("tuvan@travel.test");
+        buildPriceTiers(session, sent, "DKK", 1);
+        changeStatus(session, sent, "SENT");
 
-        AdminQuotePage macDinh = phien.lay("/api/v1/admin/quotes", AdminQuotePage.class).getBody();
-        assertNotNull(macDinh);
-        assertEquals(1L, macDinh.getTotalItems());
-        assertEquals(QuoteStatus.DRAFT, macDinh.getItems().getFirst().getStatus());
+        AdminQuotePage defaults = session.get("/api/v1/admin/quotes", AdminQuotePage.class).getBody();
+        assertNotNull(defaults);
+        assertEquals(1L, defaults.getTotalItems());
+        assertEquals(QuoteStatus.DRAFT, defaults.getItems().getFirst().getStatus());
 
-        AdminQuotePage tatCa = phien
-                .lay("/api/v1/admin/quotes?status=ALL", AdminQuotePage.class).getBody();
-        assertNotNull(tatCa);
-        assertEquals(2L, tatCa.getTotalItems());
+        AdminQuotePage all = session
+                .get("/api/v1/admin/quotes?status=ALL", AdminQuotePage.class).getBody();
+        assertNotNull(all);
+        assertEquals(2L, all.getTotalItems());
     }
 
     // ------------------------------------------------- dựng bảng giá
@@ -303,13 +304,13 @@ class QuoteFlowIT {
      */
     @Test
     @DisplayName("Tổng do máy chủ cộng từ các dòng, không nhận từ client")
-    void tongDoMayChuCongKhongNhanTuClient() {
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2,
+    void totalComputedByServerNotClient() {
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2,
                 LocalDate.now().plusDays(60))).getBody().getReference();
 
-        Phien phien = dangNhap("tuvan@travel.test");
-        ResponseEntity<AdminQuoteDetail> phanHoi = phien.goi(HttpMethod.PUT,
-                "/api/v1/admin/quotes/" + ma + "/lines",
+        Phien session = login("tuvan@travel.test");
+        ResponseEntity<AdminQuoteDetail> response = session.call(HttpMethod.PUT,
+                "/api/v1/admin/quotes/" + reference + "/lines",
                 """
                 {"currency":"DKK","lines":[
                   {"labelKey":"line.base","quantity":"2","unitAmount":"18000.00","amount":"36000.00"},
@@ -318,8 +319,8 @@ class QuoteFlowIT {
                 ]}
                 """, AdminQuoteDetail.class);
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        AdminQuoteDetail bg = phanHoi.getBody();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        AdminQuoteDetail bg = response.getBody();
         assertNotNull(bg);
 
         assertEquals(3, bg.getLines().size());
@@ -337,109 +338,109 @@ class QuoteFlowIT {
      */
     @Test
     @DisplayName("Sai tiền tệ so với thị trường: 400, không âm thầm quy đổi")
-    void saiTienTe() {
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2,
+    void wrongCurrencyReturns400NoConversion() {
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2,
                 LocalDate.now().plusDays(60))).getBody().getReference();
 
-        ResponseEntity<ErrorResponse> phanHoi = dangNhap("tuvan@travel.test").goi(HttpMethod.PUT,
-                "/api/v1/admin/quotes/" + ma + "/lines",
+        ResponseEntity<ErrorResponse> response = login("tuvan@travel.test").call(HttpMethod.PUT,
+                "/api/v1/admin/quotes/" + reference + "/lines",
                 "{\"currency\":\"VND\",\"lines\":[{\"labelKey\":\"line.base\",\"amount\":\"1000\"}]}",
                 ErrorResponse.class);
 
-        assertEquals(HttpStatus.BAD_REQUEST, phanHoi.getStatusCode());
-        assertEquals("VALIDATION_FAILED", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("VALIDATION_FAILED", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Đã gửi rồi thì không sửa bảng giá sau lưng khách — 409")
-    void daGuiThiKhongSuaBangGia() {
-        Phien phien = dangNhap("tuvan@travel.test");
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+    void sentQuoteCannotEditPriceTiers() {
+        Phien session = login("tuvan@travel.test");
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        dungBangGia(phien, ma, "DKK", 1);
-        doiTrangThai(phien, ma, "SENT");
+        buildPriceTiers(session, reference, "DKK", 1);
+        changeStatus(session, reference, "SENT");
 
-        ResponseEntity<ErrorResponse> phanHoi = phien.goi(HttpMethod.PUT,
-                "/api/v1/admin/quotes/" + ma + "/lines",
+        ResponseEntity<ErrorResponse> response = session.call(HttpMethod.PUT,
+                "/api/v1/admin/quotes/" + reference + "/lines",
                 "{\"currency\":\"DKK\",\"lines\":[{\"labelKey\":\"line.base\",\"amount\":\"9\"}]}",
                 ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("QUOTE_NOT_ACCEPTABLE", phanHoi.getBody().getCode());
-        assertEquals("SENT", phanHoi.getBody().getParams().get("from"));
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("QUOTE_NOT_ACCEPTABLE", response.getBody().getCode());
+        assertEquals("SENT", response.getBody().getParams().get("from"));
     }
 
     // ------------------------------------------------- gửi và trả lời
 
     @Test
     @DisplayName("Không gửi được báo giá chưa có dòng nào — 409")
-    void khongGuiDuocBaoGiaRong() {
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+    void cannotSendEmptyQuote() {
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        ResponseEntity<ErrorResponse> phanHoi = dangNhap("tuvan@travel.test").goi(
-                HttpMethod.POST, "/api/v1/admin/quotes/" + ma + "/status",
+        ResponseEntity<ErrorResponse> response = login("tuvan@travel.test").call(
+                HttpMethod.POST, "/api/v1/admin/quotes/" + reference + "/status",
                 "{\"toStatus\":\"SENT\"}", ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("QUOTE_NOT_ACCEPTABLE", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("QUOTE_NOT_ACCEPTABLE", response.getBody().getCode());
         assertEquals(QuoteStatus.DRAFT.name(),
                 jdbc.queryForObject("SELECT status FROM quote WHERE reference = ?",
-                        String.class, ma));
+                        String.class, reference));
     }
 
     /** Quy tắc 2: {@code valid_until = ngày gửi + quote_valid_days}, máy chủ tính. */
     @Test
     @DisplayName("Gửi đặt hạn = hôm nay + quoteValidDays, không nhận từ client")
-    void guiDatHan() {
-        Phien phien = dangNhap("tuvan@travel.test");
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+    void sendingSetsValidUntilFromServer() {
+        Phien session = login("tuvan@travel.test");
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        dungBangGia(phien, ma, "DKK", 1);
-        AdminQuoteDetail sauKhiGui = doiTrangThai(phien, ma, "SENT");
+        buildPriceTiers(session, reference, "DKK", 1);
+        AdminQuoteDetail afterSend = changeStatus(session, reference, "SENT");
 
-        assertEquals(QuoteStatus.SENT, sauKhiGui.getStatus());
-        assertEquals(LocalDate.now().plusDays(SO_NGAY_HIEU_LUC), sauKhiGui.getValidUntil());
+        assertEquals(QuoteStatus.SENT, afterSend.getStatus());
+        assertEquals(LocalDate.now().plusDays(SO_NGAY_HIEU_LUC), afterSend.getValidUntil());
     }
 
     @Test
     @DisplayName("Vòng đầy đủ: yêu cầu → dựng giá → gửi → khách nhận")
-    void vongDayDu() {
-        Phien phien = dangNhap("tuvan@travel.test");
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 4,
+    void fullRoundRequestPriceSendAccept() {
+        Phien session = login("tuvan@travel.test");
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 4,
                 LocalDate.now().plusDays(90))).getBody().getReference();
 
-        assertEquals(QuoteStatus.DRAFT, chiTiet(phien, ma).getStatus());
+        assertEquals(QuoteStatus.DRAFT, detail(session, reference).getStatus());
 
-        dungBangGia(phien, ma, "DKK", 2);
-        doiTrangThai(phien, ma, "SENT");
+        buildPriceTiers(session, reference, "DKK", 2);
+        changeStatus(session, reference, "SENT");
 
-        AdminQuoteDetail daNhan = doiTrangThai(phien, ma, "ACCEPTED");
-        assertEquals(QuoteStatus.ACCEPTED, daNhan.getStatus());
+        AdminQuoteDetail accepted = changeStatus(session, reference, "ACCEPTED");
+        assertEquals(QuoteStatus.ACCEPTED, accepted.getStatus());
 
         // Yêu cầu gốc của khách còn nguyên sau cả vòng — đó là thứ tư vấn viên
         // đọc lại khi khách gọi hỏi "tôi đã nói gì".
-        assertEquals(4, daNhan.getPartySize());
-        assertEquals("anne@example.dk", daNhan.getContactEmail());
-        assertEquals("Hai người ăn chay.", daNhan.getMessage());
+        assertEquals(4, accepted.getPartySize());
+        assertEquals("anne@example.dk", accepted.getContactEmail());
+        assertEquals("Hai người ăn chay.", accepted.getMessage());
     }
 
     @Test
     @DisplayName("DRAFT không nhảy thẳng sang ACCEPTED — 409 kèm from và to")
-    void draftKhongNhayThangSangAccepted() {
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+    void draftCannotJumpToAccepted() {
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        ResponseEntity<ErrorResponse> phanHoi = dangNhap("tuvan@travel.test").goi(
-                HttpMethod.POST, "/api/v1/admin/quotes/" + ma + "/status",
+        ResponseEntity<ErrorResponse> response = login("tuvan@travel.test").call(
+                HttpMethod.POST, "/api/v1/admin/quotes/" + reference + "/status",
                 "{\"toStatus\":\"ACCEPTED\"}", ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("QUOTE_NOT_ACCEPTABLE", phanHoi.getBody().getCode());
-        assertEquals("DRAFT", phanHoi.getBody().getParams().get("from"));
-        assertEquals("ACCEPTED", phanHoi.getBody().getParams().get("to"));
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("QUOTE_NOT_ACCEPTABLE", response.getBody().getCode());
+        assertEquals("DRAFT", response.getBody().getParams().get("from"));
+        assertEquals("ACCEPTED", response.getBody().getParams().get("to"));
     }
 
     /**
@@ -450,55 +451,55 @@ class QuoteFlowIT {
      */
     @Test
     @DisplayName("Quá hạn thì không chấp nhận được — 409 QUOTE_EXPIRED")
-    void quaHanThiKhongChapNhanDuoc() {
-        Phien phien = dangNhap("tuvan@travel.test");
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+    void expiredQuoteCannotBeAccepted() {
+        Phien session = login("tuvan@travel.test");
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        dungBangGia(phien, ma, "DKK", 1);
-        doiTrangThai(phien, ma, "SENT");
+        buildPriceTiers(session, reference, "DKK", 1);
+        changeStatus(session, reference, "SENT");
 
         jdbc.update("UPDATE quote SET valid_until = ? WHERE reference = ?",
-                java.sql.Date.valueOf(LocalDate.now().minusDays(1)), ma);
+                java.sql.Date.valueOf(LocalDate.now().minusDays(1)), reference);
 
-        ResponseEntity<ErrorResponse> phanHoi = phien.goi(HttpMethod.POST,
-                "/api/v1/admin/quotes/" + ma + "/status",
+        ResponseEntity<ErrorResponse> response = session.call(HttpMethod.POST,
+                "/api/v1/admin/quotes/" + reference + "/status",
                 "{\"toStatus\":\"ACCEPTED\"}", ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, phanHoi.getStatusCode());
-        assertEquals("QUOTE_EXPIRED", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals("QUOTE_EXPIRED", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Job quét hạn cho báo giá quá hạn sang EXPIRED, không đụng cái còn hạn")
-    void jobQuetHan() {
-        Phien phien = dangNhap("tuvan@travel.test");
+    void expirySweepMovesOverdueQuotesToExpired() {
+        Phien session = login("tuvan@travel.test");
 
-        String quaHan = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+        String expired = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
-        String conHan = guiYeuCau("da", thanYeuCau("privat-rundrejse", 3, null))
+        String stillValid = sendQuoteRequest("da", requestBody("privat-rundrejse", 3, null))
                 .getBody().getReference();
 
-        for (String ma : List.of(quaHan, conHan)) {
-            dungBangGia(phien, ma, "DKK", 1);
-            doiTrangThai(phien, ma, "SENT");
+        for (String reference : List.of(expired, stillValid)) {
+            buildPriceTiers(session, reference, "DKK", 1);
+            changeStatus(session, reference, "SENT");
         }
         jdbc.update("UPDATE quote SET valid_until = ? WHERE reference = ?",
-                java.sql.Date.valueOf(LocalDate.now().minusDays(1)), quaHan);
+                java.sql.Date.valueOf(LocalDate.now().minusDays(1)), expired);
 
-        assertEquals(1, quetHan.donDep());
+        assertEquals(1, sweepExpiry.donDep());
 
-        assertEquals("EXPIRED", trangThai(quaHan));
-        assertEquals("SENT", trangThai(conHan));
+        assertEquals("EXPIRED", status(expired));
+        assertEquals("SENT", status(stillValid));
     }
 
     @Test
     @DisplayName("Chi tiết một báo giá chưa dựng giá: không có tổng, không có hạn")
-    void chuaDungGiaThiKhongCoTong() {
-        String ma = guiYeuCau("da", thanYeuCau("privat-rundrejse", 2, null))
+    void quoteWithoutLinesHasNoTotalOrExpiry() {
+        String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        AdminQuoteDetail bg = chiTiet(dangNhap("tuvan@travel.test"), ma);
+        AdminQuoteDetail bg = detail(login("tuvan@travel.test"), reference);
 
         // Trả 0 ở đây là bịa ra một con số mà màn hình sẽ hiển thị như một báo
         // giá miễn phí.
@@ -509,28 +510,28 @@ class QuoteFlowIT {
 
     // ------------------------------------------------------------ tiện ích
 
-    private static String thanYeuCau(String slug, int soKhach, LocalDate ngay) {
+    private static String requestBody(String slug, int paxCount, LocalDate ngay) {
         return """
                 {"productSlug":"%s","partySize":%d,%s
                  "contactName":"Anne Sørensen","contactEmail":"anne@example.dk",
                  "contactPhone":"+4520000001","message":"Hai người ăn chay."}
-                """.formatted(slug, soKhach,
+                """.formatted(slug, paxCount,
                 ngay == null ? "" : "\"requestedDate\":\"" + ngay + "\",");
     }
 
-    private ResponseEntity<QuoteReceipt> guiYeuCau(String locale, String than) {
-        return guiYeuCau(locale, than, UUID.randomUUID());
+    private ResponseEntity<QuoteReceipt> sendQuoteRequest(String locale, String body) {
+        return sendQuoteRequest(locale, body, UUID.randomUUID());
     }
 
-    private ResponseEntity<QuoteReceipt> guiYeuCau(String locale, String than, UUID khoa) {
-        return khach(locale, than, khoa, QuoteReceipt.class);
+    private ResponseEntity<QuoteReceipt> sendQuoteRequest(String locale, String body, UUID key) {
+        return client(locale, body, key, QuoteReceipt.class);
     }
 
-    private ResponseEntity<ErrorResponse> guiYeuCauLoi(String locale, String than) {
-        return khach(locale, than, UUID.randomUUID(), ErrorResponse.class);
+    private ResponseEntity<ErrorResponse> sendQuoteRequestExpectingError(String locale, String body) {
+        return client(locale, body, UUID.randomUUID(), ErrorResponse.class);
     }
 
-    private <T> ResponseEntity<T> khach(String locale, String than, UUID khoa, Class<T> kieu) {
+    private <T> ResponseEntity<T> client(String locale, String body, UUID key, Class<T> type) {
         return RestClient.builder()
                 .baseUrl("http://localhost:" + cong)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
@@ -538,118 +539,118 @@ class QuoteFlowIT {
                 .post()
                 .uri("/api/v1/dk/quote-requests")
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
-                .header("Idempotency-Key", khoa.toString())
+                .header("Idempotency-Key", key.toString())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(than)
+                .body(body)
                 .retrieve()
-                .toEntity(kieu);
+                .toEntity(type);
     }
 
-    private AdminQuoteDetail chiTiet(Phien phien, String ma) {
-        ResponseEntity<AdminQuoteDetail> phanHoi =
-                phien.lay("/api/v1/admin/quotes/" + ma, AdminQuoteDetail.class);
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        return phanHoi.getBody();
+    private AdminQuoteDetail detail(Phien session, String reference) {
+        ResponseEntity<AdminQuoteDetail> response =
+                session.get("/api/v1/admin/quotes/" + reference, AdminQuoteDetail.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        return response.getBody();
     }
 
-    private void dungBangGia(Phien phien, String ma, String tienTe, int soDong) {
-        StringBuilder dong = new StringBuilder();
-        for (int i = 1; i <= soDong; i++) {
-            dong.append(i > 1 ? "," : "")
+    private void buildPriceTiers(Phien session, String reference, String currency, int rowCount) {
+        StringBuilder row = new StringBuilder();
+        for (int i = 1; i <= rowCount; i++) {
+            row.append(i > 1 ? "," : "")
                     .append("{\"labelKey\":\"line.base\",\"amount\":\"%d000.00\"}".formatted(i));
         }
-        ResponseEntity<AdminQuoteDetail> phanHoi = phien.goi(HttpMethod.PUT,
-                "/api/v1/admin/quotes/" + ma + "/lines",
-                "{\"currency\":\"%s\",\"lines\":[%s]}".formatted(tienTe, dong),
+        ResponseEntity<AdminQuoteDetail> response = session.call(HttpMethod.PUT,
+                "/api/v1/admin/quotes/" + reference + "/lines",
+                "{\"currency\":\"%s\",\"lines\":[%s]}".formatted(currency, row),
                 AdminQuoteDetail.class);
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
-    private AdminQuoteDetail doiTrangThai(Phien phien, String ma, String sang) {
-        ResponseEntity<AdminQuoteDetail> phanHoi = phien.goi(HttpMethod.POST,
-                "/api/v1/admin/quotes/" + ma + "/status",
-                "{\"toStatus\":\"%s\"}".formatted(sang), AdminQuoteDetail.class);
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        return phanHoi.getBody();
+    private AdminQuoteDetail changeStatus(Phien session, String reference, String toStatus) {
+        ResponseEntity<AdminQuoteDetail> response = session.call(HttpMethod.POST,
+                "/api/v1/admin/quotes/" + reference + "/status",
+                "{\"toStatus\":\"%s\"}".formatted(toStatus), AdminQuoteDetail.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        return response.getBody();
     }
 
-    private String trangThai(String ma) {
+    private String status(String reference) {
         return jdbc.queryForObject("SELECT status FROM quote WHERE reference = ?",
-                String.class, ma);
+                String.class, reference);
     }
 
-    private int dem(String sql) {
-        Integer so = jdbc.queryForObject(sql, Integer.class);
-        return so == null ? 0 : so;
+    private int count(String sql) {
+        Integer count = jdbc.queryForObject(sql, Integer.class);
+        return count == null ? 0 : count;
     }
 
-    private void themNhanVien(String id, String email, String ten, String bam, String vaiTro) {
+    private void addStaff(String id, String email, String name, String hash, String roles) {
         jdbc.update("""
                 INSERT INTO staff_user (id, email, display_name, password_hash, is_active)
                 VALUES (CAST(? AS uuid), ?, ?, ?, TRUE)
-                """, id, email, ten, bam);
+                """, id, email, name, hash);
         jdbc.update("""
                 INSERT INTO staff_user_role (id, staff_user_id, role_code)
                 VALUES (gen_random_uuid(), CAST(? AS uuid), ?)
-                """, id, vaiTro);
+                """, id, roles);
     }
 
-    private Phien dangNhap(String email) {
-        Phien phien = new Phien();
-        assertEquals(HttpStatus.NO_CONTENT, phien.dangNhap(email, MAT_KHAU).getStatusCode());
-        return phien;
+    private Phien login(String email) {
+        Phien session = new Phien();
+        assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
+        return session;
     }
 
     private final class Phien {
 
         private final List<String> cookies = new ArrayList<>();
 
-        ResponseEntity<String> dangNhap(String email, String matKhau) {
-            return goi(HttpMethod.POST, "/api/v1/admin/session",
-                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, matKhau),
+        ResponseEntity<String> login(String email, String password) {
+            return call(HttpMethod.POST, "/api/v1/admin/session",
+                    "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password),
                     String.class);
         }
 
-        <T> ResponseEntity<T> lay(String duongDan, Class<T> kieu) {
-            return goi(HttpMethod.GET, duongDan, null, kieu);
+        <T> ResponseEntity<T> get(String path, Class<T> type) {
+            return call(HttpMethod.GET, path, null, type);
         }
 
-        <T> ResponseEntity<T> goi(HttpMethod phuongThuc, String duongDan, String than, Class<T> kieu) {
-            RestClient.RequestBodySpec yeuCau = RestClient.builder()
+        <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
+            RestClient.RequestBodySpec request = RestClient.builder()
                     .baseUrl("http://localhost:" + cong)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
-                    .method(phuongThuc)
-                    .uri(duongDan);
+                    .method(httpMethod)
+                    .uri(path);
 
             for (String c : cookies) {
-                yeuCau.header(HttpHeaders.COOKIE, c);
+                request.header(HttpHeaders.COOKIE, c);
             }
-            thecCsrf().ifPresent(t -> yeuCau.header("X-XSRF-TOKEN", t));
+            csrfToken().ifPresent(t -> request.header("X-XSRF-TOKEN", t));
 
-            if (than != null) {
-                yeuCau.contentType(MediaType.APPLICATION_JSON).body(than);
+            if (body != null) {
+                request.contentType(MediaType.APPLICATION_JSON).body(body);
             }
 
-            ResponseEntity<T> phanHoi = yeuCau.retrieve().toEntity(kieu);
-            nhoCookie(phanHoi);
-            return phanHoi;
+            ResponseEntity<T> response = request.retrieve().toEntity(type);
+            nhoCookie(response);
+            return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> phanHoi) {
-            List<String> moi = phanHoi.getHeaders().get(HttpHeaders.SET_COOKIE);
+        private void nhoCookie(ResponseEntity<?> response) {
+            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
             if (moi == null) {
                 return;
             }
             for (String c : moi) {
-                String rutGon = c.split(";", 2)[0];
-                String ten = rutGon.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(ten + "="));
-                cookies.add(rutGon);
+                String summary = c.split(";", 2)[0];
+                String name = summary.split("=", 2)[0];
+                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.add(summary);
             }
         }
 
-        private Optional<String> thecCsrf() {
+        private Optional<String> csrfToken() {
             return cookies.stream()
                     .filter(c -> c.startsWith("XSRF-TOKEN="))
                     .map(c -> c.substring("XSRF-TOKEN=".length()))

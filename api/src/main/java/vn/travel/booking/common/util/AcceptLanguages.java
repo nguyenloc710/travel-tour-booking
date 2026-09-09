@@ -32,13 +32,13 @@ public final class AcceptLanguages {
         if (header == null || header.isBlank()) {
             return null;
         }
-        for (String phan : header.split(",")) {
-            String the = phan.split(";")[0].trim().toLowerCase(Locale.ROOT);
-            if (the.contains("-")) {
-                the = the.substring(0, the.indexOf('-'));
+        for (String part : header.split(",")) {
+            String tag = part.split(";")[0].trim().toLowerCase(Locale.ROOT);
+            if (tag.contains("-")) {
+                tag = tag.substring(0, tag.indexOf('-'));
             }
-            if (SUPPORTED.contains(the)) {
-                return the;
+            if (SUPPORTED.contains(tag)) {
+                return tag;
             }
         }
         return null;

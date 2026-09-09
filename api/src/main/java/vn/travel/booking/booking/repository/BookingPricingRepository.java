@@ -52,18 +52,18 @@ public class BookingPricingRepository {
             return Optional.empty();
         }
 
-        String tienTe = (String) d.get("currency");
+        String currency = (String) d.get("currency");
 
-        Map<String, Money> phongDoi = giaTheoLoaiKhach(departureId, "DOUBLE", tienTe);
-        Map<String, Money> phongDon = giaTheoLoaiKhach(departureId, "SINGLE", tienTe);
+        Map<String, Money> phongDoi = priceByPaxType(departureId, "DOUBLE", currency);
+        Map<String, Money> phongDon = priceByPaxType(departureId, "SINGLE", currency);
 
         Money phuThuDiem = null;
         if (departureOriginId != null) {
-            BigDecimal so = jdbc.queryForObject("""
+            BigDecimal count = jdbc.queryForObject("""
                     SELECT surcharge FROM departure_origin
                     WHERE id = ? AND market = ? AND NOT soft_delete
                     """, BigDecimal.class, departureOriginId, market);
-            phuThuDiem = so == null ? null : new Money(so, tienTe);
+            phuThuDiem = count == null ? null : new Money(count, currency);
         }
 
         return Optional.of(new DeparturePricing(
@@ -72,17 +72,17 @@ public class BookingPricingRepository {
                 (String) d.get("product_type"),
                 (String) d.get("product_title"),
                 ((java.sql.Date) d.get("depart_date")).toLocalDate(),
-                tienTe,
+                currency,
                 ((Number) d.get("fraction_digits")).intValue(),
                 (BigDecimal) d.get("deposit_rate"),
-                new Money((BigDecimal) d.get("processing_fee"), tienTe),
+                new Money((BigDecimal) d.get("processing_fee"), currency),
                 phongDoi,
                 phongDon,
                 phuThuDiem));
     }
 
-    private Map<String, Money> giaTheoLoaiKhach(UUID departureId, String kieuPhong, String tienTe) {
-        Map<String, Money> gia = new LinkedHashMap<>();
+    private Map<String, Money> priceByPaxType(UUID departureId, String kieuPhong, String currency) {
+        Map<String, Money> price = new LinkedHashMap<>();
         jdbc.query("""
                 SELECT pt.code, dp.amount
                 FROM departure_price dp
@@ -91,10 +91,10 @@ public class BookingPricingRepository {
                 ORDER BY pt.sort_order
                 """,
                 rs -> {
-                    gia.put(rs.getString("code"), new Money(rs.getBigDecimal("amount"), tienTe));
+                    price.put(rs.getString("code"), new Money(rs.getBigDecimal("amount"), currency));
                 },
                 departureId, kieuPhong);
-        return gia;
+        return price;
     }
 
     /** Ngày khởi hành, dùng cho bản chụp trong đơn. */

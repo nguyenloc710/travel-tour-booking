@@ -30,8 +30,8 @@ public class AuditConfig {
             Authentication xacThuc = SecurityContextHolder.getContext().getAuthentication();
             if (xacThuc != null
                     && xacThuc.isAuthenticated()
-                    && xacThuc.getPrincipal() instanceof StaffPrincipal nhanVien) {
-                return Optional.of(nhanVien.id());
+                    && xacThuc.getPrincipal() instanceof StaffPrincipal staff) {
+                return Optional.of(staff.id());
             }
             return Optional.empty();
         };

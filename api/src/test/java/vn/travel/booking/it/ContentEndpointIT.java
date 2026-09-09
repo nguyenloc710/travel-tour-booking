@@ -72,7 +72,7 @@ class ContentEndpointIT {
      * chịu nhất của chính sách không-fallback: lịch trình thủng ngày ở giữa.
      */
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM seat_hold;
                 DELETE FROM departure_price;
@@ -233,8 +233,8 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Chủ đề: đếm trong phạm vi (market, locale), chủ đề rỗng vẫn hiện")
-    void chuDe() {
-        Theme[] da = goi("/api/v1/dk/themes", "da", Theme[].class).getBody();
+    void themesCountScopedToMarketAndLocale() {
+        Theme[] da = call("/api/v1/dk/themes", "da", Theme[].class).getBody();
 
         assertEquals(2, da.length);
         assertEquals("Trekking", da[0].getName());
@@ -245,8 +245,8 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Chủ đề chưa dịch biến mất khỏi locale đó")
-    void chuDeChuaDich() {
-        Theme[] vi = goi("/api/v1/dk/themes", "vi", Theme[].class).getBody();
+    void untranslatedThemeDisappears() {
+        Theme[] vi = call("/api/v1/dk/themes", "vi", Theme[].class).getBody();
 
         assertEquals(1, vi.length);
         assertEquals("Đi bộ đường dài", vi[0].getName());
@@ -254,21 +254,21 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Lọc sản phẩm theo chủ đề: lặp lại được, nhiều giá trị nghĩa là HOẶC")
-    void locTheoChuDe() {
-        assertEquals(1, tongSoSanPham("/api/v1/dk/products?theme=trekking"));
+    void filterProductsByThemeRepeatableOr() {
+        assertEquals(1, totalProducts("/api/v1/dk/products?theme=trekking"));
 
         // Hai chủ đề, sản phẩm chỉ mang một — vẫn ra, vì HOẶC.
-        assertEquals(1, tongSoSanPham("/api/v1/dk/products?theme=trekking&theme=flodkrydstogt"));
+        assertEquals(1, totalProducts("/api/v1/dk/products?theme=trekking&theme=flodkrydstogt"));
 
-        assertEquals(0, tongSoSanPham("/api/v1/dk/products?theme=flodkrydstogt"));
+        assertEquals(0, totalProducts("/api/v1/dk/products?theme=flodkrydstogt"));
     }
 
     // ------------------------------------------------------------ lịch trình
 
     @Test
     @DisplayName("Lịch trình sắp theo ngày; ngày bay không có nơi ngủ đêm")
-    void lichTrinh() {
-        ItineraryDay[] ngay = goi("/api/v1/dk/products/nord-til-syd/itinerary", "da",
+    void itineraryOrderedByDayFlightDayHasNoStay() {
+        ItineraryDay[] ngay = call("/api/v1/dk/products/nord-til-syd/itinerary", "da",
                 ItineraryDay[].class).getBody();
 
         assertEquals(3, ngay.length);
@@ -280,8 +280,8 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Ngày lịch trình chưa dịch biến mất — lịch trình thủng ngày, và quy tắc kiểm 3 sinh ra để bắt nó")
-    void lichTrinhThungNgay() {
-        ItineraryDay[] vi = goi("/api/v1/dk/products/bac-vao-nam/itinerary", "vi",
+    void untranslatedDayLeavesGapInItinerary() {
+        ItineraryDay[] vi = call("/api/v1/dk/products/bac-vao-nam/itinerary", "vi",
                 ItineraryDay[].class).getBody();
 
         assertEquals(2, vi.length, "Ngày 3 chỉ có bản da nên biến mất khỏi locale vi");
@@ -290,27 +290,27 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("COMBO không có lịch trình theo ngày — trả 404, không trả danh sách rỗng")
-    void comboKhongCoLichTrinh() {
-        ResponseEntity<ErrorResponse> phanHoi =
-                goi("/api/v1/dk/products/byophold/itinerary", "da", ErrorResponse.class);
+    void comboHasNoDailyItineraryReturns404() {
+        ResponseEntity<ErrorResponse> response =
+                call("/api/v1/dk/products/byophold/itinerary", "da", ErrorResponse.class);
 
-        assertEquals(HttpStatus.NOT_FOUND, phanHoi.getStatusCode());
-        assertEquals("NOT_FOUND", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("NOT_FOUND", response.getBody().getCode());
     }
 
     // ------------------------------------------------------------ khách sạn
 
     @Test
     @DisplayName("Chặng nghỉ: tên khách sạn không dịch, mô tả thì có")
-    void changNghi() {
-        HotelStay[] da = goi("/api/v1/dk/products/nord-til-syd/hotels", "da", HotelStay[].class).getBody();
+    void hotelStayNameNotTranslatedDescriptionIs() {
+        HotelStay[] da = call("/api/v1/dk/products/nord-til-syd/hotels", "da", HotelStay[].class).getBody();
         assertEquals(1, da.length);
         assertEquals("Sofitel Legend Metropole", da[0].getName());
         assertEquals(5, da[0].getStars());
         assertEquals(2, da[0].getNights());
         assertEquals("Klassisk kolonihotel.", da[0].getDescription());
 
-        HotelStay[] vi = goi("/api/v1/dk/products/bac-vao-nam/hotels", "vi", HotelStay[].class).getBody();
+        HotelStay[] vi = call("/api/v1/dk/products/bac-vao-nam/hotels", "vi", HotelStay[].class).getBody();
         assertEquals("Sofitel Legend Metropole", vi[0].getName(),
                 "Tên riêng giữ nguyên ở mọi ngôn ngữ — docs/24 mục 5");
         assertNull(vi[0].getDescription(),
@@ -321,8 +321,8 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Trạng thái ngày khởi hành là giá trị TÍNH RA, không phải cột trong CSDL")
-    void trangThaiNgayKhoiHanh() {
-        Departure[] d = goi("/api/v1/dk/products/nord-til-syd/departures", "da",
+    void departureStatusIsComputedNotStored() {
+        Departure[] d = call("/api/v1/dk/products/nord-til-syd/departures", "da",
                 Departure[].class).getBody();
 
         assertEquals(4, d.length);
@@ -338,36 +338,36 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Chỗ đang giữ bị trừ khỏi số chỗ khả dụng — quên vế này là bán trùng chỗ cuối")
-    void choDangGiuBiTru() {
-        assertEquals(16, ngayKhoiHanhDau().getSeatsAvailable());
+    void heldSeatsSubtractedFromAvailable() {
+        assertEquals(16, firstDepartureDate().getSeatsAvailable());
 
         jdbc.update("""
                 INSERT INTO seat_hold (id, departure_id, seats, session_ref, expires_at)
-                VALUES (CAST(? AS uuid), CAST(? AS uuid), 14, 'phien-thu', now() + interval '20 minutes')
+                VALUES (CAST(? AS uuid), CAST(? AS uuid), 14, 'session-thu', now() + interval '20 minutes')
                 """, "e1600000-0000-4000-8000-000000000001", "e1100000-0000-4000-8000-000000000001");
 
-        Departure sauKhiGiu = ngayKhoiHanhDau();
-        assertEquals(2, sauKhiGiu.getSeatsAvailable());
-        assertEquals(DepartureStatus.FEW_SEATS, sauKhiGiu.getStatus(),
+        Departure afterHold = firstDepartureDate();
+        assertEquals(2, afterHold.getSeatsAvailable());
+        assertEquals(DepartureStatus.FEW_SEATS, afterHold.getStatus(),
                 "Trạng thái phải đổi theo số chỗ thật, không theo cột base_status");
     }
 
     @Test
     @DisplayName("Giữ chỗ hết hạn trả chỗ về kho ngay, không chờ job quét dọn")
-    void giuChoHetHan() {
+    void expiredHoldReleasesSeatsImmediately() {
         jdbc.update("""
                 INSERT INTO seat_hold (id, departure_id, seats, session_ref, expires_at)
-                VALUES (CAST(? AS uuid), CAST(? AS uuid), 14, 'phien-cu', now() - interval '1 minute')
+                VALUES (CAST(? AS uuid), CAST(? AS uuid), 14, 'session-cu', now() - interval '1 minute')
                 """, "e1600000-0000-4000-8000-000000000002", "e1100000-0000-4000-8000-000000000001");
 
-        assertEquals(16, ngayKhoiHanhDau().getSeatsAvailable(),
+        assertEquals(16, firstDepartureDate().getSeatsAvailable(),
                 "released_at vẫn NULL, nhưng expires_at đã qua nên chỗ không còn được tính");
     }
 
     @Test
     @DisplayName("Ngày khởi hành KHÔNG BAO GIỜ được cache")
-    void ngayKhoiHanhKhongCache() {
-        String cache = goi("/api/v1/dk/products/nord-til-syd/departures", "da", Departure[].class)
+    void departuresAreNeverCached() {
+        String cache = call("/api/v1/dk/products/nord-til-syd/departures", "da", Departure[].class)
                 .getHeaders().getCacheControl();
 
         assertNotNull(cache);
@@ -379,8 +379,8 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Bài viết: chỉ bài đã xuất bản, mới nhất trước, kèm thẻ")
-    void baiViet() {
-        PostPage trang = goi("/api/v1/dk/posts", "da", PostPage.class).getBody();
+    void publishedPostsNewestFirstWithTags() {
+        PostPage trang = call("/api/v1/dk/posts", "da", PostPage.class).getBody();
 
         assertEquals(2, trang.getTotalItems(), "Bài chưa có published_at không được lọt ra");
         assertEquals("Tempelbyen", trang.getItems().get(0).getTitle());
@@ -390,29 +390,29 @@ class ContentEndpointIT {
 
     @Test
     @DisplayName("Lọc bài theo thẻ: lặp lại được, nghĩa là HOẶC, và không nhân đôi bản ghi")
-    void locBaiTheoThe() {
-        assertEquals(1, tongSoBai("/api/v1/dk/posts?tag=mad"));
-        assertEquals(2, tongSoBai("/api/v1/dk/posts?tag=kultur"));
+    void filterPostsByTagRepeatableOrNoDuplicates() {
+        assertEquals(1, totalPosts("/api/v1/dk/posts?tag=mad"));
+        assertEquals(2, totalPosts("/api/v1/dk/posts?tag=kultur"));
 
-        assertEquals(2, tongSoBai("/api/v1/dk/posts?tag=mad&tag=kultur"),
+        assertEquals(2, totalPosts("/api/v1/dk/posts?tag=mad&tag=kultur"),
                 "Bài mang cả hai thẻ chỉ được đếm MỘT lần — dùng JOIN thay EXISTS là ra 3");
     }
 
     @Test
     @DisplayName("Bài chưa dịch trả 404 ở locale đó")
-    void baiVietChuaDich() {
+    void untranslatedPostReturns404() {
         assertEquals(HttpStatus.OK,
-                goi("/api/v1/dk/posts/street-food", "da", Object.class).getStatusCode());
+                call("/api/v1/dk/posts/street-food", "da", Object.class).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND,
-                goi("/api/v1/dk/posts/street-food", "vi", ErrorResponse.class).getStatusCode());
+                call("/api/v1/dk/posts/street-food", "vi", ErrorResponse.class).getStatusCode());
     }
 
     // ------------------------------------------------------------ thuyết trình
 
     @Test
     @DisplayName("Chỉ buổi thuyết trình CHƯA diễn ra, lọc ở truy vấn")
-    void buoiSapDienRa() {
-        Lecture[] l = goi("/api/v1/dk/lectures", "da", Lecture[].class).getBody();
+    void onlyUpcomingLecturesFilteredInQuery() {
+        Lecture[] l = call("/api/v1/dk/lectures", "da", Lecture[].class).getBody();
 
         assertEquals(1, l.length, "Buổi đã qua phải bị lọc ở truy vấn, không ở tầng hiển thị");
         assertEquals("Vietnam i dybden", l[0].getTitle());
@@ -423,28 +423,28 @@ class ContentEndpointIT {
 
     // ------------------------------------------------------------ tiện ích
 
-    private long tongSoSanPham(String duongDan) {
-        return goi(duongDan, "da", ProductPage.class).getBody().getTotalItems();
+    private long totalProducts(String path) {
+        return call(path, "da", ProductPage.class).getBody().getTotalItems();
     }
 
-    private long tongSoBai(String duongDan) {
-        return goi(duongDan, "da", PostPage.class).getBody().getTotalItems();
+    private long totalPosts(String path) {
+        return call(path, "da", PostPage.class).getBody().getTotalItems();
     }
 
-    private Departure ngayKhoiHanhDau() {
-        return goi("/api/v1/dk/products/nord-til-syd/departures", "da", Departure[].class)
+    private Departure firstDepartureDate() {
+        return call("/api/v1/dk/products/nord-til-syd/departures", "da", Departure[].class)
                 .getBody()[0];
     }
 
-    private <T> ResponseEntity<T> goi(String duongDan, String locale, Class<T> kieu) {
+    private <T> ResponseEntity<T> call(String path, String locale, Class<T> type) {
         return RestClient.builder()
                 .baseUrl("http://localhost:" + cong)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build()
                 .get()
-                .uri(duongDan)
+                .uri(path)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
                 .retrieve()
-                .toEntity(kieu);
+                .toEntity(type);
     }
 }

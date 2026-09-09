@@ -9,6 +9,8 @@ springBoot = "4.1.1"
 postgresql = "42.7.7"
 testcontainers = "1.21.4"
 openapiGenerator = "7.14.0"
+# springdoc 3.x la nhanh cho Spring Boot 4; 2.x chi chay voi Boot 3.
+springdoc = "3.1.1"
 
 [libraries]
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
@@ -40,6 +42,8 @@ postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" 
 # Phiên bản để BOM của Spring Boot quản, không tự ghim.
 spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+
+springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }

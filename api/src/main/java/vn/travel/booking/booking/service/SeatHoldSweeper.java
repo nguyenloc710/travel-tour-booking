@@ -33,9 +33,9 @@ public class SeatHoldSweeper {
     @Scheduled(cron = "0 * * * * *")
     @SchedulerLock(name = "seatHoldSweeper", lockAtLeastFor = "PT30S", lockAtMostFor = "PT5M")
     public void quet() {
-        int so = donDep();
-        if (so > 0) {
-            log.info("Đã trả {} giữ chỗ quá hạn về kho", so);
+        int count = donDep();
+        if (count > 0) {
+            log.info("Đã trả {} giữ chỗ quá hạn về kho", count);
         }
     }
 

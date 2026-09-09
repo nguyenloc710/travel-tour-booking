@@ -25,14 +25,14 @@ public class SlugRedirectService {
     }
 
     @Transactional(readOnly = true)
-    public String giai(String market, String locale, String loai, String slug) {
-        Optional<String> moi = switch (loai) {
+    public String giai(String market, String locale, String type, String slug) {
+        Optional<String> moi = switch (type) {
             case "PRODUCT" -> slugCu.product(market, locale, slug);
             case "DESTINATION" -> slugCu.destination(market, locale, slug);
-            default -> throw new IllegalArgumentException("loại lạ: " + loai);
+            default -> throw new IllegalArgumentException("loại lạ: " + type);
         };
 
         return moi.orElseThrow(() -> new NotFoundException(
-                "slug cũ " + loai + "/" + slug + " ở " + market + "/" + locale));
+                "slug cũ " + type + "/" + slug + " ở " + market + "/" + locale));
     }
 }

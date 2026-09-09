@@ -1,5 +1,11 @@
 package vn.travel.booking.admin.controller;
 
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import vn.travel.booking.auth.dto.StaffPrincipal;
 import vn.travel.booking.common.util.AcceptLanguages;
 import vn.travel.booking.common.util.SecurityUtils;
@@ -83,7 +89,6 @@ import vn.travel.booking.admin.dto.QueueItem;
 import vn.travel.booking.common.dto.PagedResult;
 import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.pricing.mapper.PricingMapper;
-import vn.travel.booking.web.generated.api.AdminApi;
 import vn.travel.booking.web.generated.model.AdminDeparture;
 import vn.travel.booking.web.generated.model.AdminDestination;
 import vn.travel.booking.web.generated.model.AdminDepartureCopy;
@@ -180,105 +185,32 @@ import java.util.UUID;
  * máy nhân viên.
  */
 @RestController
-public class AdminController implements AdminApi {
+@Validated
+public class AdminController {
 
-    private final AuthenticationManager xacThuc;
-    private final AdminProductTranslationService banDich;
-    private final AdminCatalogService danhMuc;
-    private final TranslationWorkService congViecDich;
-    private final AdminProductService sanPham;
-    private final AdminDepartureService ngayKhoiHanh;
+    private final AdminProductTranslationService translationService;
+    private final AdminCatalogService catalog;
+    private final TranslationWorkService translationWorkService;
+    private final AdminProductService product;
+    private final AdminDepartureService departureService;
     private final AdminPriceTierService bacGia;
-    private final AdminBookingService donDat;
-    private final AdminQuoteService baoGia;
     private final AdminContentService noiDung;
-    private final AdminUserService nguoiDung;
-    private final SecurityContextRepository khoPhien = new HttpSessionSecurityContextRepository();
 
-    public AdminController(AuthenticationManager xacThuc,
-                           AdminProductTranslationService banDich,
-                           AdminCatalogService danhMuc,
-                           TranslationWorkService congViecDich,
-                           AdminProductService sanPham,
-                           AdminDepartureService ngayKhoiHanh,
+    public AdminController(
+                           AdminProductTranslationService translationService,
+                           AdminCatalogService catalog,
+                           TranslationWorkService translationWorkService,
+                           AdminProductService product,
+                           AdminDepartureService departureService,
                            AdminPriceTierService bacGia,
-                           AdminBookingService donDat,
-                           AdminQuoteService baoGia,
-                           AdminContentService noiDung,
-                           AdminUserService nguoiDung) {
-        this.xacThuc = xacThuc;
-        this.banDich = banDich;
-        this.danhMuc = danhMuc;
-        this.congViecDich = congViecDich;
-        this.sanPham = sanPham;
-        this.ngayKhoiHanh = ngayKhoiHanh;
+                           AdminContentService noiDung) {
+        this.translationService = translationService;
+        this.catalog = catalog;
+        this.translationWorkService = translationWorkService;
+        this.product = product;
+        this.departureService = departureService;
         this.bacGia = bacGia;
-        this.donDat = donDat;
-        this.baoGia = baoGia;
         this.noiDung = noiDung;
-        this.nguoiDung = nguoiDung;
-    }
-
-    // ------------------------------------------------------------ phiên
-
-    /**
-     * Đăng nhập. Phản hồi <b>không mang token</b>: phiên nằm trong cookie
-     * {@code HttpOnly}, thứ mã chèn vào trang không đọc được (docs/22 mục 9).
-     */
-    @Override
-    public ResponseEntity<Void> dangNhap(LoginRequest loginRequest) {
-        // Interface sinh từ spec chỉ mang thân yêu cầu; request và response lấy
-        // từ ngữ cảnh servlet. Thêm tham số vào chữ ký là lệch interface, và
-        // lệch interface là lỗi biên dịch — đúng như ADR-002 muốn.
-        HttpServletRequest yeuCau = servlet().getRequest();
-        HttpServletResponse phanHoi = servlet().getResponse();
-
-        Authentication ketQua;
-        try {
-            ketQua = xacThuc.authenticate(new UsernamePasswordAuthenticationToken(
-                    loginRequest.getEmail(), loginRequest.getPassword()));
-        } catch (BadCredentialsException | org.springframework.security.core.userdetails.UsernameNotFoundException ex) {
-            // Một câu trả lời cho cả sai email lẫn sai mật khẩu — phân biệt hai
-            // cái là cho phép dò xem địa chỉ nào có trong hệ thống.
-            return ResponseEntity.status(401).build();
-        }
-
-        SecurityContext ngu_canh = SecurityContextHolder.createEmptyContext();
-        ngu_canh.setAuthentication(ketQua);
-        SecurityContextHolder.setContext(ngu_canh);
-
-        // Chống cố định phiên: đổi id phiên đang có, hoặc tạo mới nếu chưa có.
-        // Gọi changeSessionId() khi chưa có phiên nào thì Tomcat ném
-        // IllegalStateException — và lời gọi đăng nhập đầu tiên chính là lúc đó.
-        if (yeuCau.getSession(false) != null) {
-            yeuCau.changeSessionId();
-        } else {
-            yeuCau.getSession(true);
-        }
-        khoPhien.saveContext(ngu_canh, yeuCau, phanHoi);
-
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
-    }
-
-    @Override
-    public ResponseEntity<Void> dangXuat() {
-        HttpSession phien = servlet().getRequest().getSession(false);
-        if (phien != null) {
-            phien.invalidate();
-        }
-        SecurityContextHolder.clearContext();
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
-    }
-
-    @Override
-    public ResponseEntity<StaffProfile> hoSoNhanVien() {
-        StaffPrincipal nhanVien = SecurityUtils.nhanVienHienTai();
-
-        return khongCache().body(new StaffProfile(
-                nhanVien.id(), nhanVien.email(), nhanVien.displayName(),
-                nhanVien.roleList().stream()
-                        .map(StaffProfile.RolesEnum::fromValue)
-                        .toList()));
     }
 
     // ------------------------------------------------------------ bản dịch
@@ -288,27 +220,41 @@ public class AdminController implements AdminApi {
      * được bản nào" phụ thuộc locale và nằm ở tầng nghiệp vụ — xem
      * {@code AdminProductTranslationService}.
      */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/products/{id}/translations",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN','CONSULTANT')")
-    public ResponseEntity<List<AdminProductTranslation>> danhSachBanDich(UUID id) {
-        return khongCache().body(banDich.danhSach(id).stream()
-                .map(AdminController::sang)
+    public ResponseEntity<List<AdminProductTranslation>> danhSachBanDich(
+            @PathVariable("id") UUID id
+    ) {
+        return noCache().body(translationService.list(id).stream()
+                .map(AdminController::toView)
                 .toList());
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/products/{id}/translations/{locale}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
     public ResponseEntity<AdminProductTranslation> luuBanDich(
-            UUID id, String locale, AdminProductTranslationInput input) {
+            @PathVariable("id") UUID id,
+            @PathVariable("locale") String locale,
+            @Valid @RequestBody AdminProductTranslationInput input
+    ) {
 
-        ProductTranslationView daLuu = banDich.luu(
-                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+        ProductTranslationView daLuu = translationService.save(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.roles(),
                 new ProductTranslationInput(
                         input.getSlug(), input.getTitle(), input.getShortDescription(),
                         input.getLongDescription(), input.getWhyChooseThis(),
                         input.getHeroImageAlt(), input.getStatus().getValue()));
 
-        return khongCache().body(sang(daLuu));
+        return noCache().body(toView(daLuu));
     }
 
     // ------------------------------------------------------------ danh mục
@@ -318,52 +264,78 @@ public class AdminController implements AdminApi {
      * trận quyền ở docs/22 mục 2.1 cho `CONSULTANT` và `TRANSLATOR` quyền R với
      * bản `da`. Quyền <b>ghi</b> mới phân theo vai trò và theo locale.
      */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/products",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
     public ResponseEntity<AdminProductPage> danhSachSanPhamQuanTri(
-            ProductType productType, String market, TranslationGap gap,
-            String q, Integer page, Integer size) {
+            @Valid @RequestParam(value = "productType", required = false) @Nullable ProductType productType,
+            @Valid @RequestParam(value = "market", required = false) @Nullable String market,
+            @Valid @RequestParam(value = "gap", required = false) @Nullable TranslationGap gap,
+            @Size(max = 120)  @Valid @RequestParam(value = "q", required = false) @Nullable String q,
+            @Min(0)  @Valid @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @Min(1) @Max(100)  @Valid @RequestParam(value = "size", required = false, defaultValue = "20") Integer size
+    ) {
 
-        PagedResult<AdminProductRow> ket_qua = danhMuc.danhSach(new AdminProductQuery(
+        PagedResult<AdminProductRow> ket_qua = catalog.list(new AdminProductQuery(
                 productType == null ? null : productType.getValue(),
                 market, gap == null ? null : gap.getValue(), q, page, size));
 
-        return khongCache().body(new AdminProductPage(
-                ket_qua.items().stream().map(AdminController::sang).toList(),
+        return noCache().body(new AdminProductPage(
+                ket_qua.items().stream().map(AdminController::toView).toList(),
                 ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/destinations",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<List<AdminDestination>> danhSachDiemDenQuanTri() {
-        return khongCache().body(danhMuc.diemDen().stream()
-                .map(AdminController::sang)
+    public ResponseEntity<List<AdminDestination>> danhSachDiemDenQuanTri(
+    ) {
+        return noCache().body(catalog.destination().stream()
+                .map(AdminController::toView)
                 .toList());
     }
 
-    private static AdminDestination sang(DestinationOption d) {
+    private static AdminDestination toView(DestinationOption d) {
         return new AdminDestination(d.id(), d.code(), d.name(), d.regionName());
     }
 
     // ------------------------------------------------------------ việc dịch
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/translations/queue",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
     public ResponseEntity<List<TranslationQueueItem>> hangDoiDich(
-            TranslationEntityType entityType, Integer limit) {
+            @Valid @RequestParam(value = "entityType", required = false) @Nullable TranslationEntityType entityType,
+            @Min(1) @Max(200)  @Valid @RequestParam(value = "limit", required = false, defaultValue = "50") Integer limit
+    ) {
 
-        return khongCache().body(congViecDich
-                .hangDoi(entityType == null ? null : entityType.getValue(), limit)
+        return noCache().body(translationWorkService
+                .queue(entityType == null ? null : entityType.getValue(), limit)
                 .stream()
-                .map(AdminController::sang)
+                .map(AdminController::toView)
                 .toList());
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/translations/coverage",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<List<TranslationCoverageRow>> doPhuDich(String locale) {
-        return khongCache().body(congViecDich.doPhu(locale).stream()
-                .map(AdminController::sang)
+    public ResponseEntity<List<TranslationCoverageRow>> doPhuDich(
+            @Valid @RequestParam(value = "locale", required = false) @Nullable String locale
+    ) {
+        return noCache().body(translationWorkService.doPhu(locale).stream()
+                .map(AdminController::toView)
                 .toList());
     }
 
@@ -377,10 +349,17 @@ public class AdminController implements AdminApi {
     // câu chuyện: người viết mô tả tour không nên chạm được vào con số khách
     // phải trả, và người gán thị trường là người chịu trách nhiệm doanh thu.
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/admin/products",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
-    public ResponseEntity<AdminProductDetail> taoSanPham(AdminProductCreate input) {
-        ProductDetailView daTao = sanPham.tao(new ProductCreateInput(
+    public ResponseEntity<AdminProductDetail> taoSanPham(
+            @Valid @RequestBody AdminProductCreate input
+    ) {
+        ProductDetailView daTao = product.tao(new ProductCreateInput(
                 input.getProductType().getValue(),
                 input.getPrimaryDestinationId(),
                 nho(input.getDurationDays()),
@@ -390,22 +369,36 @@ public class AdminController implements AdminApi {
                 input.getIsNew(),
                 input.getConsultantId(),
                 sangBanDich(input.getSource()),
-                khoi(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
+                block(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
                         input.getCruise(), input.getCombo(), input.getDayTour())));
 
-        return khongCache(HttpStatus.CREATED).body(sang(daTao));
+        return noCache(HttpStatus.CREATED).body(toView(daTao));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/products/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminProductDetail> chiTietSanPhamQuanTri(UUID id) {
-        return khongCache().body(sang(sanPham.chiTiet(id)));
+    public ResponseEntity<AdminProductDetail> chiTietSanPhamQuanTri(
+            @PathVariable("id") UUID id
+    ) {
+        return noCache().body(toView(product.detail(id)));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PATCH,
+        value = "/api/v1/admin/products/{id}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
-    public ResponseEntity<AdminProductDetail> suaSanPham(UUID id, AdminProductPatch input) {
-        ProductDetailView daSua = sanPham.sua(id, new ProductPatchInput(
+    public ResponseEntity<AdminProductDetail> suaSanPham(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminProductPatch input
+    ) {
+        ProductDetailView daSua = product.sua(id, new ProductPatchInput(
                 input.getPrimaryDestinationId(),
                 nho(input.getDurationDays()),
                 input.getHeroImage(),
@@ -413,59 +406,96 @@ public class AdminController implements AdminApi {
                 input.getLayout(),
                 input.getIsNew(),
                 input.getConsultantId(),
-                khoi(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
+                block(input.getGroupTour(), input.getIndividualPackage(), input.getPrivateTour(),
                         input.getCruise(), input.getCombo(), input.getDayTour())));
 
-        return khongCache().body(sang(daSua));
+        return noCache().body(toView(daSua));
     }
 
     /** Xoá mềm. Chỉ {@code ADMIN}: xoá nhầm một tour đang bán là sự cố không hoàn tác được. */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        value = "/api/v1/admin/products/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> xoaSanPham(UUID id) {
-        sanPham.xoaMem(id);
+    public ResponseEntity<Void> xoaSanPham(
+            @PathVariable("id") UUID id
+    ) {
+        product.softDelete(id);
         return ResponseEntity.noContent()
                 .header(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue())
                 .build();
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/products/{id}/markets/{market}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AdminProductMarketState> ganThiTruong(
-            UUID id, String market, AdminMarketAssignment input) {
+            @PathVariable("id") UUID id,
+            @PathVariable("market") String market,
+            @Valid @RequestBody AdminMarketAssignment input
+    ) {
 
-        MarketState daGan = sanPham.ganThiTruong(id, market, input.getPublished());
-        return khongCache().body(sang(daGan));
+        MarketState daGan = product.ganThiTruong(id, market, input.getPublished());
+        return noCache().body(toView(daGan));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/products/{id}/price-tiers",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AdminPriceTier>> luuBacGia(
-            UUID id, String market, List<AdminPriceTierInput> thang) {
+            @PathVariable("id") UUID id,
+            @NotNull  @Valid @RequestParam(value = "market", required = true) String market,
+            @Valid@Size(min = 1)  @RequestBody List<@Valid AdminPriceTierInput> thang
+    ) {
 
-        return khongCache().body(bacGia.luu(id, market, thang.stream()
+        return noCache().body(bacGia.save(id, market, thang.stream()
                         .map(b -> new PriceTierInput(nho(b.getMinPax()), nho(b.getMaxPax()),
                                 new BigDecimal(b.getPricePerPerson())))
                         .toList())
                 .stream()
-                .map(AdminController::sang)
+                .map(AdminController::toView)
                 .toList());
     }
 
     // ------------------------------------------------------------ ngày khởi hành
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/products/{id}/departures",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<List<AdminDeparture>> danhSachNgayKhoiHanhQuanTri(UUID id, String market) {
-        return khongCache().body(ngayKhoiHanh.danhSach(id, market).stream()
-                .map(AdminController::sang)
+    public ResponseEntity<List<AdminDeparture>> danhSachNgayKhoiHanhQuanTri(
+            @PathVariable("id") UUID id,
+            @Valid @RequestParam(value = "market", required = false) @Nullable String market
+    ) {
+        return noCache().body(departureService.list(id, market).stream()
+                .map(AdminController::toView)
                 .toList());
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/admin/products/{id}/departures",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminDeparture> taoNgayKhoiHanh(UUID id, AdminDepartureCreate input) {
-        DepartureView daTao = ngayKhoiHanh.tao(id, new DepartureCreateInput(
+    public ResponseEntity<AdminDeparture> taoNgayKhoiHanh(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminDepartureCreate input
+    ) {
+        DepartureView daTao = departureService.tao(id, new DepartureCreateInput(
                 input.getMarket().getValue(),
                 input.getDepartDate(),
                 nho(input.getDays()),
@@ -474,13 +504,21 @@ public class AdminController implements AdminApi {
                 input.getBaseStatus() == null ? null : input.getBaseStatus().getValue(),
                 input.getDepartureOriginId()));
 
-        return khongCache(HttpStatus.CREATED).body(sang(daTao));
+        return noCache(HttpStatus.CREATED).body(toView(daTao));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PATCH,
+        value = "/api/v1/admin/departures/{id}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminDeparture> suaNgayKhoiHanh(UUID id, AdminDeparturePatch input) {
-        DepartureView daSua = ngayKhoiHanh.sua(id, new DeparturePatchInput(
+    public ResponseEntity<AdminDeparture> suaNgayKhoiHanh(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminDeparturePatch input
+    ) {
+        DepartureView daSua = departureService.sua(id, new DeparturePatchInput(
                 input.getDepartDate(),
                 nho(input.getDays()),
                 nho(input.getCapacity()),
@@ -488,135 +526,49 @@ public class AdminController implements AdminApi {
                 input.getBaseStatus() == null ? null : input.getBaseStatus().getValue(),
                 input.getDepartureOriginId()));
 
-        return khongCache().body(sang(daSua));
+        return noCache().body(toView(daSua));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/admin/products/{id}/departures/copy",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AdminDepartureCopyResult> nhanBanLichKhoiHanh(
-            UUID id, AdminDepartureCopy input) {
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminDepartureCopy input
+    ) {
 
-        CopyResult ket_qua = ngayKhoiHanh.nhanBan(id,
+        CopyResult ket_qua = departureService.duplicate(id,
                 input.getFromMarket().getValue(), input.getToMarket().getValue(),
                 input.getFromDate());
 
-        return khongCache().body(
+        return noCache().body(
                 new AdminDepartureCopyResult(ket_qua.created(), ket_qua.skipped()));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/departures/{id}/prices",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AdminDeparturePrice>> luuGiaNgayKhoiHanh(
-            UUID id, List<AdminDeparturePriceInput> gia) {
+            @PathVariable("id") UUID id,
+            @Valid@Size(min = 1)  @RequestBody List<@Valid AdminDeparturePriceInput> price
+    ) {
 
-        return khongCache().body(ngayKhoiHanh.luuGia(id, gia.stream()
+        return noCache().body(departureService.savePrices(id, price.stream()
                         .map(g -> new DeparturePriceInput(g.getPaxTypeCode(),
                                 g.getOccupancy().getValue(),
                                 new BigDecimal(g.getAmount())))
                         .toList())
                 .stream()
-                .map(AdminController::sang)
+                .map(AdminController::toView)
                 .toList());
-    }
-
-    // ------------------------------------------------------------ vận hành đơn
-    //
-    // Ma trận quyền docs/22 mục 2.1, dòng "Đơn đặt: xem": CONSULTANT R, ADMIN R.
-    // EDITOR và TRANSLATOR là "–" — không thấy màn hình. Đó không phải sự thận
-    // trọng thừa: đơn đặt mang email, điện thoại, ngày sinh và số hộ chiếu của
-    // khách, còn người viết nội dung không có việc gì với dữ liệu đó (docs/31).
-
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminBookingPage> danhSachDon(
-            AdminBookingScope scope, BookingStatus status, String market,
-            LocalDate from, LocalDate to, String q, Integer page, Integer size) {
-
-        PagedResult<AdminBookingRow> ket_qua = donDat.danhSach(new AdminBookingQuery(
-                scope == null ? null : scope.getValue(),
-                status == null ? null : status.getValue(),
-                market, from, to, q, page, size));
-
-        return khongCache().body(new AdminBookingPage(
-                ket_qua.items().stream().map(AdminController::sang).toList(),
-                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
-    }
-
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminBookingDetail> chiTietDon(String reference) {
-        return khongCache().body(sang(donDat.chiTiet(reference)));
-    }
-
-    /**
-     * Đường <b>ghi</b> của M7 — dòng "Đơn đặt: đổi trạng thái, huỷ, hoàn" của ma
-     * trận docs/22 mục 2.1.
-     *
-     * <p>Cùng vai trò với đường đọc ở v1, nhưng khai riêng chứ không dùng chung
-     * một hằng: hai dòng khác nhau trong ma trận thì là hai câu hỏi khác nhau,
-     * và ngày nào đó chúng sẽ trả lời khác nhau.
-     *
-     * <p>{@code AdminBookingTargetStatus} hẹp hơn {@code BookingStatus} nên phép
-     * chuyển qua enum của domain luôn thành công — bốn giá trị của nó là tập con
-     * đúng nghĩa, và trình biên dịch giữ cho nó đúng vì cả hai đều sinh từ spec.
-     */
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminBookingDetail> doiTrangThaiDon(
-            String reference, AdminBookingStatusChange input) {
-
-        return khongCache().body(sang(donDat.doiTrangThai(
-                reference,
-                vn.travel.booking.booking.dto.BookingStatus.valueOf(input.getToStatus().getValue()),
-                SecurityUtils.nhanVienHienTai().id(),
-                input.getNote())));
-    }
-
-    // ------------------------------------------------------------ ánh xạ đơn
-
-    private static AdminBookingSummary sang(AdminBookingRow d) {
-        return new AdminBookingSummary(
-                d.id(), d.reference(),
-                BookingStatus.fromValue(d.status().name()),
-                AdminBookingSummary.MarketEnum.fromValue(d.market()),
-                d.locale(), d.productTitle(), d.paxCount(),
-                RefMapper.sangTien(d.total()), d.contactEmail(), d.createdAt())
-                .departDate(d.departDate());
-    }
-
-    private static AdminBookingDetail sang(AdminBookingDetailView d) {
-        return new AdminBookingDetail(
-                d.id(), d.reference(),
-                BookingStatus.fromValue(d.status().name()),
-                AdminBookingDetail.MarketEnum.fromValue(d.market()),
-                d.locale(), d.productId(), d.productTitle(),
-                d.contactEmail(), d.contactPhone(), d.createdAt(),
-                PricingMapper.sangBang(d.breakdown()),
-                d.passengers().stream().map(AdminController::sang).toList(),
-                d.events().stream().map(AdminController::sang).toList())
-                .departureId(d.departureId())
-                .departDate(d.departDate());
-    }
-
-    private static AdminBookingPassenger sang(BookingPassengerRow h) {
-        return new AdminBookingPassenger(h.seq(), h.paxTypeCode(), h.fullName())
-                .dateOfBirth(h.dateOfBirth())
-                .passportNo(h.passportNo())
-                .passportExpiry(h.passportExpiry())
-                .nationality(h.nationality());
-    }
-
-    private static AdminBookingEvent sang(BookingEventRow e) {
-        return new AdminBookingEvent(
-                e.id(),
-                BookingStatus.fromValue(e.toStatus().name()),
-                AdminBookingEvent.ActorTypeEnum.fromValue(e.actorType()),
-                e.createdAt())
-                .fromStatus(e.fromStatus() == null ? null
-                        : BookingStatus.fromValue(e.fromStatus().name()))
-                .actorId(e.actorId())
-                .actorName(e.actorName())
-                .note(e.note());
     }
 
     // ------------------------------------------------------------ ánh xạ đợt 5b
@@ -629,15 +581,15 @@ public class AdminController implements AdminApi {
      * phải là {@code Short}. Giá trị ngoài dải đã bị {@code @Min}/{@code @Max}
      * của spec chặn trước khi tới đây.
      */
-    private static Short nho(Integer so) {
-        return so == null ? null : so.shortValue();
+    private static Short nho(Integer count) {
+        return count == null ? null : count.shortValue();
     }
 
-    private static Integer lon(Short so) {
-        return so == null ? null : so.intValue();
+    private static Integer lon(Short count) {
+        return count == null ? null : count.intValue();
     }
 
-    private static ProductTypeBlocks khoi(GroupTourFields g, IndividualPackageFields i,
+    private static ProductTypeBlocks block(GroupTourFields g, IndividualPackageFields i,
                                           PrivateTourFields p, CruiseFields c,
                                           ComboFields cb, DayTourFields d) {
         return new ProductTypeBlocks(
@@ -662,11 +614,11 @@ public class AdminController implements AdminApi {
                 i.getWhyChooseThis(), i.getHeroImageAlt(), i.getStatus().getValue());
     }
 
-    private static AdminProductDetail sang(ProductDetailView v) {
+    private static AdminProductDetail toView(ProductDetailView v) {
         AdminProductDetail ra = new AdminProductDetail(
                 v.id(), ProductType.fromValue(v.productType()), v.primaryDestinationId(),
                 v.heroImage(), v.isNew(), v.reviewCount(),
-                v.markets().stream().map(AdminController::sang).toList(),
+                v.markets().stream().map(AdminController::toView).toList(),
                 v.translations().stream()
                         .map(t -> new AdminTranslationState(t.locale(),
                                 TranslationStatus.fromValue(t.status()), t.isSource(), t.outdated()))
@@ -709,26 +661,26 @@ public class AdminController implements AdminApi {
         return ra;
     }
 
-    private static AdminProductMarketState sang(MarketState m) {
+    private static AdminProductMarketState toView(MarketState m) {
         return new AdminProductMarketState(
                 AdminProductMarketState.MarketEnum.fromValue(m.market()), m.published());
     }
 
-    private static AdminDeparture sang(DepartureView d) {
+    private static AdminDeparture toView(DepartureView d) {
         return new AdminDeparture(d.id(),
                 AdminDeparture.MarketEnum.fromValue(d.market()),
                 d.departDate(), d.returnDate(), lon(d.days()), d.baseStatus(),
                 lon(d.capacity()), lon(d.seatsBooked()),
-                d.prices().stream().map(AdminController::sang).toList())
+                d.prices().stream().map(AdminController::toView).toList())
                 .cabinCategory(d.cabinCategory())
                 .departureOriginId(d.departureOriginId());
     }
 
-    private static AdminDeparturePrice sang(DeparturePriceView g) {
+    private static AdminDeparturePrice toView(DeparturePriceView g) {
         return new AdminDeparturePrice(g.paxTypeCode(), g.occupancy(), tien(g.amount()));
     }
 
-    private static AdminPriceTier sang(PriceTierView t) {
+    private static AdminPriceTier toView(PriceTierView t) {
         return new AdminPriceTier(t.id(), AdminPriceTier.MarketEnum.fromValue(t.market()),
                 lon(t.minPax()), tien(t.pricePerPerson()))
                 .maxPax(lon(t.maxPax()));
@@ -741,7 +693,7 @@ public class AdminController implements AdminApi {
 
     // ------------------------------------------------------------ ánh xạ
 
-    private static AdminProductSummary sang(AdminProductRow r) {
+    private static AdminProductSummary toView(AdminProductRow r) {
         return new AdminProductSummary(
                 r.id(), ProductType.fromValue(r.productType()), r.sourceTitle(),
                 TranslationStatus.fromValue(r.sourceStatus()),
@@ -758,7 +710,7 @@ public class AdminController implements AdminApi {
                 .lastModifiedAt(r.lastModifiedAt());
     }
 
-    private static TranslationQueueItem sang(QueueItem q) {
+    private static TranslationQueueItem toView(QueueItem q) {
         return new TranslationQueueItem(
                 TranslationEntityType.fromValue(q.entityType()), q.id(), q.locale(),
                 TranslationGap.fromValue(q.gap()), q.priority(), q.sourceTitle(),
@@ -766,13 +718,13 @@ public class AdminController implements AdminApi {
                 .translatedAt(q.translatedAt());
     }
 
-    private static TranslationCoverageRow sang(CoverageRow c) {
+    private static TranslationCoverageRow toView(CoverageRow c) {
         return new TranslationCoverageRow(
                 TranslationEntityType.fromValue(c.entityType()), c.locale(),
                 c.total(), c.translated(), c.upToDate());
     }
 
-    private static AdminProductTranslation sang(ProductTranslationView v) {
+    private static AdminProductTranslation toView(ProductTranslationView v) {
         return new AdminProductTranslation(
                 v.locale(), v.slug(), v.title(), v.shortDescription(),
                 v.longDescription(), v.whyChooseThis(), v.heroImageAlt(),
@@ -782,128 +734,6 @@ public class AdminController implements AdminApi {
     }
 
 
-    // ------------------------------------------------------------ báo giá
-    //
-    // Ma trận quyền docs/22 mục 2.1, dòng "Báo giá: dựng, gửi": CONSULTANT W,
-    // ADMIN W. EDITOR và TRANSLATOR là "–" — báo giá mang tên, điện thoại và
-    // yêu cầu riêng của khách, và người viết nội dung không có việc gì với dữ
-    // liệu đó (docs/31), đúng như với đơn đặt.
-    //
-    // Cả BỐN endpoint cùng một vai trò, kể cả đường đọc: khác đơn đặt ở chỗ ma
-    // trận không tách "xem báo giá" khỏi "dựng báo giá" thành hai dòng, nên ở
-    // đây không có hai câu hỏi để trả lời khác nhau.
-
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuotePage> danhSachBaoGia(
-            AdminQuoteFilter status, String market, String q, Integer page, Integer size) {
-
-        PagedResult<AdminQuoteRow> ket_qua = baoGia.danhSach(new AdminQuoteQuery(
-                status == null ? null : status.getValue(), market, q, page, size));
-
-        return khongCache().body(new AdminQuotePage(
-                ket_qua.items().stream().map(AdminController::sang).toList(),
-                ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
-    }
-
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuoteDetail> chiTietBaoGia(String reference) {
-        return khongCache().body(sang(baoGia.chiTiet(reference)));
-    }
-
-    /**
-     * Dựng bảng giá — docs/14 mục 7 quy tắc 5 và 6.
-     *
-     * <p>{@code total} <b>không có trong thân yêu cầu</b> và đó là chủ ý: máy
-     * chủ cộng từ các dòng. Nhận tổng rồi tin là mở đường cho một báo giá mà
-     * tổng không khớp bảng, và đó đúng là thứ khách mang ra tranh cãi.
-     */
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuoteDetail> dungBangGiaBaoGia(
-            String reference, AdminQuoteLinesInput input) {
-
-        return khongCache().body(sang(baoGia.datBangGia(
-                reference,
-                input.getCurrency(),
-                input.getLines().stream()
-                        .map(d -> new QuoteLineDraft(
-                                d.getLabelKey(),
-                                d.getQuantity() == null ? null : new BigDecimal(d.getQuantity()),
-                                d.getUnitAmount() == null ? null : new BigDecimal(d.getUnitAmount()),
-                                new BigDecimal(d.getAmount())))
-                        .toList(),
-                SecurityUtils.nhanVienHienTai().id())));
-    }
-
-    /**
-     * Gửi báo giá, hoặc ghi nhận khách đã trả lời — máy trạng thái docs/14 mục 7.
-     *
-     * <p>{@code AdminQuoteTargetStatus} hẹp hơn {@code QuoteStatus} (ba giá trị
-     * thay vì năm), nên phép chuyển sang enum của domain luôn thành công.
-     * {@code DRAFT} không nằm trong đó vì nó là điểm xuất phát; {@code EXPIRED}
-     * không nằm trong đó vì nó là kết luận của đồng hồ, không phải quyết định
-     * của người.
-     */
-    @Override
-    @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuoteDetail> doiTrangThaiBaoGia(
-            String reference, AdminQuoteStatusChange input) {
-
-        return khongCache().body(sang(baoGia.doiTrangThai(
-                reference,
-                vn.travel.booking.quote.dto.QuoteStatus.valueOf(input.getToStatus().getValue()),
-                SecurityUtils.nhanVienHienTai().id())));
-    }
-
-    // ------------------------------------------------------- ánh xạ báo giá
-
-    private static AdminQuoteSummary sang(AdminQuoteRow r) {
-        return new AdminQuoteSummary(
-                r.id(), r.reference(),
-                QuoteStatus.fromValue(r.status().name()),
-                AdminQuoteSummary.MarketEnum.fromValue(r.market()),
-                r.locale(), r.productId(), r.productTitle(), r.partySize(),
-                r.contactName(), r.contactEmail(), r.createdAt())
-                .requestedDate(r.requestedDate())
-                .total(RefMapper.sangTien(r.total()))
-                .validUntil(r.validUntil());
-    }
-
-    /**
-     * Chi tiết = tóm tắt + bốn trường.
-     *
-     * <p>Lớp sinh ra làm phẳng {@code allOf} thành một lớp duy nhất, nên phải
-     * chép mười một trường của tóm tắt sang lần nữa ở đây. Không gọi lại được
-     * {@code sang(AdminQuoteRow)} vì hai kiểu sinh ra không có quan hệ kế thừa —
-     * đó là cái giá của {@code allOf} trong bộ sinh mã, và nó rẻ hơn việc lồng
-     * một đối tượng {@code summary} vào giữa phản hồi.
-     */
-    private static AdminQuoteDetail sang(AdminQuoteDetailView d) {
-        AdminQuoteRow r = d.tomTat();
-
-        return new AdminQuoteDetail(
-                r.id(), r.reference(),
-                QuoteStatus.fromValue(r.status().name()),
-                AdminQuoteDetail.MarketEnum.fromValue(r.market()),
-                r.locale(), r.productId(), r.productTitle(), r.partySize(),
-                r.contactName(), r.contactEmail(), r.createdAt(),
-                d.contactPhone(),
-                d.lines().stream().map(AdminController::sang).toList())
-                .requestedDate(r.requestedDate())
-                .total(RefMapper.sangTien(r.total()))
-                .validUntil(r.validUntil())
-                .message(d.message())
-                .leadTimeDays(d.leadTimeDays())
-                .quoteValidDays(d.quoteValidDays());
-    }
-
-    private static QuoteLine sang(QuoteLineRow l) {
-        return new QuoteLine(l.seq(), l.labelKey(), RefMapper.sangTien(l.amount()))
-                .quantity(l.quantity() == null ? null : l.quantity().toPlainString())
-                .unitAmount(RefMapper.sangTien(l.unitAmount()));
-    }
 
     // ------------------------------------------------------------ nội dung khác
     //
@@ -914,20 +744,33 @@ public class AdminController implements AdminApi {
     // được locale nào" nằm ở AdminContentService, vì nó phụ thuộc cả vai trò lẫn
     // locale đang sửa — thứ một biểu thức trên chữ ký phương thức không nói được.
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/destinations/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminDestinationDetail> chiTietDiemDenQuanTri(UUID id) {
-        return khongCache().body(sang(noiDung.diemDen(id, AcceptLanguages.SOURCE)));
+    public ResponseEntity<AdminDestinationDetail> chiTietDiemDenQuanTri(
+            @PathVariable("id") UUID id
+    ) {
+        return noCache().body(toView(noiDung.destination(id, AcceptLanguages.SOURCE)));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PATCH,
+        value = "/api/v1/admin/destinations/{id}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
     public ResponseEntity<AdminDestinationDetail> suaDiemDen(
-            UUID id, AdminDestinationPatch input) {
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminDestinationPatch input
+    ) {
 
-        return khongCache().body(sang(noiDung.suaDiemDen(
+        return noCache().body(toView(noiDung.suaDiemDen(
                 id, input.getRegionId(), input.getSortOrder(),
-                AcceptLanguages.SOURCE, SecurityUtils.nhanVienHienTai().id())));
+                AcceptLanguages.SOURCE, SecurityUtils.currentStaff().id())));
     }
 
     /**
@@ -937,117 +780,200 @@ public class AdminController implements AdminApi {
      * nó đi có thể làm cả một nhóm sản phẩm biến mất khỏi website mà không có
      * lỗi nào ghi ra, và đó là quyết định ở tầng khác.
      */
-    @Override
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        value = "/api/v1/admin/destinations/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> xoaDiemDen(UUID id) {
-        noiDung.xoaDiemDen(id, SecurityUtils.nhanVienHienTai().id());
-        return khongCache(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<Void> xoaDiemDen(
+            @PathVariable("id") UUID id
+    ) {
+        noiDung.xoaDiemDen(id, SecurityUtils.currentStaff().id());
+        return noCache(HttpStatus.NO_CONTENT).build();
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/destinations/{id}/translations/{locale}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
     public ResponseEntity<AdminDestinationDetail> luuBanDichDiemDen(
-            UUID id, String locale, AdminDestinationTranslationInput input) {
+            @PathVariable("id") UUID id,
+            @PathVariable("locale") String locale,
+            @Valid @RequestBody AdminDestinationTranslationInput input
+    ) {
 
-        return khongCache().body(sang(noiDung.luuBanDichDiemDen(
-                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+        return noCache().body(toView(noiDung.luuBanDichDiemDen(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.roles(),
                 new DestinationTranslationInput(
                         input.getSlug(), input.getName(), input.getSummary()),
-                SecurityUtils.nhanVienHienTai().id())));
+                SecurityUtils.currentStaff().id())));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/tags",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<List<AdminTag>> danhSachThe() {
-        return khongCache().body(noiDung.the(AcceptLanguages.SOURCE).stream()
-                .map(AdminController::sang).toList());
+    public ResponseEntity<List<AdminTag>> danhSachThe(
+    ) {
+        return noCache().body(noiDung.tag(AcceptLanguages.SOURCE).stream()
+                .map(AdminController::toView).toList());
     }
 
     // -------------------------------------------------------------- bài viết
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/posts",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminPostPage> danhSachBaiViet(String q, Integer page, Integer size) {
+    public ResponseEntity<AdminPostPage> danhSachBaiViet(
+            @Size(max = 120)  @Valid @RequestParam(value = "q", required = false) @Nullable String q,
+            @Min(0)  @Valid @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @Min(1) @Max(100)  @Valid @RequestParam(value = "size", required = false, defaultValue = "20") Integer size
+    ) {
         PagedResult<PostRow> ket_qua = noiDung.danhSachBaiViet(
                 q, page, size, AcceptLanguages.SOURCE);
 
-        return khongCache().body(new AdminPostPage(
-                ket_qua.items().stream().map(AdminController::sang).toList(),
+        return noCache().body(new AdminPostPage(
+                ket_qua.items().stream().map(AdminController::toView).toList(),
                 ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/admin/posts",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminPostDetail> taoBaiViet(AdminPostCreate input) {
-        return khongCache(HttpStatus.CREATED).body(sang(noiDung.taoBaiViet(
+    public ResponseEntity<AdminPostDetail> taoBaiViet(
+            @Valid @RequestBody AdminPostCreate input
+    ) {
+        return noCache(HttpStatus.CREATED).body(toView(noiDung.taoBaiViet(
                 new PostCreateInput(
                         input.getHeroImage(),
                         input.getPublishedAt(),
                         input.getTagIds(),
-                        sang(input.getTranslation())),
-                AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
-                SecurityUtils.nhanVienHienTai().id())));
+                        toView(input.getTranslation())),
+                AcceptLanguages.SOURCE, SecurityUtils.roles(),
+                SecurityUtils.currentStaff().id())));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/posts/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminPostDetail> chiTietBaiViet(UUID id) {
-        return khongCache().body(sang(noiDung.baiViet(id, AcceptLanguages.SOURCE)));
+    public ResponseEntity<AdminPostDetail> chiTietBaiViet(
+            @PathVariable("id") UUID id
+    ) {
+        return noCache().body(toView(noiDung.post(id, AcceptLanguages.SOURCE)));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PATCH,
+        value = "/api/v1/admin/posts/{id}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
-    public ResponseEntity<AdminPostDetail> suaBaiViet(UUID id, AdminPostPatch input) {
-        return khongCache().body(sang(noiDung.suaBaiViet(
+    public ResponseEntity<AdminPostDetail> suaBaiViet(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminPostPatch input
+    ) {
+        return noCache().body(toView(noiDung.suaBaiViet(
                 id,
                 new PostPatchInput(input.getHeroImage(), input.getPublishedAt()),
-                AcceptLanguages.SOURCE, SecurityUtils.nhanVienHienTai().id())));
+                AcceptLanguages.SOURCE, SecurityUtils.currentStaff().id())));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/posts/{id}/tags",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
     public ResponseEntity<AdminPostDetail> datTheChoBaiViet(
-            UUID id, AdminPostTagAssignment input) {
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminPostTagAssignment input
+    ) {
 
-        return khongCache().body(sang(noiDung.datTheChoBaiViet(
+        return noCache().body(toView(noiDung.datTheChoBaiViet(
                 id, input.getTagIds(), AcceptLanguages.SOURCE,
-                SecurityUtils.nhanVienHienTai().id())));
+                SecurityUtils.currentStaff().id())));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        value = "/api/v1/admin/posts/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
-    public ResponseEntity<Void> xoaBaiViet(UUID id) {
-        noiDung.xoaBaiViet(id, SecurityUtils.nhanVienHienTai().id());
-        return khongCache(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<Void> xoaBaiViet(
+            @PathVariable("id") UUID id
+    ) {
+        noiDung.xoaBaiViet(id, SecurityUtils.currentStaff().id());
+        return noCache(HttpStatus.NO_CONTENT).build();
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/posts/{id}/translations/{locale}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
     public ResponseEntity<AdminPostDetail> luuBanDichBaiViet(
-            UUID id, String locale, AdminPostTranslationInput input) {
+            @PathVariable("id") UUID id,
+            @PathVariable("locale") String locale,
+            @Valid @RequestBody AdminPostTranslationInput input
+    ) {
 
-        return khongCache().body(sang(noiDung.luuBanDichBaiViet(
-                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
-                sang(input), SecurityUtils.nhanVienHienTai().id())));
+        return noCache().body(toView(noiDung.luuBanDichBaiViet(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.roles(),
+                toView(input), SecurityUtils.currentStaff().id())));
     }
 
     // ------------------------------------------------------- buổi thuyết trình
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/lectures",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminLecturePage> danhSachSuKienQuanTri(Integer page, Integer size) {
-        PagedResult<LectureRow> ket_qua = noiDung.danhSachSuKien(
+    public ResponseEntity<AdminLecturePage> danhSachSuKienQuanTri(
+            @Min(0)  @Valid @RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @Min(1) @Max(100)  @Valid @RequestParam(value = "size", required = false, defaultValue = "20") Integer size
+    ) {
+        PagedResult<LectureRow> ket_qua = noiDung.listEvents(
                 page, size, AcceptLanguages.SOURCE);
 
-        return khongCache().body(new AdminLecturePage(
-                ket_qua.items().stream().map(AdminController::sang).toList(),
+        return noCache().body(new AdminLecturePage(
+                ket_qua.items().stream().map(AdminController::toView).toList(),
                 ket_qua.page(), ket_qua.size(), ket_qua.totalItems(), ket_qua.totalPages()));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = "/api/v1/admin/lectures",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminLectureDetail> taoSuKien(AdminLectureCreate input) {
-        return khongCache(HttpStatus.CREATED).body(sang(noiDung.taoSuKien(
+    public ResponseEntity<AdminLectureDetail> taoSuKien(
+            @Valid @RequestBody AdminLectureCreate input
+    ) {
+        return noCache(HttpStatus.CREATED).body(toView(noiDung.taoSuKien(
                 new LectureCreateInput(
                         input.getMarket().getValue(),
                         input.getEventDate(),
@@ -1058,76 +984,76 @@ public class AdminController implements AdminApi {
                         new LectureTranslationInput(
                                 input.getTranslation().getTitle(),
                                 input.getTranslation().getDescription())),
-                AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
-                SecurityUtils.nhanVienHienTai().id())));
+                AcceptLanguages.SOURCE, SecurityUtils.roles(),
+                SecurityUtils.currentStaff().id())));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/admin/lectures/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('CONSULTANT','EDITOR','TRANSLATOR','ADMIN')")
-    public ResponseEntity<AdminLectureDetail> chiTietSuKien(UUID id) {
-        return khongCache().body(sang(noiDung.suKien(id, AcceptLanguages.SOURCE)));
+    public ResponseEntity<AdminLectureDetail> chiTietSuKien(
+            @PathVariable("id") UUID id
+    ) {
+        return noCache().body(toView(noiDung.suKien(id, AcceptLanguages.SOURCE)));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PATCH,
+        value = "/api/v1/admin/lectures/{id}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
-    public ResponseEntity<AdminLectureDetail> suaSuKien(UUID id, AdminLecturePatch input) {
-        return khongCache().body(sang(noiDung.suaSuKien(
+    public ResponseEntity<AdminLectureDetail> suaSuKien(
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody AdminLecturePatch input
+    ) {
+        return noCache().body(toView(noiDung.suaSuKien(
                 id,
                 new LecturePatchInput(
                         input.getEventDate(), gio(input.getStartTime()),
                         input.getCity(), input.getVenue(), input.getSeats()),
-                AcceptLanguages.SOURCE, SecurityUtils.nhanVienHienTai().id())));
+                AcceptLanguages.SOURCE, SecurityUtils.currentStaff().id())));
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.DELETE,
+        value = "/api/v1/admin/lectures/{id}",
+        produces = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','ADMIN')")
-    public ResponseEntity<Void> xoaSuKien(UUID id) {
-        noiDung.xoaSuKien(id, SecurityUtils.nhanVienHienTai().id());
-        return khongCache(HttpStatus.NO_CONTENT).build();
+    public ResponseEntity<Void> xoaSuKien(
+            @PathVariable("id") UUID id
+    ) {
+        noiDung.xoaSuKien(id, SecurityUtils.currentStaff().id());
+        return noCache(HttpStatus.NO_CONTENT).build();
     }
 
-    @Override
+    @RequestMapping(
+        method = RequestMethod.PUT,
+        value = "/api/v1/admin/lectures/{id}/translations/{locale}",
+        produces = { "application/json" },
+        consumes = { "application/json" }
+    )
     @PreAuthorize("hasAnyRole('EDITOR','TRANSLATOR','ADMIN')")
     public ResponseEntity<AdminLectureDetail> luuBanDichSuKien(
-            UUID id, String locale, AdminLectureTranslationInput input) {
+            @PathVariable("id") UUID id,
+            @PathVariable("locale") String locale,
+            @Valid @RequestBody AdminLectureTranslationInput input
+    ) {
 
-        return khongCache().body(sang(noiDung.luuBanDichSuKien(
-                id, locale, AcceptLanguages.SOURCE, SecurityUtils.vaiTro(),
+        return noCache().body(toView(noiDung.luuBanDichSuKien(
+                id, locale, AcceptLanguages.SOURCE, SecurityUtils.roles(),
                 new LectureTranslationInput(input.getTitle(), input.getDescription()),
-                SecurityUtils.nhanVienHienTai().id())));
-    }
-
-    // ------------------------------------------------------ người dùng (M14)
-    //
-    // Dòng cuối cùng của ma trận docs/22 mục 2.1: chỉ ADMIN, cả đọc lẫn ghi.
-    // Ba vai trò kia không thấy màn hình — danh sách người dùng là bản đồ của
-    // chính hệ thống phân quyền, và đọc được nó là biết nên nhắm vào ai.
-
-    @Override
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<AdminStaffUser>> danhSachNguoiDung() {
-        return khongCache().body(nguoiDung.danhSach().stream()
-                .map(AdminController::sang).toList());
-    }
-
-    @Override
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminStaffUser> suaNguoiDung(UUID id, AdminStaffUserPatch input) {
-        return khongCache().body(sang(nguoiDung.sua(
-                id, input.getDisplayName(), input.getIsActive(),
-                SecurityUtils.nhanVienHienTai().id())));
-    }
-
-    @Override
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminStaffUser> datVaiTro(UUID id, AdminRoleAssignment input) {
-        return khongCache().body(sang(nguoiDung.datVaiTro(
-                id, input.getRoles().stream().map(AdminRoleAssignment.RolesEnum::getValue).toList())));
+                SecurityUtils.currentStaff().id())));
     }
 
     // ---------------------------------------------------- ánh xạ nội dung khác
 
-    private static AdminDestinationDetail sang(DestinationDetailView d) {
+    private static AdminDestinationDetail toView(DestinationDetailView d) {
         return new AdminDestinationDetail(
                 d.id(), d.code(), d.regionId(),
                 // Miền chưa có bản dịch ở ngôn ngữ nguồn thì để trống thay vì
@@ -1135,46 +1061,46 @@ public class AdminController implements AdminApi {
                 // vẫn phải mở được để người ta sửa.
                 d.regionName() == null ? "" : d.regionName(),
                 d.sortOrder(),
-                d.translations().stream().map(AdminController::sang).toList())
+                d.translations().stream().map(AdminController::toView).toList())
                 .productCount(d.productCount())
                 .lastModifiedAt(d.lastModifiedAt())
                 .lastModifiedBy(d.lastModifiedBy());
     }
 
-    private static AdminDestinationTranslation sang(DestinationTranslationView t) {
+    private static AdminDestinationTranslation toView(DestinationTranslationView t) {
         return new AdminDestinationTranslation(t.locale(), t.slug(), t.name(), t.isSource())
                 .summary(t.summary())
                 .lastModifiedAt(t.lastModifiedAt())
                 .lastModifiedBy(t.lastModifiedBy());
     }
 
-    private static AdminTag sang(TagView t) {
+    private static AdminTag toView(TagView t) {
         return new AdminTag(t.id(), t.code(), t.name());
     }
 
-    private static AdminPostSummary sang(PostRow p) {
+    private static AdminPostSummary toView(PostRow p) {
         return new AdminPostSummary(
                 p.id(), p.title(),
-                trangThaiLocale(p.locales()),
-                p.tags().stream().map(AdminController::sang).toList())
+                localeStatus(p.locales()),
+                p.tags().stream().map(AdminController::toView).toList())
                 .heroImage(p.heroImage())
                 .publishedAt(p.publishedAt())
                 .lastModifiedAt(p.lastModifiedAt())
                 .lastModifiedBy(p.lastModifiedBy());
     }
 
-    private static AdminPostDetail sang(PostDetailView p) {
+    private static AdminPostDetail toView(PostDetailView p) {
         return new AdminPostDetail(
                 p.id(),
-                p.tags().stream().map(AdminController::sang).toList(),
-                p.translations().stream().map(AdminController::sang).toList())
+                p.tags().stream().map(AdminController::toView).toList(),
+                p.translations().stream().map(AdminController::toView).toList())
                 .heroImage(p.heroImage())
                 .publishedAt(p.publishedAt())
                 .lastModifiedAt(p.lastModifiedAt())
                 .lastModifiedBy(p.lastModifiedBy());
     }
 
-    private static AdminPostTranslation sang(PostTranslationView t) {
+    private static AdminPostTranslation toView(PostTranslationView t) {
         return new AdminPostTranslation(
                 t.locale(), t.slug(), t.title(), t.excerpt(), t.body(),
                 TranslationStatus.fromValue(t.status()), t.isSource())
@@ -1182,54 +1108,48 @@ public class AdminController implements AdminApi {
                 .lastModifiedBy(t.lastModifiedBy());
     }
 
-    private static PostTranslationInput sang(AdminPostTranslationInput input) {
+    private static PostTranslationInput toView(AdminPostTranslationInput input) {
         return new PostTranslationInput(
                 input.getSlug(), input.getTitle(), input.getExcerpt(),
                 input.getBody(), input.getStatus().getValue());
     }
 
-    private static AdminLectureSummary sang(LectureRow l) {
+    private static AdminLectureSummary toView(LectureRow l) {
         return new AdminLectureSummary(
                 l.id(),
                 AdminLectureSummary.MarketEnum.fromValue(l.market()),
                 l.eventDate(), l.city(), l.seats(), l.seatsTaken(), l.title(),
-                trangThaiLocale(l.locales()))
-                .startTime(chuoiGio(l.startTime()))
+                localeStatus(l.locales()))
+                .startTime(timeText(l.startTime()))
                 .venue(l.venue())
                 .lastModifiedAt(l.lastModifiedAt())
                 .lastModifiedBy(l.lastModifiedBy());
     }
 
-    private static AdminLectureDetail sang(LectureDetailView l) {
+    private static AdminLectureDetail toView(LectureDetailView l) {
         return new AdminLectureDetail(
                 l.id(),
                 AdminLectureDetail.MarketEnum.fromValue(l.market()),
                 l.eventDate(), l.city(), l.seats(), l.seatsTaken(),
-                l.translations().stream().map(AdminController::sang).toList())
-                .startTime(chuoiGio(l.startTime()))
+                l.translations().stream().map(AdminController::toView).toList())
+                .startTime(timeText(l.startTime()))
                 .venue(l.venue())
                 .lastModifiedAt(l.lastModifiedAt())
                 .lastModifiedBy(l.lastModifiedBy());
     }
 
-    private static AdminLectureTranslation sang(LectureTranslationView t) {
+    private static AdminLectureTranslation toView(LectureTranslationView t) {
         return new AdminLectureTranslation(t.locale(), t.title(), t.description(), t.isSource())
                 .lastModifiedAt(t.lastModifiedAt())
                 .lastModifiedBy(t.lastModifiedBy());
     }
 
-    private static AdminStaffUser sang(StaffUserView u) {
-        return new AdminStaffUser(
-                u.id(), u.email(), u.displayName(), u.isActive(),
-                u.roles().stream().map(AdminStaffUser.RolesEnum::fromValue).toList());
-    }
-
-    private static Map<String, AdminContentLocaleState> trangThaiLocale(
-            Map<String, ContentLocaleState> nguon) {
+    private static Map<String, AdminContentLocaleState> localeStatus(
+            Map<String, ContentLocaleState> source) {
 
         Map<String, AdminContentLocaleState> ra = new LinkedHashMap<>();
-        nguon.forEach((locale, trangThai) ->
-                ra.put(locale, AdminContentLocaleState.fromValue(trangThai.name())));
+        source.forEach((locale, status) ->
+                ra.put(locale, AdminContentLocaleState.fromValue(status.name())));
         return ra;
     }
 
@@ -1245,21 +1165,16 @@ public class AdminController implements AdminApi {
         return hhmm == null || hhmm.isBlank() ? null : LocalTime.parse(hhmm);
     }
 
-    private static String chuoiGio(LocalTime gio) {
+    private static String timeText(LocalTime gio) {
         return gio == null ? null : gio.truncatedTo(ChronoUnit.MINUTES).toString();
     }
 
-    private static ServletRequestAttributes servlet() {
-
-        return (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+    private static ResponseEntity.BodyBuilder noCache() {
+        return noCache(HttpStatus.OK);
     }
 
-    private static ResponseEntity.BodyBuilder khongCache() {
-        return khongCache(HttpStatus.OK);
-    }
-
-    private static ResponseEntity.BodyBuilder khongCache(HttpStatus trangThai) {
-        return ResponseEntity.status(trangThai)
+    private static ResponseEntity.BodyBuilder noCache(HttpStatus status) {
+        return ResponseEntity.status(status)
                 .header(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
     }
 }

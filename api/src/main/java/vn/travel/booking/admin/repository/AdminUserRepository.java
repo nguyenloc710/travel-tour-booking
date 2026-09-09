@@ -46,7 +46,7 @@ public class AdminUserRepository {
                 FROM staff_user u
                 WHERE NOT u.soft_delete
                 ORDER BY u.is_active DESC, u.display_name
-                """, AdminUserRepository::doc);
+                """, AdminUserRepository::mapRow);
     }
 
     public Optional<StaffUserView> find(UUID id) {
@@ -58,18 +58,18 @@ public class AdminUserRepository {
                          ARRAY[]::varchar[]) AS vai_tro
                 FROM staff_user u
                 WHERE u.id = ? AND NOT u.soft_delete
-                """, AdminUserRepository::doc, id)
+                """, AdminUserRepository::mapRow, id)
                 .stream().findFirst();
     }
 
-    public void patch(UUID id, String displayName, Boolean isActive, UUID nhanVienId) {
+    public void patch(UUID id, String displayName, Boolean isActive, UUID staffUserId) {
         jdbc.update("""
                 UPDATE staff_user
                 SET display_name = COALESCE(?, display_name),
                     is_active = COALESCE(?, is_active),
                     last_modified_by = ?
                 WHERE id = ?
-                """, displayName, isActive, nhanVienId, id);
+                """, displayName, isActive, staffUserId, id);
     }
 
     /**
@@ -97,19 +97,19 @@ public class AdminUserRepository {
      * nhiêu ADMIN" rồi so với 1 là đếm cả chính người sắp bị tắt, và phép so đó
      * đúng một cách tình cờ — nó vỡ ngay khi ai đó đổi dấu so sánh.
      */
-    public int demAdminKhac(UUID ngoaiTru) {
-        Integer so = jdbc.queryForObject("""
+    public int countOtherAdmins(UUID excluding) {
+        Integer count = jdbc.queryForObject("""
                 SELECT count(*)
                 FROM staff_user u
                 JOIN staff_user_role r ON r.staff_user_id = u.id AND r.role_code = 'ADMIN'
                 WHERE u.is_active AND NOT u.soft_delete AND u.id <> ?
-                """, Integer.class, ngoaiTru);
-        return so == null ? 0 : so;
+                """, Integer.class, excluding);
+        return count == null ? 0 : count;
     }
 
-    private static StaffUserView doc(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
-        java.sql.Array mang = rs.getArray("vai_tro");
-        List<String> roles = mang == null ? List.of() : List.of((String[]) mang.getArray());
+    private static StaffUserView mapRow(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
+        java.sql.Array array = rs.getArray("vai_tro");
+        List<String> roles = array == null ? List.of() : List.of((String[]) array.getArray());
 
         return new StaffUserView(
                 rs.getObject("id", UUID.class),

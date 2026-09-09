@@ -15,29 +15,29 @@ public final class BookingErrors {
 
     /** Không đủ chỗ khả dụng. HTTP 409. */
     public static class DepartureSoldOut extends RuntimeException {
-        public DepartureSoldOut(String chiTiet) {
-            super(chiTiet);
+        public DepartureSoldOut(String detail) {
+            super(detail);
         }
     }
 
     /** Giữ chỗ đã hết hạn hoặc đã dùng. HTTP 409. */
     public static class SeatHoldExpired extends RuntimeException {
-        public SeatHoldExpired(String chiTiet) {
-            super(chiTiet);
+        public SeatHoldExpired(String detail) {
+            super(detail);
         }
     }
 
     /** Loại sản phẩm không đặt trực tiếp được — {@code PRIVATE_TOUR}. HTTP 422. */
     public static class ProductNotBookable extends RuntimeException {
-        public ProductNotBookable(String chiTiet) {
-            super(chiTiet);
+        public ProductNotBookable(String detail) {
+            super(detail);
         }
     }
 
     /** Ngày khởi hành đã đóng bán. HTTP 409. */
     public static class DepartureClosed extends RuntimeException {
-        public DepartureClosed(String chiTiet) {
-            super(chiTiet);
+        public DepartureClosed(String detail) {
+            super(detail);
         }
     }
 }

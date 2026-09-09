@@ -52,31 +52,31 @@ public class ProductContentService {
 
     @Transactional(readOnly = true)
     public List<ItineraryDay> itinerary(String market, String locale, String slug) {
-        VisibleProduct sanPham = phaiNhinThayDuoc(market, locale, slug);
-        if (KHONG_CO_LICH_TRINH.contains(sanPham.productType())) {
+        VisibleProduct product = requireVisible(market, locale, slug);
+        if (KHONG_CO_LICH_TRINH.contains(product.productType())) {
             throw new NotFoundException(
-                    "loại " + sanPham.productType() + " không có lịch trình theo ngày");
+                    "loại " + product.productType() + " không có lịch trình theo ngày");
         }
-        return noiDung.findItinerary(sanPham.id(), locale);
+        return noiDung.findItinerary(product.id(), locale);
     }
 
     @Transactional(readOnly = true)
     public List<HotelStay> hotelStays(String market, String locale, String slug) {
-        VisibleProduct sanPham = phaiNhinThayDuoc(market, locale, slug);
-        if (KHONG_CO_KHACH_SAN.contains(sanPham.productType())) {
+        VisibleProduct product = requireVisible(market, locale, slug);
+        if (KHONG_CO_KHACH_SAN.contains(product.productType())) {
             throw new NotFoundException(
-                    "loại " + sanPham.productType() + " không có chặng nghỉ khách sạn");
+                    "loại " + product.productType() + " không có chặng nghỉ khách sạn");
         }
-        return noiDung.findHotelStays(sanPham.id(), locale);
+        return noiDung.findHotelStays(product.id(), locale);
     }
 
     @Transactional(readOnly = true)
     public List<DepartureView> departures(String market, String locale, String slug) {
-        VisibleProduct sanPham = phaiNhinThayDuoc(market, locale, slug);
-        return noiDung.findDepartures(sanPham.id(), market, NGUONG_IT_CHO);
+        VisibleProduct product = requireVisible(market, locale, slug);
+        return noiDung.findDepartures(product.id(), market, NGUONG_IT_CHO);
     }
 
-    private VisibleProduct phaiNhinThayDuoc(String market, String locale, String slug) {
+    private VisibleProduct requireVisible(String market, String locale, String slug) {
         markets.requireActive(market);
         return noiDung.findVisibleProduct(market, locale, slug)
                 .orElseThrow(() -> new NotFoundException(

@@ -53,8 +53,8 @@ public final class PricingInput {
     }
 
     /** Phụ thu phòng đơn = (giá phòng đơn − giá phòng đôi) × số khách ở một mình. */
-    public PricingInput phongDon(int soKhachOMotMinh, Money chenhLechMoiNguoi) {
-        this.singleTravellers = soKhachOMotMinh;
+    public PricingInput phongDon(int soloPaxCount, Money chenhLechMoiNguoi) {
+        this.singleTravellers = soloPaxCount;
         this.singleSupplementPerPerson = chenhLechMoiNguoi;
         return this;
     }
@@ -66,32 +66,32 @@ public final class PricingInput {
     }
 
     /** Chỉ thị trường có nhiều điểm khởi hành. */
-    public PricingInput phuThuDiemKhoiHanh(Money moiNguoi) {
-        this.departureOriginSurchargePerPerson = moiNguoi;
+    public PricingInput phuThuDiemKhoiHanh(Money perPerson) {
+        this.departureOriginSurchargePerPerson = perPerson;
         return this;
     }
 
-    public PricingInput baoHiem(Money moiNguoi) {
-        this.insurancePerPerson = moiNguoi;
+    public PricingInput insurance(Money perPerson) {
+        this.insurancePerPerson = perPerson;
         return this;
     }
 
-    public PricingInput demKhachSanTruocBay(int soPhong, int soDem, Money giaMoiPhongMoiDem) {
-        this.preTourHotelRooms = soPhong;
-        this.preTourHotelNights = soDem;
-        this.preTourHotelPricePerRoomNight = giaMoiPhongMoiDem;
+    public PricingInput countHotelsBeforeFlight(int roomCount, int nights, Money pricePerRoomPerNight) {
+        this.preTourHotelRooms = roomCount;
+        this.preTourHotelNights = nights;
+        this.preTourHotelPricePerRoomNight = pricePerRoomPerNight;
         return this;
     }
 
     /** Mức giảm mỗi người; tính bằng {@link EarlyBird}. */
-    public PricingInput giamDatSom(Money moiNguoi) {
-        this.earlyBirdPerPerson = moiNguoi;
+    public PricingInput giamDatSom(Money perPerson) {
+        this.earlyBirdPerPerson = perPerson;
         return this;
     }
 
     /** Cố định một lần mỗi đơn, không nhân theo số khách. */
-    public PricingInput phiXuLy(Money moiDon) {
-        this.processingFee = moiDon;
+    public PricingInput phiXuLy(Money perBooking) {
+        this.processingFee = perBooking;
         return this;
     }
 

@@ -27,12 +27,12 @@ public class QuoteService {
     /** Chỉ loại này đi qua luồng báo giá — docs/04. */
     private static final String LOAI_BAO_GIA = "PRIVATE_TOUR";
 
-    private final QuoteRepository baoGia;
+    private final QuoteRepository quote;
     private final MarketService markets;
     private final Clock dongHo;
 
-    public QuoteService(QuoteRepository baoGia, MarketService markets, Clock dongHo) {
-        this.baoGia = baoGia;
+    public QuoteService(QuoteRepository quote, MarketService markets, Clock dongHo) {
+        this.quote = quote;
         this.markets = markets;
         this.dongHo = dongHo;
     }
@@ -53,21 +53,21 @@ public class QuoteService {
      * </ol>
      */
     @Transactional
-    public QuoteReceiptView guiYeuCau(String market, String locale, QuoteRequestCommand lenh) {
+    public QuoteReceiptView submitRequest(String market, String locale, QuoteRequestCommand command) {
         markets.requireActive(market);
 
-        QuoteProduct sanPham = baoGia.timSanPham(market, locale, lenh.productSlug())
+        QuoteProduct product = quote.findProduct(market, locale, command.productSlug())
                 .orElseThrow(() -> new NotFoundException(
-                        "product slug=" + lenh.productSlug() + " locale=" + locale));
+                        "product slug=" + command.productSlug() + " locale=" + locale));
 
-        if (!LOAI_BAO_GIA.equals(sanPham.productType())) {
+        if (!LOAI_BAO_GIA.equals(product.productType())) {
             throw new QuoteErrors.ProductNotQuotable(
-                    "loại " + sanPham.productType() + " đặt thẳng được, không đi qua báo giá");
+                    "loại " + product.productType() + " đặt thẳng được, không đi qua báo giá");
         }
 
-        kiemNgay(sanPham, lenh.requestedDate());
+        validateDate(product, command.requestedDate());
 
-        return baoGia.taoYeuCau(market, locale, sanPham.id(), lenh);
+        return quote.createRequest(market, locale, product.id(), command);
     }
 
     /**
@@ -79,13 +79,13 @@ public class QuoteService {
      * <p>Khách chưa chốt ngày thì không có gì để kiểm — bắt điền một ngày giả để
      * qua form là cách chắc chắn nhất để có dữ liệu sai.
      */
-    private void kiemNgay(QuoteProduct sanPham, LocalDate ngayYeuCau) {
-        if (ngayYeuCau == null) {
+    private void validateDate(QuoteProduct product, LocalDate requestedAt) {
+        if (requestedAt == null) {
             return;
         }
-        LocalDate somNhat = LocalDate.now(dongHo).plusDays(sanPham.leadTimeDays());
-        if (ngayYeuCau.isBefore(somNhat)) {
-            throw new QuoteErrors.LeadTimeNotMet(sanPham.leadTimeDays(), somNhat);
+        LocalDate somNhat = LocalDate.now(dongHo).plusDays(product.leadTimeDays());
+        if (requestedAt.isBefore(somNhat)) {
+            throw new QuoteErrors.LeadTimeNotMet(product.leadTimeDays(), somNhat);
         }
     }
 }

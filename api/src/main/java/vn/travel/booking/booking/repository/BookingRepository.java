@@ -42,16 +42,16 @@ public class BookingRepository {
     }
     @Transactional
     public BookingView create(BookingDraft draft) {
-        int soKhach = draft.tongSoKhach();
+        int paxCount = draft.tongSoKhach();
 
         if (draft.seatHoldId() != null) {
-            khoaVaDungGiuCho(draft.seatHoldId(), draft.departureId(), soKhach);
+            khoaVaDungGiuCho(draft.seatHoldId(), draft.departureId(), paxCount);
         }
 
         UUID bookingId = UUID.randomUUID();
         String reference = sinhMa(draft.market());
         PriceBreakdown b = draft.breakdown();
-        LocalDate ngayDi = jdbc.queryForObject(
+        LocalDate departDate = jdbc.queryForObject(
                 "SELECT depart_date FROM departure WHERE id = ?", LocalDate.class, draft.departureId());
 
         jdbc.update("""
@@ -65,8 +65,8 @@ public class BookingRepository {
                 b.total().amount(), b.deposit().amount(), b.total().currency(),
                 draft.contactEmail(), draft.contactPhone());
 
-        ghiDongGia(bookingId, b);
-        ghiHanhKhach(bookingId, draft.passengers());
+        writePriceRow(bookingId, b);
+        writePassengers(bookingId, draft.passengers());
 
         // Mọi lần đổi trạng thái ghi một dòng nhật ký — kể cả lần đầu tiên.
         // Đơn không có dòng nào trong booking_event là đơn không ai giải thích
@@ -77,7 +77,7 @@ public class BookingRepository {
                 """, UUID.randomUUID(), bookingId, BookingStatus.PENDING_PAYMENT.name());
 
         return new BookingView(reference, BookingStatus.PENDING_PAYMENT,
-                draft.productTitle(), ngayDi, b);
+                draft.productTitle(), departDate, b);
     }
 
     /**
@@ -86,7 +86,7 @@ public class BookingRepository {
      * <p>Kiểm lại dù tầng trên đã kiểm: thời gian trôi giữa hai lần gọi, và giữ
      * chỗ có thể vừa hết hạn (docs/14 mục 6.3 bước 2).
      */
-    private void khoaVaDungGiuCho(UUID seatHoldId, UUID departureId, int soKhach) {
+    private void khoaVaDungGiuCho(UUID seatHoldId, UUID departureId, int paxCount) {
         Map<String, Object> h;
         try {
             h = jdbc.queryForMap("""
@@ -104,16 +104,16 @@ public class BookingRepository {
         if (!departureId.equals(h.get("departure_id"))) {
             throw new BookingErrors.SeatHoldExpired("giữ chỗ không thuộc ngày khởi hành này");
         }
-        if (((Number) h.get("seats")).intValue() < soKhach) {
+        if (((Number) h.get("seats")).intValue() < paxCount) {
             throw new BookingErrors.SeatHoldExpired("giữ chỗ ít hơn số khách của đơn");
         }
 
         jdbc.update("UPDATE departure SET seats_booked = seats_booked + ? WHERE id = ?",
-                soKhach, departureId);
+                paxCount, departureId);
         jdbc.update("UPDATE seat_hold SET released_at = now() WHERE id = ?", seatHoldId);
     }
 
-    private void ghiDongGia(UUID bookingId, PriceBreakdown b) {
+    private void writePriceRow(UUID bookingId, PriceBreakdown b) {
         int seq = 1;
         for (PriceLine d : b.lines()) {
             jdbc.update("""
@@ -128,7 +128,7 @@ public class BookingRepository {
         }
     }
 
-    private void ghiHanhKhach(UUID bookingId, List<PassengerDraft> khach) {
+    private void writePassengers(UUID bookingId, List<PassengerDraft> khach) {
         int seq = 1;
         for (PassengerDraft k : khach) {
             jdbc.update("""
@@ -163,12 +163,12 @@ public class BookingRepository {
             return Optional.empty();
         }
 
-        String tienTe = (String) b.get("currency");
-        int soLe = ((Number) b.get("fraction_digits")).intValue();
-        Money tong = new Money((BigDecimal) b.get("total"), tienTe);
-        Money coc = new Money((BigDecimal) b.get("deposit"), tienTe);
+        String currency = (String) b.get("currency");
+        int fractionDigits = ((Number) b.get("fraction_digits")).intValue();
+        Money tong = new Money((BigDecimal) b.get("total"), currency);
+        Money deposit = new Money((BigDecimal) b.get("deposit"), currency);
 
-        List<PriceLine> dong = jdbc.query("""
+        List<PriceLine> row = jdbc.query("""
                 SELECT line_key, label_key, quantity, unit_amount, amount
                 FROM booking_line WHERE booking_id = ? ORDER BY seq
                 """,
@@ -177,8 +177,8 @@ public class BookingRepository {
                         rs.getString("label_key"),
                         rs.getBigDecimal("quantity"),
                         rs.getBigDecimal("unit_amount") == null ? null
-                                : new Money(rs.getBigDecimal("unit_amount"), tienTe),
-                        new Money(rs.getBigDecimal("amount"), tienTe)),
+                                : new Money(rs.getBigDecimal("unit_amount"), currency),
+                        new Money(rs.getBigDecimal("amount"), currency)),
                 b.get("id"));
 
         Object ngay = b.get("depart_date");
@@ -188,8 +188,8 @@ public class BookingRepository {
                 BookingStatus.valueOf((String) b.get("status")),
                 (String) b.get("product_title"),
                 ngay == null ? null : ((Date) ngay).toLocalDate(),
-                new PriceBreakdown(dong, tong.round(soLe), coc.round(soLe),
-                        tong.minus(coc).round(soLe))));
+                new PriceBreakdown(row, tong.round(fractionDigits), deposit.round(fractionDigits),
+                        tong.minus(deposit).round(fractionDigits))));
     }
 
     /**

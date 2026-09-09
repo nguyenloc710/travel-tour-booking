@@ -49,7 +49,7 @@ class MigrationV3IT {
     JdbcTemplate jdbc;
 
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
                 DELETE FROM slug_history;
                 DELETE FROM post_tag;
@@ -107,56 +107,56 @@ class MigrationV3IT {
 
     @Test
     @DisplayName("Lịch trình: một sản phẩm không có hai ngày cùng số thứ tự")
-    void trungSoNgay() {
-        themNgay("d3100000-0000-4000-8000-000000000001", 1);
+    void duplicateDayNumberRejected() {
+        addDeparture("d3100000-0000-4000-8000-000000000001", 1);
 
         assertThrows(DataIntegrityViolationException.class,
-                () -> themNgay("d3100000-0000-4000-8000-000000000002", 1));
+                () -> addDeparture("d3100000-0000-4000-8000-000000000002", 1));
     }
 
     @Test
     @DisplayName("Xoá mềm một ngày rồi thêm lại ngày khác cùng số — index bộ phận cho phép")
-    void themLaiNgayDaXoa() {
-        themNgay("d3100000-0000-4000-8000-000000000003", 2);
+    void softDeletedDayNumberCanBeReused() {
+        addDeparture("d3100000-0000-4000-8000-000000000003", 2);
         jdbc.update("UPDATE itinerary_day SET soft_delete = TRUE WHERE id = CAST(? AS uuid)",
                 "d3100000-0000-4000-8000-000000000003");
 
         // Biên tập viên dựng lại ngày 2 sau khi xoá nhầm. Với CONSTRAINT UNIQUE
         // thường thì câu này đỏ và thông báo lỗi không nói gì về nguyên nhân thật.
-        themNgay("d3100000-0000-4000-8000-000000000004", 2);
+        addDeparture("d3100000-0000-4000-8000-000000000004", 2);
 
-        assertEquals(1, dem("SELECT count(*) FROM itinerary_day WHERE NOT soft_delete"));
+        assertEquals(1, count("SELECT count(*) FROM itinerary_day WHERE NOT soft_delete"));
     }
 
     @Test
     @DisplayName("Mô tả ngày KHÔNG bị chặn bởi CHECK độ dài — đó là kiểm chất lượng, không phải toàn vẹn")
-    void moTaNganVanLuuDuoc() {
-        themNgay("d3100000-0000-4000-8000-000000000005", 3);
+    void shortDayDescriptionStillSaves() {
+        addDeparture("d3100000-0000-4000-8000-000000000005", 3);
         jdbc.update("""
                 INSERT INTO itinerary_day_translation (itinerary_day_id, locale, title, description)
                 VALUES (CAST(? AS uuid),'da','Ankomst','Kort.')
                 """, "d3100000-0000-4000-8000-000000000005");
 
-        assertEquals(1, dem("SELECT count(*) FROM itinerary_day_translation"),
+        assertEquals(1, count("SELECT count(*) FROM itinerary_day_translation"),
                 "Chặn bằng CHECK là chặn biên tập viên lưu bản nháp giữa chừng");
     }
 
     @Test
     @DisplayName("Tên khách sạn không nằm trong bảng dịch, mô tả thì có")
-    void tenKhachSanKhongDich() {
-        List<String> cotDich = jdbc.queryForList(
+    void hotelNameNotTranslatedDescriptionIs() {
+        List<String> translationColumn = jdbc.queryForList(
                 "SELECT column_name FROM information_schema.columns "
                         + "WHERE table_name = 'hotel_translation' AND column_name IN ('name','description')",
                 String.class);
 
-        assertEquals(List.of("description"), cotDich,
+        assertEquals(List.of("description"), translationColumn,
                 "Tên riêng của khách sạn không dịch — docs/24 mục 5");
     }
 
     @Test
     @DisplayName("Không xoá cứng được khách sạn còn nằm trong lịch trình hoặc chặng nghỉ")
-    void khongXoaDuocKhachSanDangDung() {
-        themNgay("d3100000-0000-4000-8000-000000000006", 1);
+    void cannotHardDeleteHotelInUse() {
+        addDeparture("d3100000-0000-4000-8000-000000000006", 1);
         jdbc.update("UPDATE itinerary_day SET hotel_id = CAST(? AS uuid) WHERE id = CAST(? AS uuid)",
                 KHACH_SAN, "d3100000-0000-4000-8000-000000000006");
 
@@ -166,7 +166,7 @@ class MigrationV3IT {
 
     @Test
     @DisplayName("Số đêm của một chặng nghỉ phải từ 1 trở lên")
-    void soDemPhaiDuong() {
+    void stayNightsMustBePositive() {
         assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("""
                 INSERT INTO product_hotel_stay (product_id, hotel_id, nights)
                 VALUES (CAST(? AS uuid), CAST(? AS uuid), 0)
@@ -175,19 +175,19 @@ class MigrationV3IT {
 
     @Test
     @DisplayName("Tham quan thuộc điểm đến, không thuộc sản phẩm")
-    void thamQuanThuocDiemDen() {
-        Boolean coCotSanPham = jdbc.queryForObject(
+    void excursionBelongsToDestination() {
+        Boolean hasProductColumn = jdbc.queryForObject(
                 "SELECT count(*) = 0 FROM information_schema.columns "
                         + "WHERE table_name = 'excursion' AND column_name = 'product_id'",
                 Boolean.class);
 
-        assertEquals(Boolean.TRUE, coCotSanPham,
+        assertEquals(Boolean.TRUE, hasProductColumn,
                 "Gắn tham quan vào sản phẩm là chép mô tả ra nhiều bản rồi để chúng lệch nhau");
     }
 
     @Test
     @DisplayName("Đổi slug bài viết thì trigger tự ghi slug cũ, đúng loại POST")
-    void doiSlugBaiViet() {
+    void postSlugChangeRecorded() {
         jdbc.execute("""
                 INSERT INTO post (id) VALUES ('d3200000-0000-4000-8000-000000000001');
                 INSERT INTO post_translation (post_id, locale, slug, title, excerpt, body, status)
@@ -206,7 +206,7 @@ class MigrationV3IT {
 
     @Test
     @DisplayName("Buổi thuyết trình thuộc đúng một thị trường, và số chỗ đã nhận không vượt sức chứa")
-    void buoiThuyetTrinh() {
+    void lectureBelongsToOneMarketAndRespectsCapacity() {
         jdbc.update("""
                 INSERT INTO lecture (id, market, event_date, city, seats, seats_taken)
                 VALUES ('d3300000-0000-4000-8000-000000000001','DK','2027-03-14','Odense',60,12)
@@ -217,42 +217,42 @@ class MigrationV3IT {
                 "d3300000-0000-4000-8000-000000000001"));
 
         // Số chỗ còn lại là giá trị TÍNH RA, không lưu thành cột thứ ba.
-        assertEquals(48, dem("SELECT seats - seats_taken FROM lecture"));
+        assertEquals(48, count("SELECT seats - seats_taken FROM lecture"));
 
-        Integer coCotConLai = jdbc.queryForObject(
+        Integer hasRemainingColumn = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'lecture' AND column_name LIKE '%available%'",
                 Integer.class);
-        assertEquals(0, coCotConLai);
+        assertEquals(0, hasRemainingColumn);
     }
 
     @Test
     @DisplayName("Cột là event_date chứ không phải date — cùng loại bẫy với collation ở V1")
-    void tenCotNgay() {
-        Integer coCotDate = jdbc.queryForObject(
+    void columnIsEventDateNotDate() {
+        Integer hasDateColumn = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'lecture' AND column_name = 'date'", Integer.class);
-        assertEquals(0, coCotDate);
+        assertEquals(0, hasDateColumn);
 
-        assertEquals(1, dem("SELECT count(*) FROM information_schema.columns "
+        assertEquals(1, count("SELECT count(*) FROM information_schema.columns "
                 + "WHERE table_name = 'lecture' AND column_name = 'event_date'"));
     }
 
     @Test
     @DisplayName("Ba bảng nối thuộc nhóm C: không cột kiểm toán, không xoá mềm")
-    void bangNoiKhongCoCotKiemToan() {
-        Integer so = jdbc.queryForObject("""
+    void junctionTablesHaveNoAuditColumns() {
+        Integer count = jdbc.queryForObject("""
                 SELECT count(*) FROM information_schema.columns
                 WHERE table_name IN ('product_theme','product_hotel_stay','post_tag')
                   AND column_name IN ('created_at','last_modified_by','soft_delete')
                 """, Integer.class);
 
-        assertEquals(0, so, "Vòng đời của chúng trùng khít với bảng cha — docs/11 mục 11.2");
+        assertEquals(0, count, "Vòng đời của chúng trùng khít với bảng cha — docs/11 mục 11.2");
     }
 
     @Test
     @DisplayName("Mọi bảng có last_modified_at đều có trigger — quy tắc kiểm 17")
-    void moiBangDeuCoTrigger() {
+    void everyTableWithLastModifiedHasTrigger() {
         List<String> thieu = jdbc.queryForList("""
                 SELECT c.table_name
                 FROM information_schema.columns c
@@ -270,14 +270,14 @@ class MigrationV3IT {
 
     // ------------------------------------------------------------ tiện ích
 
-    private void themNgay(String id, int soNgay) {
+    private void addDeparture(String id, int dayCount) {
         jdbc.update("INSERT INTO itinerary_day (id, product_id, day_number, destination_id) "
                 + "VALUES (CAST(? AS uuid), CAST(? AS uuid), ?, CAST(? AS uuid))",
-                id, SAN_PHAM, soNgay, DIEM_DEN);
+                id, SAN_PHAM, dayCount, DIEM_DEN);
     }
 
-    private int dem(String sql) {
-        Integer so = jdbc.queryForObject(sql, Integer.class);
-        return so == null ? 0 : so;
+    private int count(String sql) {
+        Integer count = jdbc.queryForObject(sql, Integer.class);
+        return count == null ? 0 : count;
     }
 }

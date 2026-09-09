@@ -25,8 +25,8 @@ public final class PricingMapper {
                 RefMapper.sangTien(b.balance()));
     }
 
-    public static List<PriceLine> sangDong(List<vn.travel.booking.pricing.dto.PriceLine> dong) {
-        return dong.stream()
+    public static List<PriceLine> sangDong(List<vn.travel.booking.pricing.dto.PriceLine> row) {
+        return row.stream()
                 .map(d -> new PriceLine(
                         PriceLine.KindEnum.fromValue(d.kind().name()),
                         d.labelKey(),

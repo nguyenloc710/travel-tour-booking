@@ -80,8 +80,9 @@ class ProductEndpointIT {
      * một transaction riêng, và câu đầu tiên sẽ đỏ ngay.
      */
     @BeforeEach
-    void chuanBiDuLieu() {
+    void prepareData() {
         jdbc.execute("""
+                DELETE FROM slug_history;
                 DELETE FROM product_image;
                 DELETE FROM media_asset_translation;
                 DELETE FROM media_asset;
@@ -202,7 +203,7 @@ class ProductEndpointIT {
                    ARRAY['Første afsnit.','Andet afsnit.'],
                    ARRAY['Lokal guide','Aftensmad','Bådtur'],
                    'Lanterner i Hoi An','PUBLISHED'),
-                  ('c0000000-0000-4000-8000-000000000003','vi','hoi-an-ve-dem',
+                  ('c0000000-0000-4000-8000-000000000003','vi','hoi-an-ve-count',
                    'Hội An về đêm','Một buổi tối giữa những chiếc đèn lồng.',
                    ARRAY['Đoạn một.','Đoạn hai.'],
                    ARRAY['Hướng dẫn viên địa phương','Bữa tối','Đi thuyền'],
@@ -264,8 +265,8 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Thị trường DK, locale da: bốn sản phẩm đã xuất bản, không có sản phẩm của VN")
-    void listing_dk_da() {
-        ProductPage trang = trang(goiListing("dk", "da", Map.of()));
+    void listingDkDaShowsOnlyPublishedDkProducts() {
+        ProductPage trang = trang(callListing("dk", "da", Map.of()));
 
         assertEquals(4, trang.getTotalItems(),
                 "P4 chỉ xuất bản ở VN nên không được lọt vào thị trường DK");
@@ -274,16 +275,16 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Sản phẩm thiếu bản dịch vi BIẾN MẤT khỏi listing vi — không hiện bản da")
-    void khongFallbackNoiDungBanHang() {
-        ProductPage da = trang(goiListing("dk", "da", Map.of()));
-        ProductPage vi = trang(goiListing("dk", "vi", Map.of()));
+    void untranslatedProductDisappearsNoFallback() {
+        ProductPage da = trang(callListing("dk", "da", Map.of()));
+        ProductPage vi = trang(callListing("dk", "vi", Map.of()));
 
         assertEquals(4, da.getTotalItems());
         assertEquals(2, vi.getTotalItems(),
                 "Chỉ P1 và P3 có bản vi; P2 và P5 chỉ có bản da nên phải biến mất");
 
-        List<String> tenVi = vi.getItems().stream().map(ProductSummary::getTitle).toList();
-        assertTrue(tenVi.stream().noneMatch(t -> t.contains("Ålborg")),
+        List<String> viName = vi.getItems().stream().map(ProductSummary::getTitle).toList();
+        assertTrue(viName.stream().noneMatch(t -> t.contains("Ålborg")),
                 "Hiện bản tiếng Đan thay thế là phá chính sách của docs/02 mục 4");
 
         // Đây chính là lý do "Xem tất cả N tour" không được hardcode: cùng một
@@ -293,8 +294,8 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Sắp theo tiêu đề dùng collation Đan Mạch: Aa và Å xếp SAU z")
-    void sapXepTheoCollationDanMach() {
-        List<String> ten = trang(goiListing("dk", "da", Map.of("sort", "title,asc")))
+    void sortsByTitleWithDanishCollation() {
+        List<String> name = trang(callListing("dk", "da", Map.of("sort", "title,asc")))
                 .getItems().stream().map(ProductSummary::getTitle).toList();
 
         assertEquals(List.of(
@@ -302,14 +303,14 @@ class ProductEndpointIT {
                         "Vietnam fra nord til syd",
                         "Ålborg-gruppens krydstogt",
                         "Aarhus kulturtur"),
-                ten,
+                name,
                 "String.compareTo() của Java xếp Aarhus lên đầu — sai với người Đan Mạch");
     }
 
     @Test
     @DisplayName("Tìm không dấu: gõ hoi an ra Hội An")
-    void timKhongDau() {
-        ProductPage kq = trang(goiListing("dk", "vi", Map.of("q", "hoi an")));
+    void accentInsensitiveSearch() {
+        ProductPage kq = trang(callListing("dk", "vi", Map.of("q", "hoi an")));
 
         assertEquals(1, kq.getTotalItems());
         assertEquals("Hội An về đêm", kq.getItems().get(0).getTitle());
@@ -317,27 +318,27 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Lọc theo miền dùng slug CỦA LOCALE ĐANG XEM, không dùng mã miền")
-    void locTheoMien() {
-        assertEquals(1, trang(goiListing("dk", "da", Map.of("region", "nordvietnam"))).getTotalItems());
-        assertEquals(1, trang(goiListing("dk", "vi", Map.of("region", "mien-bac"))).getTotalItems());
-        assertEquals(0, trang(goiListing("dk", "vi", Map.of("region", "nordvietnam"))).getTotalItems(),
+    void filterByRegionUsesCurrentLocaleSlug() {
+        assertEquals(1, trang(callListing("dk", "da", Map.of("region", "nordvietnam"))).getTotalItems());
+        assertEquals(1, trang(callListing("dk", "vi", Map.of("region", "mien-bac"))).getTotalItems());
+        assertEquals(0, trang(callListing("dk", "vi", Map.of("region", "nordvietnam"))).getTotalItems(),
                 "Slug tiếng Đan không được dùng ở locale vi");
     }
 
     @Test
     @DisplayName("Lọc theo loại sản phẩm")
-    void locTheoLoai() {
-        ProductPage kq = trang(goiListing("dk", "da", Map.of("productType", "CRUISE")));
+    void filterByProductType() {
+        ProductPage kq = trang(callListing("dk", "da", Map.of("productType", "CRUISE")));
         assertEquals(1, kq.getTotalItems());
         assertEquals("Ålborg-gruppens krydstogt", kq.getItems().get(0).getTitle());
     }
 
     @Test
     @DisplayName("Phân trang theo offset, tổng số đếm từ dữ liệu")
-    void phanTrang() {
-        ProductPage t0 = trang(goiListing("dk", "da", Map.of("size", "2", "page", "0")));
-        ProductPage t1 = trang(goiListing("dk", "da", Map.of("size", "2", "page", "1")));
-        ProductPage t2 = trang(goiListing("dk", "da", Map.of("size", "2", "page", "2")));
+    void offsetPaginationWithTotalFromData() {
+        ProductPage t0 = trang(callListing("dk", "da", Map.of("size", "2", "page", "0")));
+        ProductPage t1 = trang(callListing("dk", "da", Map.of("size", "2", "page", "1")));
+        ProductPage t2 = trang(callListing("dk", "da", Map.of("size", "2", "page", "2")));
 
         assertEquals(4, t0.getTotalItems());
         assertEquals(2, t0.getTotalPages());
@@ -352,9 +353,9 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Giá làm tròn theo số chữ số thập phân của THỊ TRƯỜNG: DKK 2, VND 0")
-    void giaTheoThiTruong() {
-        ProductSummary dk = trang(goiListing("dk", "da", Map.of("q", "Vietnam"))).getItems().get(0);
-        ProductSummary vn = trang(goiListing("vn", "vi", Map.of("q", "Viet"))).getItems().get(0);
+    void priceRoundedByMarketFractionDigits() {
+        ProductSummary dk = trang(callListing("dk", "da", Map.of("q", "Vietnam"))).getItems().get(0);
+        ProductSummary vn = trang(callListing("vn", "vi", Map.of("q", "Viet"))).getItems().get(0);
 
         assertEquals("24990.00", dk.getPriceFrom().getAmount());
         assertEquals("DKK", dk.getPriceFrom().getCurrency());
@@ -367,61 +368,61 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Chưa có giá thì bỏ hẳn trường priceFrom, không trả 0")
-    void chuaCoGia() {
-        ProductSummary p3 = trang(goiListing("dk", "da", Map.of("q", "Hoi An"))).getItems().get(0);
+    void priceFromOmittedWhenNoPrice() {
+        ProductSummary p3 = trang(callListing("dk", "da", Map.of("q", "Hoi An"))).getItems().get(0);
         assertNull(p3.getPriceFrom(), "Trả 0 là nói với khách rằng tour này miễn phí");
     }
 
     @Test
     @DisplayName("Sản phẩm xoá mềm biến mất khỏi listing")
-    void xoaMem() {
+    void softDeletedProductDisappearsFromListing() {
         // CAST tường minh: cột là UUID, tham số JDBC là chuỗi, và Postgres
         // không tự ép — "operator does not exist: uuid = character varying".
         jdbc.update("UPDATE product SET soft_delete = TRUE WHERE id = CAST(? AS uuid)",
                 "c0000000-0000-4000-8000-000000000001");
 
-        assertEquals(3, trang(goiListing("dk", "da", Map.of())).getTotalItems());
+        assertEquals(3, trang(callListing("dk", "da", Map.of())).getTotalItems());
     }
 
     // ------------------------------------------------------------ chi tiết
 
     @Test
     @DisplayName("Chi tiết trả đúng bảng con của loại sản phẩm")
-    void chiTietGroupTour() {
-        ResponseEntity<GroupTourDetail> phanHoi = goiChiTiet(
+    void detailReturnsProductTypeBlock() {
+        ResponseEntity<GroupTourDetail> response = callDetail(
                 "dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class);
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        GroupTourDetail than = phanHoi.getBody();
-        assertEquals("GROUP_TOUR", than.getProductType());
-        assertEquals(12, than.getMinPax());
-        assertEquals(10, than.getGuaranteedThreshold());
-        assertEquals("da", than.getTourLeaderLanguage());
-        assertEquals(2, than.getLongDescription().size());
-        assertEquals("da", phanHoi.getHeaders().getFirst(HttpHeaders.CONTENT_LANGUAGE));
-        assertTrue(phanHoi.getHeaders().getVary().contains(HttpHeaders.ACCEPT_LANGUAGE));
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        GroupTourDetail body = response.getBody();
+        assertEquals("GROUP_TOUR", body.getProductType());
+        assertEquals(12, body.getMinPax());
+        assertEquals(10, body.getGuaranteedThreshold());
+        assertEquals("da", body.getTourLeaderLanguage());
+        assertEquals(2, body.getLongDescription().size());
+        assertEquals("da", response.getHeaders().getFirst(HttpHeaders.CONTENT_LANGUAGE));
+        assertTrue(response.getHeaders().getVary().contains(HttpHeaders.ACCEPT_LANGUAGE));
     }
 
     @Test
     @DisplayName("Bộ ảnh: đúng thứ tự sort_order, URL ghép từ đường dẫn tương đối")
-    void boAnhTheoThuTu() {
-        GroupTourDetail than = goiChiTiet(
+    void imageSetOrderedBySortOrder() {
+        GroupTourDetail body = callDetail(
                 "dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class).getBody();
 
-        List<GalleryImage> anh = than.getGallery();
-        assertEquals(3, anh.size(), "tấm xoá mềm phải bị loại");
+        List<GalleryImage> image = body.getGallery();
+        assertEquals(3, image.size(), "tấm xoá mềm phải bị loại");
 
         // Dữ liệu chèn theo thứ tự 3, 1, 2 — ra phải theo sort_order.
         assertEquals(List.of("Rismarker", "Lanterner", "Kun dansk"),
-                anh.stream().map(GalleryImage::getAlt).toList());
+                image.stream().map(GalleryImage::getAlt).toList());
 
         // CSDL lưu `tour/mot.jpg`; địa chỉ gốc nằm ở cấu hình, không ở dữ liệu —
         // ADR-011 mục 2. Đây là chỗ bắt được nếu ai đó lưu URL đầy đủ vào CSDL.
-        GalleryImage dau = anh.getFirst();
-        assertTrue(dau.getUrl().endsWith("/tour/mot.jpg"), dau.getUrl());
-        assertTrue(dau.getUrl().startsWith("http"), dau.getUrl());
-        assertEquals(1400, dau.getWidth());
-        assertEquals(933, dau.getHeight());
+        GalleryImage first = image.getFirst();
+        assertTrue(first.getUrl().endsWith("/tour/mot.jpg"), first.getUrl());
+        assertTrue(first.getUrl().startsWith("http"), first.getUrl());
+        assertEquals(1400, first.getWidth());
+        assertEquals(933, first.getHeight());
     }
 
     /**
@@ -433,10 +434,10 @@ class ProductEndpointIT {
      */
     @Test
     @DisplayName("Ảnh thiếu alt ở locale nào thì biến mất khỏi locale đó")
-    void anhThieuAltThiAn() {
-        GroupTourDetail da = goiChiTiet(
+    void imageMissingAltHiddenInThatLocale() {
+        GroupTourDetail da = callDetail(
                 "dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class).getBody();
-        GroupTourDetail vi = goiChiTiet(
+        GroupTourDetail vi = callDetail(
                 "dk", "vi", "viet-nam-tu-bac-vao-nam", GroupTourDetail.class).getBody();
 
         assertEquals(3, da.getGallery().size());
@@ -453,11 +454,11 @@ class ProductEndpointIT {
      */
     @Test
     @DisplayName("Sản phẩm không có ảnh nào vẫn trả 200")
-    void khongCoAnhVanTra200() {
-        ResponseEntity<Object> phanHoi =
-                goiChiTiet("dk", "da", "aalborg-krydstogt", Object.class);
+    void productWithoutImagesStillReturns200() {
+        ResponseEntity<Object> response =
+                callDetail("dk", "da", "aalborg-krydstogt", Object.class);
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     /**
@@ -467,92 +468,92 @@ class ProductEndpointIT {
      */
     @Test
     @DisplayName("layout: vắng khi chưa chọn, trả nguyên văn khi đã chọn")
-    void layoutTraNguyenVan() {
-        assertNull(goiChiTiet("dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class)
+    void layoutAbsentUntilChosenThenVerbatim() {
+        assertNull(callDetail("dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class)
                 .getBody().getLayout());
 
         jdbc.update("UPDATE product SET layout = ? WHERE id = CAST(? AS uuid)",
-                "tap-chi-anh-lon", "c0000000-0000-4000-8000-000000000001");
+                "tap-chi-image-lon", "c0000000-0000-4000-8000-000000000001");
 
-        assertEquals("tap-chi-anh-lon",
-                goiChiTiet("dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class)
+        assertEquals("tap-chi-image-lon",
+                callDetail("dk", "da", "vietnam-fra-nord-til-syd", GroupTourDetail.class)
                         .getBody().getLayout());
     }
 
     @Test
     @DisplayName("Slug phụ thuộc locale: slug tiếng Đan không mở được ở locale vi")
-    void slugPhuThuocLocale() {
+    void slugDependsOnLocale() {
         assertEquals(HttpStatus.NOT_FOUND,
-                goiChiTiet("dk", "vi", "vietnam-fra-nord-til-syd", ErrorResponse.class).getStatusCode());
+                callDetail("dk", "vi", "vietnam-fra-nord-til-syd", ErrorResponse.class).getStatusCode());
         assertEquals(HttpStatus.OK,
-                goiChiTiet("dk", "vi", "viet-nam-tu-bac-vao-nam", GroupTourDetail.class).getStatusCode());
+                callDetail("dk", "vi", "viet-nam-tu-bac-vao-nam", GroupTourDetail.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Sản phẩm chưa dịch trả 404 ở locale đó, không trả bản da")
-    void chuaDichTra404() {
+    void untranslatedReturns404() {
         assertEquals(HttpStatus.OK,
-                goiChiTiet("dk", "da", "aalborg-krydstogt", Object.class).getStatusCode());
+                callDetail("dk", "da", "aalborg-krydstogt", Object.class).getStatusCode());
 
-        ResponseEntity<ErrorResponse> vi = goiChiTiet("dk", "vi", "aalborg-krydstogt", ErrorResponse.class);
+        ResponseEntity<ErrorResponse> vi = callDetail("dk", "vi", "aalborg-krydstogt", ErrorResponse.class);
         assertEquals(HttpStatus.NOT_FOUND, vi.getStatusCode());
         assertEquals("NOT_FOUND", vi.getBody().getCode());
     }
 
     @Test
     @DisplayName("Sản phẩm chưa gán thị trường trả 404 ở thị trường đó")
-    void chuaGanThiTruongTra404() {
+    void productNotAssignedToMarketReturns404() {
         assertEquals(HttpStatus.NOT_FOUND,
-                goiChiTiet("dk", "da", "skraeddersyet-rejse", ErrorResponse.class).getStatusCode());
+                callDetail("dk", "da", "skraeddersyet-rejse", ErrorResponse.class).getStatusCode());
         assertEquals(HttpStatus.OK,
-                goiChiTiet("vn", "da", "skraeddersyet-rejse", Object.class).getStatusCode());
+                callDetail("vn", "da", "skraeddersyet-rejse", Object.class).getStatusCode());
     }
 
     // ------------------------------------------------------------ lỗi
 
     @Test
     @DisplayName("Ngôn ngữ không hỗ trợ trả 400 kèm mã, không lặng lẽ lùi về da")
-    void ngonNguKhongHoTro() {
-        ResponseEntity<ErrorResponse> phanHoi = goi("/api/v1/dk/products", "de", ErrorResponse.class);
+    void unsupportedLanguageReturns400() {
+        ResponseEntity<ErrorResponse> response = call("/api/v1/dk/products", "de", ErrorResponse.class);
 
-        assertEquals(HttpStatus.BAD_REQUEST, phanHoi.getStatusCode());
-        assertEquals("UNSUPPORTED_LOCALE", phanHoi.getBody().getCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("UNSUPPORTED_LOCALE", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Thị trường không tồn tại hoặc đang tắt trả 404, không phải 400")
-    void thiTruongKhongBat() {
+    void unknownOrDisabledMarketReturns404() {
         assertEquals(HttpStatus.NOT_FOUND,
-                goi("/api/v1/xx/products", "da", ErrorResponse.class).getStatusCode());
+                call("/api/v1/xx/products", "da", ErrorResponse.class).getStatusCode());
 
         jdbc.update("UPDATE market SET is_active = FALSE WHERE code = 'VN'");
 
-        ResponseEntity<ErrorResponse> phanHoi = goi("/api/v1/vn/products", "vi", ErrorResponse.class);
-        assertEquals(HttpStatus.NOT_FOUND, phanHoi.getStatusCode());
-        assertEquals("NOT_FOUND", phanHoi.getBody().getCode());
+        ResponseEntity<ErrorResponse> response = call("/api/v1/vn/products", "vi", ErrorResponse.class);
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("NOT_FOUND", response.getBody().getCode());
     }
 
     @Test
     @DisplayName("Tham số sai ràng buộc của spec trả 400 VALIDATION_FAILED")
-    void thamSoSai() {
-        ResponseEntity<ErrorResponse> qua = goi("/api/v1/dk/products?size=999", "da", ErrorResponse.class);
+    void invalidParamReturns400ValidationFailed() {
+        ResponseEntity<ErrorResponse> qua = call("/api/v1/dk/products?size=999", "da", ErrorResponse.class);
         assertEquals(HttpStatus.BAD_REQUEST, qua.getStatusCode());
         assertEquals("VALIDATION_FAILED", qua.getBody().getCode());
 
-        ResponseEntity<ErrorResponse> loai = goi(
+        ResponseEntity<ErrorResponse> type = call(
                 "/api/v1/dk/products?productType=KHONG_CO_LOAI_NAY", "da", ErrorResponse.class);
-        assertEquals(HttpStatus.BAD_REQUEST, loai.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, type.getStatusCode());
     }
 
     @Test
     @DisplayName("API không trả câu tiếng người ở bất kỳ mã lỗi nào")
-    void khongTraCauTiengNguoi() {
-        ResponseEntity<String> phanHoi = goi("/api/v1/dk/products/khong-co-slug-nay", "da", String.class);
+    void apiNeverReturnsHumanSentences() {
+        ResponseEntity<String> response = call("/api/v1/dk/products/khong-co-slug-nay", "da", String.class);
 
-        assertEquals(HttpStatus.NOT_FOUND, phanHoi.getStatusCode());
-        String than = phanHoi.getBody();
-        assertTrue(than.contains("NOT_FOUND"));
-        assertFalse(than.toLowerCase().contains("not found for"),
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        String body = response.getBody();
+        assertTrue(body.contains("NOT_FOUND"));
+        assertFalse(body.toLowerCase().contains("not found for"),
                 "Thân lỗi chỉ được chứa mã và tham số — câu chữ là việc của frontend");
     }
 
@@ -560,7 +561,7 @@ class ProductEndpointIT {
 
     @Test
     @DisplayName("Đổi slug thì slug cũ chuyển hướng sang slug mới")
-    void slugCuTroSangSlugMoi() {
+    void oldSlugRedirectsToNewSlug() {
         // Trigger trg_luu_slug_cu ghi slug_history, không phải mã ứng dụng —
         // nên bài test này đổi slug bằng UPDATE thật, đúng đường mà trang quản
         // trị đi qua.
@@ -569,16 +570,16 @@ class ProductEndpointIT {
                 WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND locale = 'da'
                 """);
 
-        ResponseEntity<SlugRedirect> phanHoi = goi(
+        ResponseEntity<SlugRedirect> response = call(
                 "/api/v1/dk/redirects/PRODUCT/vietnam-fra-nord-til-syd", "da", SlugRedirect.class);
 
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        assertEquals("vietnam-nord-syd-2027", phanHoi.getBody().getSlug());
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("vietnam-nord-syd-2027", response.getBody().getSlug());
     }
 
     @Test
     @DisplayName("KHÔNG chuyển hướng khi đích không xem được ở thị trường này")
-    void khongChuyenHuongToiNgoCut() {
+    void noRedirectWhenTargetNotVisibleInMarket() {
         jdbc.update("""
                 UPDATE product_translation SET slug = 'vietnam-nord-syd-2027'
                 WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND locale = 'da'
@@ -591,35 +592,35 @@ class ProductEndpointIT {
                 WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND market = 'DK'
                 """);
 
-        assertEquals(HttpStatus.NOT_FOUND, goi(
+        assertEquals(HttpStatus.NOT_FOUND, call(
                 "/api/v1/dk/redirects/PRODUCT/vietnam-fra-nord-til-syd",
                 "da", ErrorResponse.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Slug hiện tại không phải slug cũ — trả 404, không tự trỏ về chính nó")
-    void slugHienTaiKhongPhaiSlugCu() {
+    void currentSlugIsNotAnOldSlug() {
         // Chuyển hướng một URL về chính nó là một vòng lặp; trình duyệt dừng lại
         // và báo lỗi, còn công cụ tìm kiếm bỏ trang đó.
-        assertEquals(HttpStatus.NOT_FOUND, goi(
+        assertEquals(HttpStatus.NOT_FOUND, call(
                 "/api/v1/dk/redirects/PRODUCT/vietnam-fra-nord-til-syd",
                 "da", ErrorResponse.class).getStatusCode());
     }
 
     @Test
     @DisplayName("Slug cũ của locale này không dùng được ở locale kia")
-    void slugCuPhuThuocLocale() {
+    void oldSlugIsLocaleScoped() {
         jdbc.update("""
                 UPDATE product_translation SET slug = 'viet-nam-2027'
                 WHERE product_id = 'c0000000-0000-4000-8000-000000000001' AND locale = 'vi'
                 """);
 
         // Slug cũ vừa sinh ra thuộc locale `vi`; hỏi bằng `da` thì không thấy.
-        assertEquals(HttpStatus.NOT_FOUND, goi(
+        assertEquals(HttpStatus.NOT_FOUND, call(
                 "/api/v1/dk/redirects/PRODUCT/viet-nam-tu-bac-vao-nam",
                 "da", ErrorResponse.class).getStatusCode());
 
-        assertEquals("viet-nam-2027", goi(
+        assertEquals("viet-nam-2027", call(
                 "/api/v1/vn/redirects/PRODUCT/viet-nam-tu-bac-vao-nam",
                 "vi", SlugRedirect.class).getBody().getSlug());
     }
@@ -632,11 +633,11 @@ class ProductEndpointIT {
      * hoá lần thứ hai và máy chủ nhận đúng chuỗi {@code "hoi%20an"} — tìm kiếm
      * ra 0 kết quả mà nhìn URL thì thấy đúng.
      */
-    private ResponseEntity<ProductPage> goiListing(String market, String locale, Map<String, String> thamSo) {
+    private ResponseEntity<ProductPage> callListing(String market, String locale, Map<String, String> params) {
         return client().get()
                 .uri(b -> {
                     b.path("/api/v1/" + market + "/products");
-                    thamSo.forEach((ten, gia_tri) -> b.queryParam(ten, gia_tri));
+                    params.forEach((name, gia_tri) -> b.queryParam(name, gia_tri));
                     return b.build();
                 })
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
@@ -644,21 +645,21 @@ class ProductEndpointIT {
                 .toEntity(ProductPage.class);
     }
 
-    private ProductPage trang(ResponseEntity<ProductPage> phanHoi) {
-        assertEquals(HttpStatus.OK, phanHoi.getStatusCode());
-        return phanHoi.getBody();
+    private ProductPage trang(ResponseEntity<ProductPage> response) {
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        return response.getBody();
     }
 
-    private <T> ResponseEntity<T> goiChiTiet(String market, String locale, String slug, Class<T> kieu) {
-        return goi("/api/v1/" + market + "/products/" + slug, locale, kieu);
+    private <T> ResponseEntity<T> callDetail(String market, String locale, String slug, Class<T> type) {
+        return call("/api/v1/" + market + "/products/" + slug, locale, type);
     }
 
-    private <T> ResponseEntity<T> goi(String duongDan, String locale, Class<T> kieu) {
+    private <T> ResponseEntity<T> call(String path, String locale, Class<T> type) {
         return client().get()
-                .uri(duongDan)
+                .uri(path)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
                 .retrieve()
-                .toEntity(kieu);
+                .toEntity(type);
     }
 
     private RestClient client() {

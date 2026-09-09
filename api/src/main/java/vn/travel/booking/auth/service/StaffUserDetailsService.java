@@ -23,24 +23,24 @@ import java.util.Locale;
 @Service
 public class StaffUserDetailsService implements UserDetailsService {
 
-    private final StaffUserRepository nhanVien;
-    private final StaffRoleRepository vaiTro;
+    private final StaffUserRepository staff;
+    private final StaffRoleRepository roles;
 
-    public StaffUserDetailsService(StaffUserRepository nhanVien, StaffRoleRepository vaiTro) {
-        this.nhanVien = nhanVien;
-        this.vaiTro = vaiTro;
+    public StaffUserDetailsService(StaffUserRepository staff, StaffRoleRepository roles) {
+        this.staff = staff;
+        this.roles = roles;
     }
 
     @Override
     @Transactional(readOnly = true)
     public StaffPrincipal loadUserByUsername(String email) {
-        StaffUserEntity u = nhanVien
+        StaffUserEntity u = staff
                 .findByEmailAndActiveTrueAndSoftDeleteFalse(email.toLowerCase(Locale.ROOT))
                 .orElseThrow(() -> new UsernameNotFoundException("không nạp được nhân viên"));
 
         return new StaffPrincipal(new StaffCredentials(
                 u.getId(), u.getEmail(), u.getDisplayName(),
-                new LinkedHashSet<>(vaiTro.findRoleCodes(u.getId())),
+                new LinkedHashSet<>(roles.findRoleCodes(u.getId())),
                 u.getPasswordHash()));
     }
 }

@@ -46,7 +46,7 @@ public class SeatHoldRepository {
      * của người dùng.
      */
     @Transactional
-    public SeatHoldView hold(UUID departureId, int seats, String sessionRef, Duration hanGiu) {
+    public SeatHoldView hold(UUID departureId, int seats, String sessionRef, Duration holdDuration) {
         Map<String, Object> d;
         try {
             d = jdbc.queryForMap("""
@@ -84,7 +84,7 @@ public class SeatHoldRepository {
         UUID id = UUID.randomUUID();
         OffsetDateTime hetHan = jdbc.queryForObject(
                 "SELECT now() + CAST(? AS interval)", OffsetDateTime.class,
-                hanGiu.toMinutes() + " minutes");
+                holdDuration.toMinutes() + " minutes");
 
         jdbc.update("""
                 INSERT INTO seat_hold (id, departure_id, seats, session_ref, expires_at)

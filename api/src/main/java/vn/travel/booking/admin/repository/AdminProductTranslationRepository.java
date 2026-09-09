@@ -41,10 +41,10 @@ public class AdminProductTranslationRepository {
         this.jdbc = jdbc;
     }
     public boolean productExists(UUID productId) {
-        Integer so = jdbc.queryForObject(
+        Integer count = jdbc.queryForObject(
                 "SELECT count(*) FROM product WHERE id = ? AND NOT soft_delete",
                 Integer.class, productId);
-        return so != null && so > 0;
+        return count != null && count > 0;
     }
 
     /**
@@ -53,13 +53,13 @@ public class AdminProductTranslationRepository {
      * không phải tình cờ.
      */
     public List<ProductTranslationView> findAll(UUID productId) {
-        String nguon = locale.localeNguon();
+        String source = locale.localeNguon();
         Map<String, OffsetPair> moc = mocThoiGian(productId);
 
         return repository.findByProductIdAndSoftDeleteFalse(productId).stream()
                 .sorted(Comparator.comparing((ProductTranslationEntity e) ->
-                        e.getLocale().equals(nguon) ? 0 : 1).thenComparing(ProductTranslationEntity::getLocale))
-                .map(e -> dienThemTinhRa(e, nguon, moc))
+                        e.getLocale().equals(source) ? 0 : 1).thenComparing(ProductTranslationEntity::getLocale))
+                .map(e -> dienThemTinhRa(e, source, moc))
                 .toList();
     }
     public ProductTranslationView save(UUID productId, String locale, ProductTranslationInput input) {
@@ -67,7 +67,7 @@ public class AdminProductTranslationRepository {
                 .findByProductIdAndLocaleAndSoftDeleteFalse(productId, locale)
                 .orElseGet(() -> new ProductTranslationEntity(productId, locale));
 
-        mapper.ghiVao(input, entity);
+        mapper.writeTo(input, entity);
 
         ProductTranslationEntity daLuu = repository.saveAndFlush(entity);
 
@@ -85,14 +85,14 @@ public class AdminProductTranslationRepository {
                                                   Map<String, OffsetPair> moc) {
         ProductTranslationView co_ban = mapper.sangView(e);
         boolean laNguon = e.getLocale().equals(localeNguon);
-        OffsetPair cuaChinhNo = moc.get(e.getLocale());
+        OffsetPair forItself = moc.get(e.getLocale());
 
         return new ProductTranslationView(
                 co_ban.locale(), co_ban.slug(), co_ban.title(), co_ban.shortDescription(),
                 co_ban.longDescription(), co_ban.whyChooseThis(), co_ban.heroImageAlt(),
                 co_ban.status(), laNguon,
                 laNguon ? null : quaHan(e, moc.get(localeNguon)),
-                cuaChinhNo != null ? cuaChinhNo.lastModifiedAt() : co_ban.lastModifiedAt(),
+                forItself != null ? forItself.lastModifiedAt() : co_ban.lastModifiedAt(),
                 co_ban.lastModifiedBy());
     }
 
@@ -100,14 +100,14 @@ public class AdminProductTranslationRepository {
      * {@code OUTDATED} = bản nguồn sửa <b>sau</b> lần dịch gần nhất. Chưa dịch
      * lần nào thì cũng là quá hạn — nó chưa bao giờ khớp bản nguồn.
      */
-    private static Boolean quaHan(ProductTranslationEntity ban, OffsetPair nguon) {
-        if (nguon == null) {
+    private static Boolean quaHan(ProductTranslationEntity ban, OffsetPair source) {
+        if (source == null) {
             return Boolean.FALSE;
         }
         if (ban.getTranslatedAt() == null) {
             return Boolean.TRUE;
         }
-        return nguon.lastModifiedAt().isAfter(ban.getTranslatedAt());
+        return source.lastModifiedAt().isAfter(ban.getTranslatedAt());
     }
 
     private Map<String, OffsetPair> mocThoiGian(UUID productId) {

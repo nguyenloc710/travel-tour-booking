@@ -35,25 +35,25 @@ import java.util.UUID;
 @Service
 public class AdminProductService {
 
-    private final ProductWriteRepository sanPham;
-    private final ProductTypeBlockStore khoiLoai;
-    private final ProductMarketRepository thiTruong;
-    private final AdminProductTranslationRepository banDich;
+    private final ProductWriteRepository product;
+    private final ProductTypeBlockStore blockStore;
+    private final ProductMarketRepository productMarketRepository;
+    private final AdminProductTranslationRepository translationService;
     private final LocaleRepository locale;
     private final MarketRepository market;
     private final JdbcTemplate jdbc;
 
-    public AdminProductService(ProductWriteRepository sanPham,
-                               ProductTypeBlockStore khoiLoai,
-                               ProductMarketRepository thiTruong,
-                               AdminProductTranslationRepository banDich,
+    public AdminProductService(ProductWriteRepository product,
+                               ProductTypeBlockStore blockStore,
+                               ProductMarketRepository productMarketRepository,
+                               AdminProductTranslationRepository translationService,
                                LocaleRepository locale,
                                MarketRepository market,
                                JdbcTemplate jdbc) {
-        this.sanPham = sanPham;
-        this.khoiLoai = khoiLoai;
-        this.thiTruong = thiTruong;
-        this.banDich = banDich;
+        this.product = product;
+        this.blockStore = blockStore;
+        this.productMarketRepository = productMarketRepository;
+        this.translationService = translationService;
         this.locale = locale;
         this.market = market;
         this.jdbc = jdbc;
@@ -73,49 +73,49 @@ public class AdminProductService {
      */
     @Transactional
     public ProductDetailView tao(ProductCreateInput input) {
-        String loai = input.productType();
-        kiemKhoiLoai(loai, input.blocks());
-        kiemSoNgay(loai, input.durationDays());
+        String type = input.productType();
+        validateTypeBlocks(type, input.blocks());
+        validateDayCount(type, input.durationDays());
 
         UUID id = UUID.randomUUID();
-        ProductEntity e = new ProductEntity(id, loai);
-        ghiPhanChung(e, input.primaryDestinationId(), input.durationDays(), input.heroImage(),
+        ProductEntity e = new ProductEntity(id, type);
+        writeCommonFields(e, input.primaryDestinationId(), input.durationDays(), input.heroImage(),
                 input.mapImage(), input.layout(), input.isNew(), input.consultantId());
-        sanPham.save(e);
+        product.save(e);
 
-        khoiLoai.luu(id, loai, input.blocks());
-        banDich.save(id, locale.localeNguon(), input.source());
+        blockStore.save(id, type, input.blocks());
+        translationService.save(id, locale.localeNguon(), input.source());
 
         // flush() ngay để mọi ràng buộc TỨC THÌ — NOT NULL, CHECK, khoá ngoại
         // kép (product_id, product_type) — nổ ngay tại đây thay vì lẫn vào một
         // lời gọi sau. Ràng buộc HOÃN ct_product_source_translation thì vẫn chỉ
         // kiểm lúc commit; nó không kiểm được sớm hơn, và đó chính là lý do ba
         // lần ghi trên phải nằm trong một transaction.
-        sanPham.flush();
-        return chiTiet(id);
+        product.flush();
+        return detail(id);
     }
 
     // ------------------------------------------------------------ đọc
 
     @Transactional(readOnly = true)
-    public ProductDetailView chiTiet(UUID id) {
-        ProductEntity e = sanPham.findByIdAndSoftDeleteFalse(id)
+    public ProductDetailView detail(UUID id) {
+        ProductEntity e = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
-        List<MarketState> thi_truong = thiTruong.findByProductIdOrderByMarketAsc(id).stream()
+        List<MarketState> marketStates = productMarketRepository.findByProductIdOrderByMarketAsc(id).stream()
                 .map(m -> new MarketState(m.getMarket(), m.isPublished()))
                 .toList();
 
-        List<TranslationState> ban_dich = banDich.findAll(id).stream()
-                .map(AdminProductService::sangTrangThai)
+        List<TranslationState> translations = translationService.findAll(id).stream()
+                .map(AdminProductService::toState)
                 .toList();
 
         return new ProductDetailView(
                 e.getId(), e.getProductType(), e.getPrimaryDestinationId(), e.getDurationDays(),
                 e.getHeroImage(), e.getMapImage(), e.getLayout(), e.isNew(), e.getRating(),
                 e.getReviewCount(),
-                e.getConsultantId(), thi_truong, ban_dich,
-                khoiLoai.doc(id, e.getProductType()),
+                e.getConsultantId(), marketStates, translations,
+                blockStore.mapRow(id, e.getProductType()),
                 e.getLastModifiedAt(), e.getLastModifiedBy());
     }
 
@@ -128,21 +128,21 @@ public class AdminProductService {
      */
     @Transactional
     public ProductDetailView sua(UUID id, ProductPatchInput input) {
-        ProductEntity e = sanPham.findByIdAndSoftDeleteFalse(id)
+        ProductEntity e = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
         if (!input.blocks().trong()) {
-            kiemKhoiLoai(e.getProductType(), input.blocks());
-            khoiLoai.luu(id, e.getProductType(), input.blocks());
+            validateTypeBlocks(e.getProductType(), input.blocks());
+            blockStore.save(id, e.getProductType(), input.blocks());
         }
         if (input.durationDays() != null) {
-            kiemSoNgay(e.getProductType(), input.durationDays());
+            validateDayCount(e.getProductType(), input.durationDays());
         }
-        ghiPhanChung(e, input.primaryDestinationId(), input.durationDays(), input.heroImage(),
+        writeCommonFields(e, input.primaryDestinationId(), input.durationDays(), input.heroImage(),
                 input.mapImage(), input.layout(), input.isNew(), input.consultantId());
 
-        sanPham.saveAndFlush(e);
-        return chiTiet(id);
+        product.saveAndFlush(e);
+        return detail(id);
     }
 
     // ------------------------------------------------------------ xoá mềm
@@ -161,8 +161,8 @@ public class AdminProductService {
      * khi nào sản phẩm bị xoá cứng — và điều đó không xảy ra ở v1.
      */
     @Transactional
-    public void xoaMem(UUID id) {
-        ProductEntity e = sanPham.findByIdAndSoftDeleteFalse(id)
+    public void softDelete(UUID id) {
+        ProductEntity e = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
         // NOT IN của bốn trạng thái ĐÃ KẾT THÚC, chứ không phải IN của bốn trạng
@@ -185,7 +185,7 @@ public class AdminProductService {
 
         // Tắt bán trước, rồi mới xoá mềm: giữa hai câu lệnh vẫn còn một khoảnh
         // khắc, nhưng cả hai nằm trong một transaction nên không ai thấy nó.
-        thiTruong.findByProductIdOrderByMarketAsc(id)
+        productMarketRepository.findByProductIdOrderByMarketAsc(id)
                 .forEach(m -> m.setPublished(false));
 
         jdbc.update("UPDATE product_translation SET soft_delete = TRUE WHERE product_id = ?", id);
@@ -193,7 +193,7 @@ public class AdminProductService {
         jdbc.update("UPDATE price_tier SET soft_delete = TRUE WHERE product_id = ?", id);
 
         e.setSoftDelete(true);
-        sanPham.saveAndFlush(e);
+        product.saveAndFlush(e);
     }
 
     // ------------------------------------------------------------ thị trường
@@ -212,30 +212,30 @@ public class AdminProductService {
      * <b>lần bật đầu tiên</b>, nên bật–tắt–bật không làm mất ngày mở bán gốc.
      */
     @Transactional
-    public MarketState ganThiTruong(UUID id, String maThiTruong, boolean banRa) {
-        ProductEntity sp = sanPham.findByIdAndSoftDeleteFalse(id)
+    public MarketState ganThiTruong(UUID id, String marketCode, boolean onSale) {
+        ProductEntity sp = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
         // Thị trường đã tắt trả 404 chứ không phải một mã riêng: với bề mặt quản
         // trị thì "không có" và "đã tắt" dẫn tới cùng một việc phải làm.
-        market.cauHinh(maThiTruong)
-                .orElseThrow(() -> new NotFoundException("market=" + maThiTruong));
+        market.config(marketCode)
+                .orElseThrow(() -> new NotFoundException("market=" + marketCode));
 
-        if (banRa) {
-            kiemGiaPhongDon(id, maThiTruong);
+        if (onSale) {
+            validateSingleRoomPrice(id, marketCode);
         }
 
-        ProductMarketEntity pm = thiTruong.findByProductIdAndMarket(id, maThiTruong)
-                .orElseGet(() -> new ProductMarketEntity(id, maThiTruong));
+        ProductMarketEntity pm = productMarketRepository.findByProductIdAndMarket(id, marketCode)
+                .orElseGet(() -> new ProductMarketEntity(id, marketCode));
 
-        pm.setPublished(banRa);
-        if (banRa && pm.getPublishedAt() == null) {
+        pm.setPublished(onSale);
+        if (onSale && pm.getPublishedAt() == null) {
             pm.setPublishedAt(OffsetDateTime.now());
         }
-        thiTruong.saveAndFlush(pm);
+        productMarketRepository.saveAndFlush(pm);
 
         // Chạm product để lần đổi này có người đứng tên — xem javadoc trên.
-        sanPham.saveAndFlush(sp);
+        product.saveAndFlush(sp);
 
         return new MarketState(pm.getMarket(), pm.isPublished());
     }
@@ -256,7 +256,7 @@ public class AdminProductService {
      * <p>{@code DAY_TOUR} không kiểm: tour trong ngày không có đêm nào để ở
      * phòng, nên phụ thu phòng đơn không có nghĩa.
      */
-    private void kiemGiaPhongDon(UUID id, String maThiTruong) {
+    private void validateSingleRoomPrice(UUID id, String marketCode) {
         List<String> thieu = jdbc.queryForList("""
                 SELECT d.depart_date::text
                 FROM departure d
@@ -267,11 +267,11 @@ public class AdminProductService {
                         SELECT 1 FROM departure_price dp
                         WHERE dp.departure_id = d.id AND dp.occupancy = 'SINGLE')
                 ORDER BY d.depart_date
-                """, String.class, id, maThiTruong);
+                """, String.class, id, marketCode);
 
         if (!thieu.isEmpty()) {
-            throw SinglePriceMissingException.cuaSanPham(
-                    maThiTruong, thieu.size(), thieu.getFirst());
+            throw SinglePriceMissingException.forProduct(
+                    marketCode, thieu.size(), thieu.getFirst());
         }
     }
 
@@ -284,10 +284,10 @@ public class AdminProductService {
      * {@code PRODUCT_TYPE_BLOCK_MISMATCH} kèm {@code expectedBlock} thì sửa được
      * ngay.
      */
-    private static void kiemKhoiLoai(String loai, ProductTypeBlocks blocks) {
-        int so = blocks.soKhoi();
-        if (so != 1 || blocks.khoiCua(loai) == null) {
-            throw new AdminErrors.ProductTypeBlockMismatch(loai, ProductTypeBlocks.tenKhoi(loai), so);
+    private static void validateTypeBlocks(String type, ProductTypeBlocks blocks) {
+        int count = blocks.blockCount();
+        if (count != 1 || blocks.blocksFor(type) == null) {
+            throw new AdminErrors.ProductTypeBlockMismatch(type, ProductTypeBlocks.blockName(type), count);
         }
     }
 
@@ -296,23 +296,23 @@ public class AdminProductService {
      * {@code ck_product_duration} cưỡng chế <b>cả hai chiều</b>, nên cả hai
      * chiều phải kiểm ở đây.
      */
-    private static void kiemSoNgay(String loai, Short soNgay) {
-        boolean laDayTour = "DAY_TOUR".equals(loai);
-        if (laDayTour == (soNgay != null)) {
-            throw new AdminErrors.DurationDaysRuleViolated(loai);
+    private static void validateDayCount(String type, Short dayCount) {
+        boolean laDayTour = "DAY_TOUR".equals(type);
+        if (laDayTour == (dayCount != null)) {
+            throw new AdminErrors.DurationDaysRuleViolated(type);
         }
     }
 
-    private static void ghiPhanChung(ProductEntity e, UUID diemDen, Short soNgay, String anh,
+    private static void writeCommonFields(ProductEntity e, UUID destination, Short dayCount, String image,
                                      String anhBanDo, String khung, Boolean moi, UUID tuVanVien) {
-        if (diemDen != null) {
-            e.setPrimaryDestinationId(diemDen);
+        if (destination != null) {
+            e.setPrimaryDestinationId(destination);
         }
-        if (soNgay != null) {
-            e.setDurationDays(soNgay);
+        if (dayCount != null) {
+            e.setDurationDays(dayCount);
         }
-        if (anh != null) {
-            e.setHeroImage(anh);
+        if (image != null) {
+            e.setHeroImage(image);
         }
         if (anhBanDo != null) {
             e.setMapImage(anhBanDo);
@@ -328,7 +328,7 @@ public class AdminProductService {
         }
     }
 
-    private static TranslationState sangTrangThai(ProductTranslationView v) {
+    private static TranslationState toState(ProductTranslationView v) {
         return new TranslationState(v.locale(), v.status(), v.isSource(),
                 Boolean.TRUE.equals(v.outdated()));
     }

@@ -1,12 +1,16 @@
 package vn.travel.booking.region.controller;
 
+import org.springframework.lang.Nullable;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import vn.travel.booking.common.util.RequestScope;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import vn.travel.booking.region.service.RegionService;
-import vn.travel.booking.web.generated.api.RegionsApi;
 import vn.travel.booking.web.generated.model.Region;
 
 import java.time.Duration;
@@ -19,7 +23,8 @@ import java.util.List;
  * lúc chạy. Đó là lý do duy nhất để chọn spec-first thay vì code-first (ADR-002).
  */
 @RestController
-public class RegionController implements RegionsApi {
+@Validated
+public class RegionController {
 
     private final RegionService listRegions;
 
@@ -27,8 +32,15 @@ public class RegionController implements RegionsApi {
         this.listRegions = listRegions;
     }
 
-    @Override
-    public ResponseEntity<List<Region>> listRegions(String market, String acceptLanguage) {
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/regions",
+        produces = { "application/json" }
+    )
+    public ResponseEntity<List<Region>> listRegions(
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage
+    ) {
         String locale = RequestScope.locale(acceptLanguage);
 
         List<Region> ket_qua = listRegions.execute(RequestScope.market(market), locale).stream()

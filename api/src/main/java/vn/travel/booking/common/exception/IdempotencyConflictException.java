@@ -9,7 +9,7 @@ package vn.travel.booking.common.exception;
  */
 public class IdempotencyConflictException extends RuntimeException {
 
-    public IdempotencyConflictException(String chiTiet) {
-        super(chiTiet);
+    public IdempotencyConflictException(String detail) {
+        super(detail);
     }
 }

@@ -48,15 +48,15 @@ public class BookingService {
     /** Không đặt trực tiếp được: CTA là "Yêu cầu báo giá" — docs/23 mục 1. */
     private static final Set<String> KHONG_DAT_TRUC_TIEP = Set.of("PRIVATE_TOUR");
 
-    private final BookingPricingRepository giaPort;
-    private final SeatHoldRepository giuChoPort;
+    private final BookingPricingRepository pricingRepository;
+    private final SeatHoldRepository seatHoldRepository;
     private final BookingRepository donPort;
     private final MarketService markets;
 
-    public BookingService(BookingPricingRepository giaPort, SeatHoldRepository giuChoPort,
+    public BookingService(BookingPricingRepository pricingRepository, SeatHoldRepository seatHoldRepository,
                            BookingRepository donPort, MarketService markets) {
-        this.giaPort = giaPort;
-        this.giuChoPort = giuChoPort;
+        this.pricingRepository = pricingRepository;
+        this.seatHoldRepository = seatHoldRepository;
         this.donPort = donPort;
         this.markets = markets;
     }
@@ -79,7 +79,7 @@ public class BookingService {
     public SeatHoldView giuCho(String market, UUID departureId, int seats, String sessionRef) {
         markets.requireActive(market);
 
-        DeparturePricing d = giaPort.load(market, departureId, null)
+        DeparturePricing d = pricingRepository.load(market, departureId, null)
                 .orElseThrow(() -> new NotFoundException("departure id=" + departureId));
 
         if (KHONG_CO_TON_KHO.contains(d.productType())) {
@@ -87,23 +87,23 @@ public class BookingService {
                     "loại " + d.productType() + " không có tồn kho chung nên không giữ chỗ");
         }
 
-        return giuChoPort.hold(departureId, seats, sessionRef, HAN_GIU_CHO);
+        return seatHoldRepository.hold(departureId, seats, sessionRef, HAN_GIU_CHO);
     }
 
     @Transactional
     public void boGiuCho(String market, UUID seatHoldId) {
         markets.requireActive(market);
-        giuChoPort.release(seatHoldId);
+        seatHoldRepository.release(seatHoldId);
     }
 
     // ------------------------------------------------------------ đặt tour
 
     @Transactional
-    public BookingView datTour(String market, String locale, BookingCommand lenh) {
+    public BookingView datTour(String market, String locale, BookingCommand command) {
         markets.requireActive(market);
 
         DeparturePricing d = nap(market, new PricingQuery(
-                lenh.departureId(), lenh.pax(), lenh.singleTravellers(), lenh.departureOriginId()));
+                command.departureId(), command.pax(), command.singleTravellers(), command.departureOriginId()));
 
         if (KHONG_DAT_TRUC_TIEP.contains(d.productType())) {
             throw new BookingErrors.ProductNotBookable(
@@ -111,19 +111,19 @@ public class BookingService {
         }
 
         boolean canGiuCho = !KHONG_CO_TON_KHO.contains(d.productType());
-        if (canGiuCho && lenh.seatHoldId() == null) {
+        if (canGiuCho && command.seatHoldId() == null) {
             // Không có giữ chỗ nghĩa là chỗ chưa bao giờ được khoá, và hai khách
             // cùng bấm đặt sẽ cùng thành công. Chặn ở đây thay vì hy vọng frontend nhớ.
             throw new BookingErrors.SeatHoldExpired("loại có tồn kho phải kèm seatHoldId");
         }
 
-        PriceBreakdown bang = tinh(d, new PricingQuery(
-                lenh.departureId(), lenh.pax(), lenh.singleTravellers(), lenh.departureOriginId()));
+        PriceBreakdown table = tinh(d, new PricingQuery(
+                command.departureId(), command.pax(), command.singleTravellers(), command.departureOriginId()));
 
         return donPort.create(new BookingDraft(
-                market, locale, d.productId(), d.departureId(), lenh.seatHoldId(),
-                d.productTitle(), lenh.pax(), lenh.passengers(),
-                lenh.contactEmail(), lenh.contactPhone(), bang));
+                market, locale, d.productId(), d.departureId(), command.seatHoldId(),
+                d.productTitle(), command.pax(), command.passengers(),
+                command.contactEmail(), command.contactPhone(), table));
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +136,7 @@ public class BookingService {
     // ------------------------------------------------------------ nội bộ
 
     private DeparturePricing nap(String market, PricingQuery truyVan) {
-        return giaPort.load(market, truyVan.departureId(), truyVan.departureOriginId())
+        return pricingRepository.load(market, truyVan.departureId(), truyVan.departureOriginId())
                 .orElseThrow(() -> new NotFoundException("departure id=" + truyVan.departureId()));
     }
 
@@ -149,23 +149,23 @@ public class BookingService {
      * Ghi ở docs/12 mục 10.
      */
     private PriceBreakdown tinh(DeparturePricing d, PricingQuery truyVan) {
-        List<PaxLine> dong = new ArrayList<>();
+        List<PaxLine> row = new ArrayList<>();
 
         for (Map.Entry<String, Integer> e : truyVan.pax().entrySet()) {
             if (e.getValue() == null || e.getValue() <= 0) {
                 continue;
             }
-            Money donGia = d.doubleOccupancy().get(e.getKey());
-            if (donGia == null) {
+            Money unitPrice = d.doubleOccupancy().get(e.getKey());
+            if (unitPrice == null) {
                 throw new NotFoundException("chưa có giá cho loại khách " + e.getKey());
             }
-            dong.add(PaxLine.of(e.getKey(), e.getValue(), donGia));
+            row.add(PaxLine.of(e.getKey(), e.getValue(), unitPrice));
         }
-        if (dong.isEmpty()) {
+        if (row.isEmpty()) {
             throw new NotFoundException("đơn không có khách nào");
         }
 
-        PricingInput dauVao = PricingInput.cua(dong, d.fractionDigits(), d.depositRate())
+        PricingInput dauVao = PricingInput.cua(row, d.fractionDigits(), d.depositRate())
                 .phiXuLy(d.processingFee());
 
         if (truyVan.singleTravellers() > 0) {
@@ -202,6 +202,6 @@ public class BookingService {
                         e.getValue().currency()))
                 .findFirst()
                 .orElseThrow(() ->
-                        SinglePriceMissingException.cuaNgayKhoiHanh(d.departureId().toString()));
+                        SinglePriceMissingException.forDeparture(d.departureId().toString()));
     }
 }

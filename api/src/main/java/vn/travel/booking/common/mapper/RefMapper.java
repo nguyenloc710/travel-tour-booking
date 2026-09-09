@@ -43,7 +43,7 @@ public final class RefMapper {
         return new ProductSummary(
                 s.slug(),
                 s.title(),
-                loai(s.productType()),
+                type(s.productType()),
                 s.shortDescription(),
                 s.heroImage(),
                 s.heroImageAlt(),
@@ -78,7 +78,7 @@ public final class RefMapper {
                     v.fitnessLevel())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
                     .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
-                    .gallery(boAnh(d.gallery())).layout(d.layout());
+                    .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.IndividualPackage v -> new IndividualPackageDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -87,7 +87,7 @@ public final class RefMapper {
                     v.minPartySize(), v.flexibleDateWindowDays())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
                     .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
-                    .gallery(boAnh(d.gallery())).layout(d.layout());
+                    .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.PrivateTour v -> new PrivateTourDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -96,7 +96,7 @@ public final class RefMapper {
                     v.leadTimeDays(), v.quoteValidDays())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
                     .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
-                    .gallery(boAnh(d.gallery())).layout(d.layout());
+                    .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.Cruise v -> new CruiseDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -105,7 +105,7 @@ public final class RefMapper {
                     v.shipName(), v.portCount())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
                     .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
-                    .gallery(boAnh(d.gallery())).layout(d.layout());
+                    .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.Combo v -> new ComboDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
@@ -114,7 +114,7 @@ public final class RefMapper {
                     v.nights(), v.validFrom(), v.validTo())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
                     .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
-                    .gallery(boAnh(d.gallery())).layout(d.layout());
+                    .gallery(imageSet(d.gallery())).layout(d.layout());
 
             // DAY_TOUR không có durationDays — loại này đo bằng giờ, và CSDL
             // cưỡng chế duration_days IS NULL cho nó (ck_product_duration).
@@ -125,12 +125,12 @@ public final class RefMapper {
                     v.durationHours(), v.cutoffHours())
                     .mapImage(d.mapImage())
                     .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
-                    .gallery(boAnh(d.gallery())).layout(d.layout());
+                    .gallery(imageSet(d.gallery())).layout(d.layout());
         };
     }
 
-    private static ProductType loai(vn.travel.booking.product.dto.ProductType loai) {
-        return ProductType.fromValue(loai.name());
+    private static ProductType type(vn.travel.booking.product.dto.ProductType type) {
+        return ProductType.fromValue(type.name());
     }
 
     public static Ref sangRef(NamedRef r) {
@@ -142,12 +142,12 @@ public final class RefMapper {
      * trạng thái hợp lệ, và bắt frontend phân biệt "chưa có ảnh" với "không có
      * trường" là bịa ra một trường hợp rìa không tồn tại.
      */
-    private static java.util.List<GalleryImage> boAnh(
-            java.util.List<vn.travel.booking.product.dto.GalleryImage> anh) {
-        if (anh == null) {
+    private static java.util.List<GalleryImage> imageSet(
+            java.util.List<vn.travel.booking.product.dto.GalleryImage> image) {
+        if (image == null) {
             return java.util.List.of();
         }
-        return anh.stream()
+        return image.stream()
                 .map(a -> new GalleryImage(a.url(), a.alt(), a.width(), a.height()))
                 .toList();
     }

@@ -17,21 +17,21 @@ import java.util.List;
 @Service
 public class AdminCatalogService {
 
-    private final AdminCatalogRepository danhMuc;
+    private final AdminCatalogRepository catalog;
     private final LocaleRepository locale;
 
-    public AdminCatalogService(AdminCatalogRepository danhMuc, LocaleRepository locale) {
-        this.danhMuc = danhMuc;
+    public AdminCatalogService(AdminCatalogRepository catalog, LocaleRepository locale) {
+        this.catalog = catalog;
         this.locale = locale;
     }
 
     @Transactional(readOnly = true)
-    public PagedResult<AdminProductRow> danhSach(AdminProductQuery query) {
-        return danhMuc.findProducts(locale.localeNguon(), query);
+    public PagedResult<AdminProductRow> list(AdminProductQuery query) {
+        return catalog.findProducts(locale.localeNguon(), query);
     }
 
     @Transactional(readOnly = true)
-    public List<DestinationOption> diemDen() {
-        return danhMuc.findDestinations(locale.localeNguon());
+    public List<DestinationOption> destination() {
+        return catalog.findDestinations(locale.localeNguon());
     }
 }

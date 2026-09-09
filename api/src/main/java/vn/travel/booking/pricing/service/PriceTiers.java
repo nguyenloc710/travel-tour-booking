@@ -23,9 +23,9 @@ public final class PriceTiers {
      * nhóm hai người, và trả đơn giá của bậc nhỏ — đắt hơn hẳn, và không ai hiểu
      * vì sao.
      */
-    public static Money donGiaMoiNguoi(List<PriceTier> bac, int tongSoKhach) {
+    public static Money unitPricePerPerson(List<PriceTier> bac, int tongSoKhach) {
         return bac.stream()
-                .filter(b -> b.chua(tongSoKhach))
+                .filter(b -> b.fits(tongSoKhach))
                 .findFirst()
                 .map(PriceTier::pricePerPerson)
                 .orElseThrow(() -> new PartySizeOutOfRangeException(tongSoKhach));

@@ -38,6 +38,10 @@ dependencies {
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.flyway)
 
+    // Swagger UI + /v3/api-docs sinh TU CODE. Xem chú thích ở khối openapi bên dưới:
+    // từ đây spec sinh ra ở hai nơi và chúng KHÔNG tự khớp nhau.
+    implementation(libs.springdoc.webmvc.ui)
+
     implementation(libs.jackson.databind)
     implementation(libs.jackson.jsr310)
 
@@ -81,10 +85,19 @@ tasks.withType<Test>().configureEach {
 
 // ---------------------------------------------------------------- spec-first
 //
-// ADR-002 không đổi: contracts/openapi.yaml vẫn là nguồn sự thật, controller vẫn
-// `implements` interface sinh ra, và đổi spec mà quên sửa controller vẫn là lỗi
-// biên dịch.
-
+// ĐỔI SO VỚI ADR-002 — đọc trước khi sửa gì ở đây.
+//
+// Controller KHÔNG còn `implements` interface sinh ra. Từ đây:
+//
+//   · `contracts/openapi.yaml` chỉ còn sinh MODEL (DTO), không sinh interface.
+//   · Annotation định tuyến nằm trực tiếp trên controller.
+//   · springdoc đọc chính các annotation đó và sinh spec ở `/v3/api-docs`.
+//
+// Hệ quả phải biết: đổi `openapi.yaml` mà quên sửa controller KHÔNG còn là lỗi
+// biên dịch. Hai bản mô tả API cùng tồn tại — file spec và spec springdoc sinh
+// ra — và không có gì bắt chúng khớp nhau. `docs/34` mục 2.1 cùng `pnpm
+// contracts:check` vẫn dựa trên file spec, nên file đó vẫn phải được cập nhật
+// bằng tay khi endpoint đổi.
 val contractsFile = rootProject.file("../contracts/openapi.yaml")
 val generatedDir = layout.buildDirectory.dir("generated/openapi")
 
@@ -108,7 +121,8 @@ val generateApiInterfaces by tasks.registering(org.openapitools.generator.gradle
             "useJakartaEe" to "true",
         )
     )
-    globalProperties.set(mapOf("apis" to "", "models" to "", "supportingFiles" to "false"))
+    // CHỈ model. Không sinh interface nữa — không ai implements chúng.
+    globalProperties.set(mapOf("models" to "", "supportingFiles" to "false"))
 }
 
 sourceSets["main"].java.srcDir(generatedDir.map { it.dir("src/main/java") })
@@ -118,6 +132,6 @@ tasks.named("compileJava") { dependsOn(generateApiInterfaces) }
 // `pnpm contracts:generate` gọi task này ở phía Java.
 tasks.register("contractsGenerate") {
     group = "openapi"
-    description = "Sinh interface Java từ contracts/openapi.yaml"
+    description = "Sinh model Java từ contracts/openapi.yaml"
     dependsOn(generateApiInterfaces)
 }

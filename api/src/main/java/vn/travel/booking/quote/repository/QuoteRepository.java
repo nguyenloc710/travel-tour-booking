@@ -77,7 +77,7 @@ public class QuoteRepository {
      * trên phân biệt "không có tour này" với "tour này không hỏi giá" — hai câu
      * trả lời khác nhau cho khách.
      */
-    public Optional<QuoteProduct> timSanPham(String market, String locale, String slug) {
+    public Optional<QuoteProduct> findProduct(String market, String locale, String slug) {
         return jdbc.query("""
                 SELECT p.id, p.product_type, pt.title,
                        pp.lead_time_days, pp.quote_valid_days
@@ -109,13 +109,13 @@ public class QuoteRepository {
      * không có ai để đứng tên (docs/11 mục 11.1). Cùng quy ước với {@code
      * booking} do khách tự đặt.
      */
-    public QuoteReceiptView taoYeuCau(String market, String locale, UUID productId,
-                                      QuoteRequestCommand lenh) {
+    public QuoteReceiptView createRequest(String market, String locale, UUID productId,
+                                      QuoteRequestCommand command) {
 
         UUID id = UUID.randomUUID();
         String reference = sinhMa(market);
 
-        OffsetDateTime taoLuc = jdbc.queryForObject("""
+        OffsetDateTime createdAt = jdbc.queryForObject("""
                 INSERT INTO quote (id, reference, product_id, market, locale, status, party_size,
                                    contact_name, contact_email, contact_phone,
                                    requested_date, message)
@@ -123,39 +123,39 @@ public class QuoteRepository {
                 RETURNING created_at
                 """,
                 OffsetDateTime.class,
-                id, reference, productId, market, locale, lenh.partySize(),
-                lenh.contactName(), lenh.contactEmail(), lenh.contactPhone(),
-                lenh.requestedDate() == null ? null : Date.valueOf(lenh.requestedDate()),
-                lenh.message());
+                id, reference, productId, market, locale, command.partySize(),
+                command.contactName(), command.contactEmail(), command.contactPhone(),
+                command.requestedDate() == null ? null : Date.valueOf(command.requestedDate()),
+                command.message());
 
-        return new QuoteReceiptView(reference, QuoteStatus.DRAFT, taoLuc);
+        return new QuoteReceiptView(reference, QuoteStatus.DRAFT, createdAt);
     }
 
     // ------------------------------------------------------ đường đọc M8
 
-    public PagedResult<AdminQuoteRow> danhSach(AdminQuoteQuery query) {
-        List<Object> thamSo = new ArrayList<>();
-        String loc = dungMenhDeLoc(query, thamSo);
+    public PagedResult<AdminQuoteRow> list(AdminQuoteQuery query) {
+        List<Object> params = new ArrayList<>();
+        String loc = buildFilterClause(query, params);
 
         Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, thamSo.toArray());
+                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
         long totalItems = tong == null ? 0L : tong;
 
-        List<Object> thamSoTrang = new ArrayList<>(thamSo);
+        List<Object> thamSoTrang = new ArrayList<>(params);
         thamSoTrang.add(query.size());
         thamSoTrang.add((long) query.page() * query.size());
 
-        List<AdminQuoteRow> dong = jdbc.query(
+        List<AdminQuoteRow> row = jdbc.query(
                 CHON_DONG + NGUON + loc
                         // CŨ NHẤT TRƯỚC — ngược với danh sách đơn, và có chủ ý:
                         // đây là hàng đợi việc, mà việc chờ lâu nhất thì gấp
                         // nhất. Tiêu chí phụ theo id để phân trang ổn định.
                         + "ORDER BY q.created_at, q.id\n"
                         + "LIMIT ? OFFSET ?",
-                QuoteRepository::docDong,
+                QuoteRepository::readRow,
                 thamSoTrang.toArray());
 
-        return new PagedResult<>(dong, query.page(), query.size(), totalItems);
+        return new PagedResult<>(row, query.page(), query.size(), totalItems);
     }
 
     /**
@@ -166,7 +166,7 @@ public class QuoteRepository {
      * chuỗi để chèn vào giữa là thứ đọc lên không ai biết câu SQL cuối cùng
      * trông ra sao.
      */
-    public Optional<AdminQuoteDetailView> timTheoMa(String reference) {
+    public Optional<AdminQuoteDetailView> findByCode(String reference) {
         return jdbc.query("""
                 SELECT q.id, q.reference, q.status, q.market, q.locale, q.product_id,
                        pt.title, q.party_size, q.requested_date, q.contact_name,
@@ -184,7 +184,7 @@ public class QuoteRepository {
                 WHERE q.reference = ? AND NOT q.soft_delete
                 """,
                 (rs, i) -> {
-                    AdminQuoteRow tomTat = docDong(rs, i);
+                    AdminQuoteRow tomTat = readRow(rs, i);
                     return new AdminQuoteDetailView(
                             tomTat,
                             rs.getString("contact_phone"),
@@ -204,7 +204,7 @@ public class QuoteRepository {
     /** Ảnh chụp một báo giá vừa đủ để quyết bước chuyển. */
     public record BaoGiaDeDoi(UUID id, QuoteStatus status, String market, String currency,
                               int fractionDigits, int quoteValidDays, LocalDate validUntil,
-                              int soDong) {
+                              int rowCount) {
     }
 
     /**
@@ -253,13 +253,13 @@ public class QuoteRepository {
      * <p>{@code total} do <b>máy chủ cộng</b>, không nhận từ client — nhận rồi
      * tin là mở đường cho một báo giá mà tổng không khớp bảng.
      */
-    public void datBangGia(UUID quoteId, String currency, List<QuoteLineDraft> dong,
-                           UUID nhanVienId) {
+    public void setQuoteLines(UUID quoteId, String currency, List<QuoteLineDraft> row,
+                           UUID staffUserId) {
         jdbc.update("DELETE FROM quote_line WHERE quote_id = ?", quoteId);
 
         BigDecimal tong = BigDecimal.ZERO;
         int seq = 1;
-        for (QuoteLineDraft d : dong) {
+        for (QuoteLineDraft d : row) {
             jdbc.update("""
                     INSERT INTO quote_line (quote_id, seq, label_key, quantity, unit_amount, amount)
                     VALUES (?, ?, ?, ?, ?, ?)
@@ -271,7 +271,7 @@ public class QuoteRepository {
         // last_modified_by do ứng dụng ghi, last_modified_at do trigger —
         // api/CLAUDE.md mục 7b.
         jdbc.update("UPDATE quote SET total = ?, currency = ?, last_modified_by = ? WHERE id = ?",
-                tong, currency, nhanVienId, quoteId);
+                tong, currency, staffUserId, quoteId);
     }
 
     /**
@@ -282,7 +282,7 @@ public class QuoteRepository {
      * {@code COALESCE} thay vì hai câu riêng — ràng buộc {@code ck_quote_sent}
      * bắt mọi trạng thái sau {@code DRAFT} phải có cả hai.
      */
-    public void datTrangThai(UUID quoteId, QuoteStatus sang, UUID nhanVienId,
+    public void setStatus(UUID quoteId, QuoteStatus sang, UUID staffUserId,
                              OffsetDateTime sentAt, LocalDate validUntil) {
         jdbc.update("""
                 UPDATE quote
@@ -293,7 +293,7 @@ public class QuoteRepository {
                 WHERE id = ?
                 """,
                 sang.name(), sentAt, validUntil == null ? null : Date.valueOf(validUntil),
-                nhanVienId, quoteId);
+                staffUserId, quoteId);
     }
 
     /**
@@ -320,9 +320,9 @@ public class QuoteRepository {
                    m.currency, m.fraction_digits
             """;
 
-    private static AdminQuoteRow docDong(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
+    private static AdminQuoteRow readRow(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
         BigDecimal tong = rs.getBigDecimal("total");
-        String tienTe = rs.getString("currency");
+        String currency = rs.getString("currency");
 
         return new AdminQuoteRow(
                 rs.getObject("id", UUID.class),
@@ -338,12 +338,12 @@ public class QuoteRepository {
                 rs.getString("contact_email"),
                 // Chưa dựng bảng giá thì KHÔNG có tổng — trả 0 ở đây là bịa ra
                 // một con số mà màn hình sẽ hiển thị như một báo giá miễn phí.
-                tong == null ? null : new Money(tong, tienTe).round(rs.getInt("fraction_digits")),
+                tong == null ? null : new Money(tong, currency).round(rs.getInt("fraction_digits")),
                 ngay(rs.getDate("valid_until")),
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
-    private List<QuoteLineRow> dongGia(UUID quoteId, String tienTe, int soLe) {
+    private List<QuoteLineRow> dongGia(UUID quoteId, String currency, int fractionDigits) {
         return jdbc.query("""
                 SELECT seq, label_key, quantity, unit_amount, amount
                 FROM quote_line WHERE quote_id = ? ORDER BY seq
@@ -353,21 +353,21 @@ public class QuoteRepository {
                         rs.getString("label_key"),
                         rs.getBigDecimal("quantity"),
                         rs.getBigDecimal("unit_amount") == null ? null
-                                : new Money(rs.getBigDecimal("unit_amount"), tienTe).round(soLe),
-                        new Money(rs.getBigDecimal("amount"), tienTe).round(soLe)),
+                                : new Money(rs.getBigDecimal("unit_amount"), currency).round(fractionDigits),
+                        new Money(rs.getBigDecimal("amount"), currency).round(fractionDigits)),
                 quoteId);
     }
 
-    private static String dungMenhDeLoc(AdminQuoteQuery query, List<Object> thamSo) {
+    private static String buildFilterClause(AdminQuoteQuery query, List<Object> params) {
         StringBuilder sb = new StringBuilder();
 
         if (query.status() != null && !AdminQuoteQuery.TAT_CA.equals(query.status())) {
             sb.append(" AND q.status = ?");
-            thamSo.add(query.status());
+            params.add(query.status());
         }
         if (query.market() != null) {
             sb.append(" AND q.market = ?");
-            thamSo.add(query.market());
+            params.add(query.market());
         }
         if (query.q() != null && !query.q().isBlank()) {
             // Mã, tên, hoặc email: tổng đài cầm một trong ba và không biết mình
@@ -376,9 +376,9 @@ public class QuoteRepository {
                     + " OR q.contact_name ILIKE '%' || ? || '%'"
                     + " OR q.contact_email ILIKE '%' || ? || '%')");
             String tu = query.q().trim();
-            thamSo.add(tu);
-            thamSo.add(tu);
-            thamSo.add(tu);
+            params.add(tu);
+            params.add(tu);
+            params.add(tu);
         }
         return sb.isEmpty() ? "" : sb.append('\n').toString();
     }
