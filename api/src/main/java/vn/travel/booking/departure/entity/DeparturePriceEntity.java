@@ -25,7 +25,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "departure_price")
-@IdClass(DeparturePriceEntity.Khoa.class)
+@IdClass(DeparturePriceEntity.CompositeId.class)
 public class DeparturePriceEntity {
 
     @Id
@@ -78,8 +78,8 @@ public class DeparturePriceEntity {
     }
 
     /** Khoá chính ba phần. */
-    public record Khoa(UUID departureId, UUID paxTypeId, String occupancy) implements Serializable {
-        public Khoa() {
+    public record CompositeId(UUID departureId, UUID paxTypeId, String occupancy) implements Serializable {
+        public CompositeId() {
             this(null, null, null);
         }
     }

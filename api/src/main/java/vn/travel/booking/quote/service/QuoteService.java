@@ -25,16 +25,16 @@ import java.time.LocalDate;
 public class QuoteService {
 
     /** Chỉ loại này đi qua luồng báo giá — docs/04. */
-    private static final String LOAI_BAO_GIA = "PRIVATE_TOUR";
+    private static final String QUOTABLE_PRODUCT_TYPE = "PRIVATE_TOUR";
 
     private final QuoteRepository quote;
     private final MarketService markets;
-    private final Clock dongHo;
+    private final Clock clock;
 
-    public QuoteService(QuoteRepository quote, MarketService markets, Clock dongHo) {
+    public QuoteService(QuoteRepository quote, MarketService markets, Clock clock) {
         this.quote = quote;
         this.markets = markets;
-        this.dongHo = dongHo;
+        this.clock = clock;
     }
 
     /**
@@ -60,7 +60,7 @@ public class QuoteService {
                 .orElseThrow(() -> new NotFoundException(
                         "product slug=" + command.productSlug() + " locale=" + locale));
 
-        if (!LOAI_BAO_GIA.equals(product.productType())) {
+        if (!QUOTABLE_PRODUCT_TYPE.equals(product.productType())) {
             throw new QuoteErrors.ProductNotQuotable(
                     "loại " + product.productType() + " đặt thẳng được, không đi qua báo giá");
         }
@@ -83,9 +83,9 @@ public class QuoteService {
         if (requestedAt == null) {
             return;
         }
-        LocalDate somNhat = LocalDate.now(dongHo).plusDays(product.leadTimeDays());
-        if (requestedAt.isBefore(somNhat)) {
-            throw new QuoteErrors.LeadTimeNotMet(product.leadTimeDays(), somNhat);
+        LocalDate earliestDate = LocalDate.now(clock).plusDays(product.leadTimeDays());
+        if (requestedAt.isBefore(earliestDate)) {
+            throw new QuoteErrors.LeadTimeNotMet(product.leadTimeDays(), earliestDate);
         }
     }
 }

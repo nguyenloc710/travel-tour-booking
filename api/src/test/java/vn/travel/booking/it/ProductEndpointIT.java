@@ -57,7 +57,7 @@ class ProductEndpointIT {
     }
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -266,18 +266,18 @@ class ProductEndpointIT {
     @Test
     @DisplayName("Thị trường DK, locale da: bốn sản phẩm đã xuất bản, không có sản phẩm của VN")
     void listingDkDaShowsOnlyPublishedDkProducts() {
-        ProductPage trang = trang(callListing("dk", "da", Map.of()));
+        ProductPage productPage = page(callListing("dk", "da", Map.of()));
 
-        assertEquals(4, trang.getTotalItems(),
+        assertEquals(4, productPage.getTotalItems(),
                 "P4 chỉ xuất bản ở VN nên không được lọt vào thị trường DK");
-        assertTrue(trang.getItems().stream().noneMatch(p -> "Skræddersyet rejse".equals(p.getTitle())));
+        assertTrue(productPage.getItems().stream().noneMatch(p -> "Skræddersyet rejse".equals(p.getTitle())));
     }
 
     @Test
     @DisplayName("Sản phẩm thiếu bản dịch vi BIẾN MẤT khỏi listing vi — không hiện bản da")
     void untranslatedProductDisappearsNoFallback() {
-        ProductPage da = trang(callListing("dk", "da", Map.of()));
-        ProductPage vi = trang(callListing("dk", "vi", Map.of()));
+        ProductPage da = page(callListing("dk", "da", Map.of()));
+        ProductPage vi = page(callListing("dk", "vi", Map.of()));
 
         assertEquals(4, da.getTotalItems());
         assertEquals(2, vi.getTotalItems(),
@@ -295,7 +295,7 @@ class ProductEndpointIT {
     @Test
     @DisplayName("Sắp theo tiêu đề dùng collation Đan Mạch: Aa và Å xếp SAU z")
     void sortsByTitleWithDanishCollation() {
-        List<String> name = trang(callListing("dk", "da", Map.of("sort", "title,asc")))
+        List<String> name = page(callListing("dk", "da", Map.of("sort", "title,asc")))
                 .getItems().stream().map(ProductSummary::getTitle).toList();
 
         assertEquals(List.of(
@@ -310,52 +310,52 @@ class ProductEndpointIT {
     @Test
     @DisplayName("Tìm không dấu: gõ hoi an ra Hội An")
     void accentInsensitiveSearch() {
-        ProductPage kq = trang(callListing("dk", "vi", Map.of("q", "hoi an")));
+        ProductPage result = page(callListing("dk", "vi", Map.of("q", "hoi an")));
 
-        assertEquals(1, kq.getTotalItems());
-        assertEquals("Hội An về đêm", kq.getItems().get(0).getTitle());
+        assertEquals(1, result.getTotalItems());
+        assertEquals("Hội An về đêm", result.getItems().get(0).getTitle());
     }
 
     @Test
     @DisplayName("Lọc theo miền dùng slug CỦA LOCALE ĐANG XEM, không dùng mã miền")
     void filterByRegionUsesCurrentLocaleSlug() {
-        assertEquals(1, trang(callListing("dk", "da", Map.of("region", "nordvietnam"))).getTotalItems());
-        assertEquals(1, trang(callListing("dk", "vi", Map.of("region", "mien-bac"))).getTotalItems());
-        assertEquals(0, trang(callListing("dk", "vi", Map.of("region", "nordvietnam"))).getTotalItems(),
+        assertEquals(1, page(callListing("dk", "da", Map.of("region", "nordvietnam"))).getTotalItems());
+        assertEquals(1, page(callListing("dk", "vi", Map.of("region", "mien-bac"))).getTotalItems());
+        assertEquals(0, page(callListing("dk", "vi", Map.of("region", "nordvietnam"))).getTotalItems(),
                 "Slug tiếng Đan không được dùng ở locale vi");
     }
 
     @Test
     @DisplayName("Lọc theo loại sản phẩm")
     void filterByProductType() {
-        ProductPage kq = trang(callListing("dk", "da", Map.of("productType", "CRUISE")));
-        assertEquals(1, kq.getTotalItems());
-        assertEquals("Ålborg-gruppens krydstogt", kq.getItems().get(0).getTitle());
+        ProductPage result = page(callListing("dk", "da", Map.of("productType", "CRUISE")));
+        assertEquals(1, result.getTotalItems());
+        assertEquals("Ålborg-gruppens krydstogt", result.getItems().get(0).getTitle());
     }
 
     @Test
     @DisplayName("Phân trang theo offset, tổng số đếm từ dữ liệu")
     void offsetPaginationWithTotalFromData() {
-        ProductPage t0 = trang(callListing("dk", "da", Map.of("size", "2", "page", "0")));
-        ProductPage t1 = trang(callListing("dk", "da", Map.of("size", "2", "page", "1")));
-        ProductPage t2 = trang(callListing("dk", "da", Map.of("size", "2", "page", "2")));
+        ProductPage p0 = page(callListing("dk", "da", Map.of("size", "2", "page", "0")));
+        ProductPage p1 = page(callListing("dk", "da", Map.of("size", "2", "page", "1")));
+        ProductPage p2 = page(callListing("dk", "da", Map.of("size", "2", "page", "2")));
 
-        assertEquals(4, t0.getTotalItems());
-        assertEquals(2, t0.getTotalPages());
-        assertEquals(2, t0.getItems().size());
-        assertEquals(2, t1.getItems().size());
-        assertTrue(t2.getItems().isEmpty(), "Trang vượt quá tổng số trả rỗng, không lỗi");
+        assertEquals(4, p0.getTotalItems());
+        assertEquals(2, p0.getTotalPages());
+        assertEquals(2, p0.getItems().size());
+        assertEquals(2, p1.getItems().size());
+        assertTrue(p2.getItems().isEmpty(), "Trang vượt quá tổng số trả rỗng, không lỗi");
 
-        assertTrue(t0.getItems().stream().noneMatch(a ->
-                        t1.getItems().stream().anyMatch(b -> b.getSlug().equals(a.getSlug()))),
+        assertTrue(p0.getItems().stream().noneMatch(a ->
+                        p1.getItems().stream().anyMatch(b -> b.getSlug().equals(a.getSlug()))),
                 "Thiếu tiêu chí sắp xếp phụ thì phân trang offset lặp bản ghi");
     }
 
     @Test
     @DisplayName("Giá làm tròn theo số chữ số thập phân của THỊ TRƯỜNG: DKK 2, VND 0")
     void priceRoundedByMarketFractionDigits() {
-        ProductSummary dk = trang(callListing("dk", "da", Map.of("q", "Vietnam"))).getItems().get(0);
-        ProductSummary vn = trang(callListing("vn", "vi", Map.of("q", "Viet"))).getItems().get(0);
+        ProductSummary dk = page(callListing("dk", "da", Map.of("q", "Vietnam"))).getItems().get(0);
+        ProductSummary vn = page(callListing("vn", "vi", Map.of("q", "Viet"))).getItems().get(0);
 
         assertEquals("24990.00", dk.getPriceFrom().getAmount());
         assertEquals("DKK", dk.getPriceFrom().getCurrency());
@@ -369,7 +369,7 @@ class ProductEndpointIT {
     @Test
     @DisplayName("Chưa có giá thì bỏ hẳn trường priceFrom, không trả 0")
     void priceFromOmittedWhenNoPrice() {
-        ProductSummary p3 = trang(callListing("dk", "da", Map.of("q", "Hoi An"))).getItems().get(0);
+        ProductSummary p3 = page(callListing("dk", "da", Map.of("q", "Hoi An"))).getItems().get(0);
         assertNull(p3.getPriceFrom(), "Trả 0 là nói với khách rằng tour này miễn phí");
     }
 
@@ -381,7 +381,7 @@ class ProductEndpointIT {
         jdbc.update("UPDATE product SET soft_delete = TRUE WHERE id = CAST(? AS uuid)",
                 "c0000000-0000-4000-8000-000000000001");
 
-        assertEquals(3, trang(callListing("dk", "da", Map.of())).getTotalItems());
+        assertEquals(3, page(callListing("dk", "da", Map.of())).getTotalItems());
     }
 
     // ------------------------------------------------------------ chi tiết
@@ -637,7 +637,7 @@ class ProductEndpointIT {
         return client().get()
                 .uri(b -> {
                     b.path("/api/v1/" + market + "/products");
-                    params.forEach((name, gia_tri) -> b.queryParam(name, gia_tri));
+                    params.forEach((name, value) -> b.queryParam(name, value));
                     return b.build();
                 })
                 .header(HttpHeaders.ACCEPT_LANGUAGE, locale)
@@ -645,7 +645,7 @@ class ProductEndpointIT {
                 .toEntity(ProductPage.class);
     }
 
-    private ProductPage trang(ResponseEntity<ProductPage> response) {
+    private ProductPage page(ResponseEntity<ProductPage> response) {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         return response.getBody();
     }
@@ -665,7 +665,7 @@ class ProductEndpointIT {
     private RestClient client() {
         // defaultStatusHandler nuốt lỗi để test đọc được cả phản hồi 4xx.
         return RestClient.builder()
-                .baseUrl("http://localhost:" + cong)
+                .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build();
     }

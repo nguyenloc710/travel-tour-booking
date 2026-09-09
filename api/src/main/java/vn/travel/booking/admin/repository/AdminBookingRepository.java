@@ -50,7 +50,7 @@ public class AdminBookingRepository {
      * {@code JOIN} nhân số dòng lên theo số hành khách và {@code totalItems}
      * đếm sai theo — cùng cái bẫy đã dính một lần với thẻ và chủ đề.
      */
-    private static final String NGUON = """
+    private static final String BASE_FROM = """
             FROM booking b
             JOIN market m ON m.code = b.market
             LEFT JOIN departure d ON d.id = b.departure_id
@@ -65,17 +65,17 @@ public class AdminBookingRepository {
 
     public PagedResult<AdminBookingRow> findBookings(AdminBookingQuery query) {
         List<Object> params = new ArrayList<>();
-        String loc = buildFilterClause(query, params);
+        String filterClause = buildFilterClause(query, params);
 
-        Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
-        long totalItems = tong == null ? 0L : tong;
+        Long total = jdbc.queryForObject(
+                "SELECT count(*) " + BASE_FROM + filterClause, Long.class, params.toArray());
+        long totalItems = total == null ? 0L : total;
 
-        List<Object> thamSoTrang = new ArrayList<>(params);
-        thamSoTrang.add(query.size());
-        thamSoTrang.add((long) query.page() * query.size());
+        List<Object> pageParams = new ArrayList<>(params);
+        pageParams.add(query.size());
+        pageParams.add((long) query.page() * query.size());
 
-        List<AdminBookingRow> row = jdbc.query(
+        List<AdminBookingRow> rows = jdbc.query(
                 """
                 SELECT b.id, b.reference, b.status, b.market, b.locale, b.product_title,
                        b.total, b.currency, b.contact_email, b.created_at,
@@ -83,7 +83,7 @@ public class AdminBookingRepository {
                        (SELECT count(*) FROM booking_passenger bp
                          WHERE bp.booking_id = b.id) AS pax_count
                 """
-                        + NGUON + loc
+                        + BASE_FROM + filterClause
                         // created_at DESC là thứ tự vận hành: đơn mới về nằm trên.
                         // Tiêu chí phụ theo id để hai lần gọi cùng một trang ra
                         // cùng thứ tự — thiếu nó thì phân trang offset lặp hoặc
@@ -93,7 +93,7 @@ public class AdminBookingRepository {
                 (rs, i) -> {
                     String currency = rs.getString("currency");
                     int fractionDigits = rs.getInt("fraction_digits");
-                    Date ngay = rs.getDate("depart_date");
+                    Date departDate = rs.getDate("depart_date");
                     return new AdminBookingRow(
                             rs.getObject("id", UUID.class),
                             rs.getString("reference"),
@@ -101,15 +101,15 @@ public class AdminBookingRepository {
                             rs.getString("market"),
                             rs.getString("locale"),
                             rs.getString("product_title"),
-                            ngay == null ? null : ngay.toLocalDate(),
+                            departDate == null ? null : departDate.toLocalDate(),
                             rs.getInt("pax_count"),
                             new Money(rs.getBigDecimal("total"), currency).round(fractionDigits),
                             rs.getString("contact_email"),
                             rs.getObject("created_at", OffsetDateTime.class));
                 },
-                thamSoTrang.toArray());
+                pageParams.toArray());
 
-        return new PagedResult<>(row, query.page(), query.size(), totalItems);
+        return new PagedResult<>(rows, query.page(), query.size(), totalItems);
     }
 
     /**
@@ -120,7 +120,7 @@ public class AdminBookingRepository {
      * driver tự chuyển, và sai kiểu thì lộ ra ngay ở dòng đó.
      */
     public Optional<AdminBookingDetailView> findByReference(String reference) {
-        List<AdminBookingDetailView> tim = jdbc.query("""
+        List<AdminBookingDetailView> found = jdbc.query("""
                 SELECT b.id, b.reference, b.status, b.market, b.locale,
                        b.product_id, b.product_title, b.departure_id,
                        b.total, b.deposit, b.currency,
@@ -135,7 +135,7 @@ public class AdminBookingRepository {
                     UUID id = rs.getObject("id", UUID.class);
                     String currency = rs.getString("currency");
                     int fractionDigits = rs.getInt("fraction_digits");
-                    Money tong = new Money(rs.getBigDecimal("total"), currency);
+                    Money total = new Money(rs.getBigDecimal("total"), currency);
                     Money deposit = new Money(rs.getBigDecimal("deposit"), currency);
 
                     return new AdminBookingDetailView(
@@ -147,18 +147,18 @@ public class AdminBookingRepository {
                             rs.getObject("product_id", UUID.class),
                             rs.getString("product_title"),
                             rs.getObject("departure_id", UUID.class),
-                            ngay(rs.getDate("depart_date")),
+                            toLocalDate(rs.getDate("depart_date")),
                             rs.getString("contact_email"),
                             rs.getString("contact_phone"),
                             rs.getObject("created_at", OffsetDateTime.class),
-                            new PriceBreakdown(dongGia(id, currency), tong.round(fractionDigits), deposit.round(fractionDigits),
-                                    tong.minus(deposit).round(fractionDigits)),
-                            hanhKhach(id),
-                            nhatKy(id));
+                            new PriceBreakdown(priceLines(id, currency), total.round(fractionDigits), deposit.round(fractionDigits),
+                                    total.minus(deposit).round(fractionDigits)),
+                            passengers(id),
+                            events(id));
                 },
                 reference);
 
-        return tim.stream().findFirst();
+        return found.stream().findFirst();
     }
 
     // ------------------------------------------------------------ đường ghi
@@ -176,7 +176,7 @@ public class AdminBookingRepository {
     //   · Bước chuyển cần khoá bi quan trên đúng dòng booking.
 
     /** Ảnh chụp một đơn vừa đủ để quyết bước chuyển. */
-    public record DonDeDoi(UUID id, BookingStatus status, UUID departureId, int paxCount) {
+    public record BookingLockView(UUID id, BookingStatus status, UUID departureId, int paxCount) {
     }
 
     /**
@@ -187,7 +187,7 @@ public class AdminBookingRepository {
      * nhất đã ghi, và rơi đúng vào máy trạng thái. Thiếu nó thì cả hai cùng đọc
      * {@code CONFIRMED}, cùng thấy hợp lệ, và một lần huỷ trừ chỗ <b>hai lần</b>.
      */
-    public Optional<DonDeDoi> khoaDon(String reference) {
+    public Optional<BookingLockView> lockBooking(String reference) {
         return jdbc.query("""
                 SELECT b.id, b.status, b.departure_id,
                        (SELECT count(*) FROM booking_passenger bp
@@ -196,7 +196,7 @@ public class AdminBookingRepository {
                 WHERE b.reference = ? AND NOT b.soft_delete
                 FOR UPDATE OF b
                 """,
-                (rs, i) -> new DonDeDoi(
+                (rs, i) -> new BookingLockView(
                         rs.getObject("id", UUID.class),
                         BookingStatus.valueOf(rs.getString("status")),
                         rs.getObject("departure_id", UUID.class),
@@ -210,19 +210,19 @@ public class AdminBookingRepository {
      * trigger — api/CLAUDE.md mục 7b. Đặt tay cột thời gian ở đây là tạo ra chỗ
      * thứ hai cùng ghi một cột.
      */
-    public void setStatus(UUID bookingId, BookingStatus sang, UUID staffUserId) {
+    public void setStatus(UUID bookingId, BookingStatus toStatus, UUID staffUserId) {
         jdbc.update("UPDATE booking SET status = ?, last_modified_by = ? WHERE id = ?",
-                sang.name(), staffUserId, bookingId);
+                toStatus.name(), staffUserId, bookingId);
     }
 
-    public void writeAuditLog(UUID bookingId, BookingStatus tu, BookingStatus sang,
-                          UUID staffUserId, String note) {
+    public void writeAuditLog(UUID bookingId, BookingStatus fromStatus, BookingStatus toStatus,
+                              UUID staffUserId, String note) {
         jdbc.update("""
                 INSERT INTO booking_event (id, booking_id, from_status, to_status,
                                            actor_type, actor_id, note)
                 VALUES (?, ?, ?, ?, 'STAFF', ?, ?)
                 """,
-                UUID.randomUUID(), bookingId, tu == null ? null : tu.name(), sang.name(),
+                UUID.randomUUID(), bookingId, fromStatus == null ? null : fromStatus.name(), toStatus.name(),
                 staffUserId, note);
     }
 
@@ -244,7 +244,7 @@ public class AdminBookingRepository {
 
     // ------------------------------------------------------------ ba khối con
 
-    private List<PriceLine> dongGia(UUID bookingId, String currency) {
+    private List<PriceLine> priceLines(UUID bookingId, String currency) {
         return jdbc.query("""
                 SELECT line_key, label_key, quantity, unit_amount, amount
                 FROM booking_line WHERE booking_id = ? ORDER BY seq
@@ -259,7 +259,7 @@ public class AdminBookingRepository {
                 bookingId);
     }
 
-    private List<BookingPassengerRow> hanhKhach(UUID bookingId) {
+    private List<BookingPassengerRow> passengers(UUID bookingId) {
         return jdbc.query("""
                 SELECT bp.seq, pt.code AS pax_type_code, bp.full_name, bp.date_of_birth,
                        bp.passport_no, bp.passport_expiry, bp.nationality
@@ -272,9 +272,9 @@ public class AdminBookingRepository {
                         rs.getInt("seq"),
                         rs.getString("pax_type_code"),
                         rs.getString("full_name"),
-                        ngay(rs.getDate("date_of_birth")),
+                        toLocalDate(rs.getDate("date_of_birth")),
                         rs.getString("passport_no"),
-                        ngay(rs.getDate("passport_expiry")),
+                        toLocalDate(rs.getDate("passport_expiry")),
                         rs.getString("nationality")),
                 bookingId);
     }
@@ -287,7 +287,7 @@ public class AdminBookingRepository {
      * {@code SYSTEM} sinh ra không có nhân viên nào, và đó là phần lớn nhật ký
      * của một đơn bình thường.
      */
-    private List<BookingEventRow> nhatKy(UUID bookingId) {
+    private List<BookingEventRow> events(UUID bookingId) {
         return jdbc.query("""
                 SELECT e.id, e.from_status, e.to_status, e.actor_type, e.actor_id,
                        s.display_name, e.note, e.created_at
@@ -297,10 +297,10 @@ public class AdminBookingRepository {
                 ORDER BY e.created_at, e.id
                 """,
                 (rs, i) -> {
-                    String tu = rs.getString("from_status");
+                    String fromStatus = rs.getString("from_status");
                     return new BookingEventRow(
                             rs.getObject("id", UUID.class),
-                            tu == null ? null : BookingStatus.valueOf(tu),
+                            fromStatus == null ? null : BookingStatus.valueOf(fromStatus),
                             BookingStatus.valueOf(rs.getString("to_status")),
                             rs.getString("actor_type"),
                             rs.getObject("actor_id", UUID.class),
@@ -311,7 +311,7 @@ public class AdminBookingRepository {
                 bookingId);
     }
 
-    private static LocalDate ngay(Date d) {
+    private static LocalDate toLocalDate(Date d) {
         return d == null ? null : d.toLocalDate();
     }
 
@@ -325,10 +325,10 @@ public class AdminBookingRepository {
             sb.append(" AND b.status = ?");
             params.add(query.status());
         } else if (!"ALL".equals(query.scope())) {
-            String o = AdminBookingQuery.CAN_XU_LY.stream()
+            String placeholders = AdminBookingQuery.NEEDS_ACTION_STATUSES.stream()
                     .map(x -> "?").collect(Collectors.joining(","));
-            sb.append(" AND b.status IN (").append(o).append(')');
-            params.addAll(AdminBookingQuery.CAN_XU_LY);
+            sb.append(" AND b.status IN (").append(placeholders).append(')');
+            params.addAll(AdminBookingQuery.NEEDS_ACTION_STATUSES);
         }
         if (query.market() != null) {
             sb.append(" AND b.market = ?");

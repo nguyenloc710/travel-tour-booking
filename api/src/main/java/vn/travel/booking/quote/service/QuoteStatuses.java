@@ -28,40 +28,40 @@ import java.util.Set;
  */
 public final class QuoteStatuses {
 
-    private static final Map<QuoteStatus, Set<QuoteStatus>> DUOC_PHEP =
+    private static final Map<QuoteStatus, Set<QuoteStatus>> ALLOWED_TRANSITIONS =
             new EnumMap<>(QuoteStatus.class);
 
     static {
-        DUOC_PHEP.put(QuoteStatus.DRAFT, EnumSet.of(QuoteStatus.SENT));
+        ALLOWED_TRANSITIONS.put(QuoteStatus.DRAFT, EnumSet.of(QuoteStatus.SENT));
 
-        DUOC_PHEP.put(QuoteStatus.SENT, EnumSet.of(
+        ALLOWED_TRANSITIONS.put(QuoteStatus.SENT, EnumSet.of(
                 QuoteStatus.ACCEPTED, QuoteStatus.REJECTED, QuoteStatus.EXPIRED));
 
         // Ba trạng thái cuối. Khách đổi ý sau khi từ chối thì gửi yêu cầu MỚI —
         // quy tắc 4 nói thẳng điều đó cho trường hợp hết hạn, và cùng lý do áp
         // cho hai trường hợp kia: một báo giá đã kết thúc là một tài liệu đã
         // chốt, không phải một bản nháp sống lại được.
-        DUOC_PHEP.put(QuoteStatus.ACCEPTED, EnumSet.noneOf(QuoteStatus.class));
-        DUOC_PHEP.put(QuoteStatus.REJECTED, EnumSet.noneOf(QuoteStatus.class));
-        DUOC_PHEP.put(QuoteStatus.EXPIRED, EnumSet.noneOf(QuoteStatus.class));
+        ALLOWED_TRANSITIONS.put(QuoteStatus.ACCEPTED, EnumSet.noneOf(QuoteStatus.class));
+        ALLOWED_TRANSITIONS.put(QuoteStatus.REJECTED, EnumSet.noneOf(QuoteStatus.class));
+        ALLOWED_TRANSITIONS.put(QuoteStatus.EXPIRED, EnumSet.noneOf(QuoteStatus.class));
     }
 
     private QuoteStatuses() {
     }
 
-    public static boolean canTransitionTo(QuoteStatus tu, QuoteStatus sang) {
-        return DUOC_PHEP.getOrDefault(tu, EnumSet.noneOf(QuoteStatus.class)).contains(sang);
+    public static boolean canTransitionTo(QuoteStatus from, QuoteStatus to) {
+        return ALLOWED_TRANSITIONS.getOrDefault(from, EnumSet.noneOf(QuoteStatus.class)).contains(to);
     }
 
-    public static void requireTransition(QuoteStatus tu, QuoteStatus sang) {
-        if (!canTransitionTo(tu, sang)) {
-            throw new QuoteErrors.NotAcceptable(tu, sang);
+    public static void requireTransition(QuoteStatus from, QuoteStatus to) {
+        if (!canTransitionTo(from, to)) {
+            throw new QuoteErrors.NotAcceptable(from, to);
         }
     }
 
     /** Đã chốt: không còn đường đi tiếp. Dùng để biết báo giá nào còn phải theo dõi. */
     public static boolean isClosed(QuoteStatus status) {
-        return DUOC_PHEP.getOrDefault(status, EnumSet.noneOf(QuoteStatus.class)).isEmpty();
+        return ALLOWED_TRANSITIONS.getOrDefault(status, EnumSet.noneOf(QuoteStatus.class)).isEmpty();
     }
 
     /**

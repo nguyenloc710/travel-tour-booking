@@ -32,15 +32,15 @@ public class SeatHoldSweeper {
 
     @Scheduled(cron = "0 * * * * *")
     @SchedulerLock(name = "seatHoldSweeper", lockAtLeastFor = "PT30S", lockAtMostFor = "PT5M")
-    public void quet() {
-        int count = donDep();
+    public void sweep() {
+        int count = cleanup();
         if (count > 0) {
             log.info("Đã trả {} giữ chỗ quá hạn về kho", count);
         }
     }
 
     /** Tách riêng để test gọi được mà không phải chờ lịch. */
-    public int donDep() {
+    public int cleanup() {
         return jdbc.update("""
                 UPDATE seat_hold SET released_at = now()
                 WHERE released_at IS NULL AND expires_at <= now()

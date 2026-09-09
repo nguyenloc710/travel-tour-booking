@@ -15,7 +15,7 @@ import java.util.UUID;
  * {@code soft_delete}</b>. Vòng đời của nó trùng khít với sản phẩm cha.
  */
 public interface ProductMarketRepository
-        extends JpaRepository<ProductMarketEntity, ProductMarketEntity.Khoa> {
+        extends JpaRepository<ProductMarketEntity, ProductMarketEntity.CompositeId> {
 
     List<ProductMarketEntity> findByProductIdOrderByMarketAsc(UUID productId);
 

@@ -26,7 +26,7 @@ public record BookingDraft(
         String contactPhone,
         PriceBreakdown breakdown) {
 
-    public int tongSoKhach() {
+    public int totalPaxCount() {
         return pax.values().stream().mapToInt(Integer::intValue).sum();
     }
 }

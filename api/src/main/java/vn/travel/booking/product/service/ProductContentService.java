@@ -32,53 +32,53 @@ public class ProductContentService {
      * trường cần hai giá trị khác nhau thì nó chuyển thành một cột của bảng
      * {@code market}, và chữ ký của {@code DepartureStatuses.resolve} không đổi.
      */
-    private static final int NGUONG_IT_CHO = 3;
+    private static final int FEW_SEATS_THRESHOLD = 3;
 
     /** docs/13 mục 9.1: hai loại này không có lịch trình theo ngày. */
-    private static final Set<ProductType> KHONG_CO_LICH_TRINH =
+    private static final Set<ProductType> NO_ITINERARY_TYPES =
             EnumSet.of(ProductType.COMBO, ProductType.DAY_TOUR);
 
     /** Du thuyền ngủ trên tàu — tab tương ứng đổi thành Tàu và cabin (docs/05 mục 2). */
-    private static final Set<ProductType> KHONG_CO_KHACH_SAN =
+    private static final Set<ProductType> NO_HOTEL_TYPES =
             EnumSet.of(ProductType.CRUISE);
 
-    private final ProductContentRepository noiDung;
+    private final ProductContentRepository productContentRepository;
     private final MarketService markets;
 
-    public ProductContentService(ProductContentRepository noiDung, MarketService markets) {
-        this.noiDung = noiDung;
+    public ProductContentService(ProductContentRepository productContentRepository, MarketService markets) {
+        this.productContentRepository = productContentRepository;
         this.markets = markets;
     }
 
     @Transactional(readOnly = true)
     public List<ItineraryDay> itinerary(String market, String locale, String slug) {
         VisibleProduct product = requireVisible(market, locale, slug);
-        if (KHONG_CO_LICH_TRINH.contains(product.productType())) {
+        if (NO_ITINERARY_TYPES.contains(product.productType())) {
             throw new NotFoundException(
                     "loại " + product.productType() + " không có lịch trình theo ngày");
         }
-        return noiDung.findItinerary(product.id(), locale);
+        return productContentRepository.findItinerary(product.id(), locale);
     }
 
     @Transactional(readOnly = true)
     public List<HotelStay> hotelStays(String market, String locale, String slug) {
         VisibleProduct product = requireVisible(market, locale, slug);
-        if (KHONG_CO_KHACH_SAN.contains(product.productType())) {
+        if (NO_HOTEL_TYPES.contains(product.productType())) {
             throw new NotFoundException(
                     "loại " + product.productType() + " không có chặng nghỉ khách sạn");
         }
-        return noiDung.findHotelStays(product.id(), locale);
+        return productContentRepository.findHotelStays(product.id(), locale);
     }
 
     @Transactional(readOnly = true)
     public List<DepartureView> departures(String market, String locale, String slug) {
         VisibleProduct product = requireVisible(market, locale, slug);
-        return noiDung.findDepartures(product.id(), market, NGUONG_IT_CHO);
+        return productContentRepository.findDepartures(product.id(), market, FEW_SEATS_THRESHOLD);
     }
 
     private VisibleProduct requireVisible(String market, String locale, String slug) {
         markets.requireActive(market);
-        return noiDung.findVisibleProduct(market, locale, slug)
+        return productContentRepository.findVisibleProduct(market, locale, slug)
                 .orElseThrow(() -> new NotFoundException(
                         "product slug=" + slug + " market=" + market + " locale=" + locale));
     }

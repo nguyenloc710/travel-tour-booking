@@ -17,40 +17,40 @@ import java.util.Set;
  */
 public final class BookingStatuses {
 
-    private static final Map<BookingStatus, Set<BookingStatus>> DUOC_PHEP =
+    private static final Map<BookingStatus, Set<BookingStatus>> ALLOWED_TRANSITIONS =
             new EnumMap<>(BookingStatus.class);
 
     static {
-        DUOC_PHEP.put(BookingStatus.DRAFT, EnumSet.of(
+        ALLOWED_TRANSITIONS.put(BookingStatus.DRAFT, EnumSet.of(
                 BookingStatus.PENDING_PAYMENT, BookingStatus.CANCELLED, BookingStatus.EXPIRED));
 
-        DUOC_PHEP.put(BookingStatus.PENDING_PAYMENT, EnumSet.of(
+        ALLOWED_TRANSITIONS.put(BookingStatus.PENDING_PAYMENT, EnumSet.of(
                 BookingStatus.PENDING_CONFIRMATION, BookingStatus.CONFIRMED,
                 BookingStatus.CANCELLED, BookingStatus.EXPIRED));
 
-        DUOC_PHEP.put(BookingStatus.PENDING_CONFIRMATION, EnumSet.of(
+        ALLOWED_TRANSITIONS.put(BookingStatus.PENDING_CONFIRMATION, EnumSet.of(
                 BookingStatus.CONFIRMED, BookingStatus.CANCELLED));
 
-        DUOC_PHEP.put(BookingStatus.CONFIRMED, EnumSet.of(
+        ALLOWED_TRANSITIONS.put(BookingStatus.CONFIRMED, EnumSet.of(
                 BookingStatus.COMPLETED, BookingStatus.CANCELLED));
 
         // Ba trạng thái cuối: đi vào rồi thì chỉ còn một đường ra, hoặc không còn.
-        DUOC_PHEP.put(BookingStatus.CANCELLED, EnumSet.of(BookingStatus.REFUNDED));
-        DUOC_PHEP.put(BookingStatus.COMPLETED, EnumSet.noneOf(BookingStatus.class));
-        DUOC_PHEP.put(BookingStatus.REFUNDED, EnumSet.noneOf(BookingStatus.class));
-        DUOC_PHEP.put(BookingStatus.EXPIRED, EnumSet.noneOf(BookingStatus.class));
+        ALLOWED_TRANSITIONS.put(BookingStatus.CANCELLED, EnumSet.of(BookingStatus.REFUNDED));
+        ALLOWED_TRANSITIONS.put(BookingStatus.COMPLETED, EnumSet.noneOf(BookingStatus.class));
+        ALLOWED_TRANSITIONS.put(BookingStatus.REFUNDED, EnumSet.noneOf(BookingStatus.class));
+        ALLOWED_TRANSITIONS.put(BookingStatus.EXPIRED, EnumSet.noneOf(BookingStatus.class));
     }
 
     private BookingStatuses() {
     }
 
-    public static boolean canTransitionTo(BookingStatus tu, BookingStatus sang) {
-        return DUOC_PHEP.getOrDefault(tu, EnumSet.noneOf(BookingStatus.class)).contains(sang);
+    public static boolean canTransitionTo(BookingStatus from, BookingStatus to) {
+        return ALLOWED_TRANSITIONS.getOrDefault(from, EnumSet.noneOf(BookingStatus.class)).contains(to);
     }
 
-    public static void requireTransition(BookingStatus tu, BookingStatus sang) {
-        if (!canTransitionTo(tu, sang)) {
-            throw new IllegalBookingTransitionException(tu, sang);
+    public static void requireTransition(BookingStatus from, BookingStatus to) {
+        if (!canTransitionTo(from, to)) {
+            throw new IllegalBookingTransitionException(from, to);
         }
     }
 
@@ -60,7 +60,7 @@ public final class BookingStatuses {
      * <p>Dùng để biết đơn nào còn phải theo dõi trên bảng điều khiển quản trị.
      */
     public static boolean isClosed(BookingStatus status) {
-        return DUOC_PHEP.getOrDefault(status, EnumSet.noneOf(BookingStatus.class)).isEmpty();
+        return ALLOWED_TRANSITIONS.getOrDefault(status, EnumSet.noneOf(BookingStatus.class)).isEmpty();
     }
 
     /**
@@ -70,7 +70,7 @@ public final class BookingStatuses {
      * hoàn tiền và trả chỗ là hai việc độc lập, và giữ chỗ trống trong lúc chờ
      * ngân hàng là mất doanh thu vô ích.
      */
-    public static boolean dangChiemCho(BookingStatus status) {
+    public static boolean occupiesSeat(BookingStatus status) {
         return EnumSet.of(
                 BookingStatus.PENDING_PAYMENT,
                 BookingStatus.PENDING_CONFIRMATION,

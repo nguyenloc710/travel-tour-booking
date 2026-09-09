@@ -1,19 +1,16 @@
 package vn.travel.booking.destination.controller;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.common.util.RequestScope;
-import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RestController;
+import vn.travel.booking.destination.mapper.DestinationMapper;
 import vn.travel.booking.destination.dto.DestinationSummary;
-import vn.travel.booking.web.generated.model.GalleryImage;
-import vn.travel.booking.destination.service.DestinationService;
 import vn.travel.booking.destination.service.DestinationService;
 import vn.travel.booking.web.generated.model.Destination;
 
@@ -28,9 +25,11 @@ import java.util.List;
 public class DestinationController {
 
     private final DestinationService destinations;
+    private final DestinationMapper mapper;
 
-    public DestinationController(DestinationService destinations) {
+    public DestinationController(DestinationService destinations, DestinationMapper mapper) {
         this.destinations = destinations;
+        this.mapper = mapper;
     }
 
     @RequestMapping(
@@ -46,12 +45,12 @@ public class DestinationController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        List<Destination> than = destinations
+        List<Destination> body = destinations
                 .list(RequestScope.market(market), locale, region).stream()
-                .map(DestinationController::toView)
+                .map(mapper::toView)
                 .toList();
 
-        return phanHoi(locale).body(than);
+        return response(locale).body(body);
     }
 
     @RequestMapping(
@@ -67,25 +66,11 @@ public class DestinationController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        return phanHoi(locale).body(toView(
+        return response(locale).body(mapper.toView(
                 destinations.detail(RequestScope.market(market), locale, slug)));
     }
 
-    private static Destination toView(DestinationSummary d) {
-        return new Destination(
-                d.slug(),
-                d.name(),
-                RefMapper.sangRef(d.region()),
-                d.productCount())
-                // Chưa có mô tả hoặc chưa có ảnh thì bỏ hẳn trường khỏi JSON,
-                // không trả chuỗi rỗng và không trả đối tượng toàn null.
-                .summary(d.summary())
-                .image(d.image() == null ? null : new GalleryImage(
-                        d.image().url(), d.image().alt(),
-                        d.image().width(), d.image().height()));
-    }
-
-    private static ResponseEntity.BodyBuilder phanHoi(String locale) {
+    private static ResponseEntity.BodyBuilder response(String locale) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_LANGUAGE, locale)
                 // Thiếu Vary là CDN phục vụ bản tiếng Đan cho khách Việt.

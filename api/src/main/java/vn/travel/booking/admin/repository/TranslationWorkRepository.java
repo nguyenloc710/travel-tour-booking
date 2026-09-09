@@ -46,7 +46,7 @@ public class TranslationWorkRepository {
      * mới chỉ xuất bản bản nguồn. Chưa dịch một tour đang bán là mất doanh thu
      * ngay hôm nay, không phải mất về sau.
      */
-    private static final String SAN_PHAM = """
+    private static final String PRODUCT_SQL = """
             SELECT 'PRODUCT'                AS entity_type,
                    p.id                     AS id,
                    l.code                   AS locale,
@@ -77,7 +77,7 @@ public class TranslationWorkRepository {
             """;
 
     /** Bậc 4: bài viết xếp sau mọi sản phẩm, kể cả sản phẩm chưa gán thị trường. */
-    private static final String BAI_VIET = """
+    private static final String POST_SQL = """
             SELECT 'POST'                   AS entity_type,
                    po.id                    AS id,
                    l.code                   AS locale,
@@ -113,26 +113,26 @@ public class TranslationWorkRepository {
 
     // ------------------------------------------------------------ hàng đợi
 
-    public List<QueueItem> queue(String localeNguon, String entityType, int limit) {
-        List<String> block = new ArrayList<>();
+    public List<QueueItem> queue(String sourceLocale, String entityType, int limit) {
+        List<String> blocks = new ArrayList<>();
         List<Object> params = new ArrayList<>();
 
         if (entityType == null || "PRODUCT".equals(entityType)) {
-            block.add(SAN_PHAM);
-            params.add(localeNguon);
+            blocks.add(PRODUCT_SQL);
+            params.add(sourceLocale);
         }
         if (entityType == null || "POST".equals(entityType)) {
-            block.add(BAI_VIET);
-            params.add(localeNguon);
+            blocks.add(POST_SQL);
+            params.add(sourceLocale);
         }
-        if (block.isEmpty()) {
+        if (blocks.isEmpty()) {
             return List.of();
         }
         params.add(limit);
 
         // Sắp theo priority TRƯỚC, ngày sau. Sắp theo ngày là để một dòng chữ
         // trong bài blog chen lên trước một tour đang bán (docs/22 mục 4.1.1).
-        String sql = "SELECT * FROM (\n" + String.join("\nUNION ALL\n", block) + "\n) x\n"
+        String sql = "SELECT * FROM (\n" + String.join("\nUNION ALL\n", blocks) + "\n) x\n"
                 + "ORDER BY x.priority, x.source_modified DESC\n"
                 + "LIMIT ?";
 
@@ -157,13 +157,13 @@ public class TranslationWorkRepository {
      * {@code PUBLISHED} — bản nguồn còn là nháp thì chưa đến lượt dịch, đưa nó
      * vào mẫu số là làm độ phủ tụt xuống vì một việc chưa ai được phép làm.
      */
-    public List<CoverageRow> coverage(String localeNguon, String locale) {
-        List<CoverageRow> ket_qua = new ArrayList<>();
-        ket_qua.addAll(countOne("PRODUCT", "product", "product_translation", "product_id",
-                localeNguon, locale));
-        ket_qua.addAll(countOne("POST", "post", "post_translation", "post_id",
-                localeNguon, locale));
-        return ket_qua;
+    public List<CoverageRow> coverage(String sourceLocale, String locale) {
+        List<CoverageRow> results = new ArrayList<>();
+        results.addAll(countOne("PRODUCT", "product", "product_translation", "product_id",
+                sourceLocale, locale));
+        results.addAll(countOne("POST", "post", "post_translation", "post_id",
+                sourceLocale, locale));
+        return results;
     }
 
     /**
@@ -171,10 +171,10 @@ public class TranslationWorkRepository {
      * đều là <b>hằng số trong mã nguồn</b>, không có đường nào cho dữ liệu người
      * dùng chạm tới. Giá trị do người dùng nhập vẫn đi bằng tham số {@code ?}.
      */
-    private List<CoverageRow> countOne(String entityType, String table, String bangDich,
-                                     String cotKhoa, String localeNguon, String locale) {
+    private List<CoverageRow> countOne(String entityType, String table, String translationTable,
+                                       String foreignKeyColumn, String sourceLocale, String locale) {
         List<Object> params = new ArrayList<>();
-        params.add(localeNguon);
+        params.add(sourceLocale);
 
         String localeFilter = "";
         if (locale != null) {
@@ -188,12 +188,12 @@ public class TranslationWorkRepository {
                 + "       count(*) FILTER (WHERE t.translated_at IS NOT NULL\n"
                 + "                          AND t.translated_at >= src.last_modified_at) AS up_to_date\n"
                 + "FROM " + table + " e\n"
-                + "JOIN " + bangDich + " src\n"
-                + "  ON src." + cotKhoa + " = e.id AND src.locale = ?\n"
+                + "JOIN " + translationTable + " src\n"
+                + "  ON src." + foreignKeyColumn + " = e.id AND src.locale = ?\n"
                 + " AND NOT src.soft_delete AND src.status = 'PUBLISHED'\n"
                 + "CROSS JOIN locale l\n"
-                + "LEFT JOIN " + bangDich + " t\n"
-                + "  ON t." + cotKhoa + " = e.id AND t.locale = l.code AND NOT t.soft_delete\n"
+                + "LEFT JOIN " + translationTable + " t\n"
+                + "  ON t." + foreignKeyColumn + " = e.id AND t.locale = l.code AND NOT t.soft_delete\n"
                 + "WHERE NOT e.soft_delete AND l.is_active AND NOT l.is_source" + localeFilter + "\n"
                 + "GROUP BY l.code\n"
                 + "ORDER BY l.code";

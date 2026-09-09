@@ -58,7 +58,7 @@ class ContentEndpointIT {
     }
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -268,14 +268,14 @@ class ContentEndpointIT {
     @Test
     @DisplayName("Lịch trình sắp theo ngày; ngày bay không có nơi ngủ đêm")
     void itineraryOrderedByDayFlightDayHasNoStay() {
-        ItineraryDay[] ngay = call("/api/v1/dk/products/nord-til-syd/itinerary", "da",
+        ItineraryDay[] days = call("/api/v1/dk/products/nord-til-syd/itinerary", "da",
                 ItineraryDay[].class).getBody();
 
-        assertEquals(3, ngay.length);
-        assertEquals(List.of(1, 2, 3), Arrays.stream(ngay).map(ItineraryDay::getDayNumber).toList());
-        assertEquals("Hanoi", ngay[0].getDestination().getName());
-        assertEquals("Sofitel Legend Metropole", ngay[0].getHotelName());
-        assertNull(ngay[2].getDestination(), "Ngày bay không có nơi ngủ đêm");
+        assertEquals(3, days.length);
+        assertEquals(List.of(1, 2, 3), Arrays.stream(days).map(ItineraryDay::getDayNumber).toList());
+        assertEquals("Hanoi", days[0].getDestination().getName());
+        assertEquals("Sofitel Legend Metropole", days[0].getHotelName());
+        assertNull(days[2].getDestination(), "Ngày bay không có nơi ngủ đêm");
     }
 
     @Test
@@ -380,12 +380,12 @@ class ContentEndpointIT {
     @Test
     @DisplayName("Bài viết: chỉ bài đã xuất bản, mới nhất trước, kèm thẻ")
     void publishedPostsNewestFirstWithTags() {
-        PostPage trang = call("/api/v1/dk/posts", "da", PostPage.class).getBody();
+        PostPage postPage = call("/api/v1/dk/posts", "da", PostPage.class).getBody();
 
-        assertEquals(2, trang.getTotalItems(), "Bài chưa có published_at không được lọt ra");
-        assertEquals("Tempelbyen", trang.getItems().get(0).getTitle());
+        assertEquals(2, postPage.getTotalItems(), "Bài chưa có published_at không được lọt ra");
+        assertEquals("Tempelbyen", postPage.getItems().get(0).getTitle());
         assertEquals(List.of("Mad", "Kultur"),
-                trang.getItems().get(1).getTags().stream().map(Ref::getName).toList());
+                postPage.getItems().get(1).getTags().stream().map(Ref::getName).toList());
     }
 
     @Test
@@ -438,7 +438,7 @@ class ContentEndpointIT {
 
     private <T> ResponseEntity<T> call(String path, String locale, Class<T> type) {
         return RestClient.builder()
-                .baseUrl("http://localhost:" + cong)
+                .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build()
                 .get()

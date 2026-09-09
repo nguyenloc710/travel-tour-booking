@@ -25,8 +25,8 @@ public record PaxLine(String paxTypeCode, int count, Money unitPrice, BigDecimal
     return new PaxLine(paxTypeCode, count, unitPrice, BigDecimal.ZERO);
     }
 
-    public Money thanhTien() {
-        BigDecimal heSo = BigDecimal.ONE.subtract(discountRate == null ? BigDecimal.ZERO : discountRate);
-        return unitPrice.times(heSo).times(BigDecimal.valueOf(count));
+    public Money total() {
+        BigDecimal factor = BigDecimal.ONE.subtract(discountRate == null ? BigDecimal.ZERO : discountRate);
+        return unitPrice.times(factor).times(BigDecimal.valueOf(count));
     }
 }

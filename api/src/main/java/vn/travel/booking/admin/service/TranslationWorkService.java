@@ -29,14 +29,14 @@ public class TranslationWorkService {
 
     @Transactional(readOnly = true)
     public List<QueueItem> queue(String entityType, int limit) {
-        return translationWorkRepository.queue(locale.localeNguon(), entityType, limit);
+        return translationWorkRepository.queue(locale.sourceLocale(), entityType, limit);
     }
 
     /**
      * @param locale locale đích, hoặc {@code null} để lấy mọi locale phải dịch
      */
     @Transactional(readOnly = true)
-    public List<CoverageRow> doPhu(String locale) {
-        return translationWorkRepository.coverage(this.locale.localeNguon(), locale);
+    public List<CoverageRow> coverage(String locale) {
+        return translationWorkRepository.coverage(this.locale.sourceLocale(), locale);
     }
 }

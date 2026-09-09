@@ -22,22 +22,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class DiaChiKho {
 
-    private final String goc;
-
-    public DiaChiKho(@Value("${travel.storage.public-base-url}") String goc) {
+    private final String baseUrl;
+ 
+    public DiaChiKho(@Value("${travel.storage.public-base-url}") String baseUrl) {
         // Bỏ dấu gạch chéo cuối để phép ghép bên dưới không sinh ra "//".
-        this.goc = goc.endsWith("/") ? goc.substring(0, goc.length() - 1) : goc;
+        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
     /**
-     * @param duongDanTuongDoi giá trị của {@code media_asset.path}, ví dụ
-     *                         {@code tour/sapa-ruong-bac-thang-01.jpg}
+     * @param relativePath giá trị của {@code media_asset.path}, ví dụ
+     *                     {@code tour/sapa-ruong-bac-thang-01.jpg}
      */
-    public String diaChiCua(String duongDanTuongDoi) {
-        if (duongDanTuongDoi == null || duongDanTuongDoi.isBlank()) {
+    public String urlOf(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
             return null;
         }
-        String p = duongDanTuongDoi.startsWith("/") ? duongDanTuongDoi.substring(1) : duongDanTuongDoi;
-        return goc + "/" + p;
+        String p = relativePath.startsWith("/") ? relativePath.substring(1) : relativePath;
+        return baseUrl + "/" + p;
     }
 }

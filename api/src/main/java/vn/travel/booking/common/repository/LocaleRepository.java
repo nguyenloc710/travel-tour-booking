@@ -22,13 +22,13 @@ public class LocaleRepository {
         this.jdbc = jdbc;
     }
 
-    public String localeNguon() {
+    public String sourceLocale() {
         return jdbc.queryForObject(
                 "SELECT code FROM locale WHERE is_source AND is_active", String.class);
     }
 
     /** Mọi locale đang bật <b>trừ</b> ngôn ngữ nguồn — tức là những thứ phải dịch. */
-    public List<String> localeDich() {
+    public List<String> targetLocales() {
         return jdbc.queryForList(
                 "SELECT code FROM locale WHERE is_active AND NOT is_source ORDER BY code",
                 String.class);

@@ -46,7 +46,7 @@ public class AdminCatalogRepository {
      * {@code LEFT JOIN} chỉ thêm một nhánh {@code null} không bao giờ chạy tới —
      * và một cái bẫy cho người đọc sau.
      */
-    private static final String NGUON = """
+    private static final String BASE_FROM = """
             FROM product p
             JOIN product_translation src
               ON src.product_id = p.id
@@ -61,22 +61,22 @@ public class AdminCatalogRepository {
         this.jdbc = jdbc;
     }
 
-    public PagedResult<AdminProductRow> findProducts(String localeNguon, AdminProductQuery query) {
+    public PagedResult<AdminProductRow> findProducts(String sourceLocale, AdminProductQuery query) {
         List<Object> params = new ArrayList<>();
-        params.add(localeNguon);
-        String loc = buildFilterClause(query, params);
+        params.add(sourceLocale);
+        String filterClause = buildFilterClause(query, params);
 
-        Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
-        long totalItems = tong == null ? 0L : tong;
+        Long total = jdbc.queryForObject(
+                "SELECT count(*) " + BASE_FROM + filterClause, Long.class, params.toArray());
+        long totalItems = total == null ? 0L : total;
 
-        List<Object> thamSoTrang = new ArrayList<>(params);
-        thamSoTrang.add(query.size());
-        thamSoTrang.add((long) query.page() * query.size());
+        List<Object> pageParams = new ArrayList<>(params);
+        pageParams.add(query.size());
+        pageParams.add((long) query.page() * query.size());
 
-        List<AdminProductRow> khung = jdbc.query(
+        List<AdminProductRow> baseRows = jdbc.query(
                 "SELECT p.id, p.product_type, src.title, src.status, src.last_modified_at\n"
-                        + NGUON + loc
+                        + BASE_FROM + filterClause
                         + "ORDER BY src.last_modified_at DESC, p.id\n"
                         + "LIMIT ? OFFSET ?",
                 (rs, i) -> new AdminProductRow(
@@ -86,9 +86,9 @@ public class AdminCatalogRepository {
                         rs.getString("status"),
                         List.of(), List.of(),
                         rs.getObject("last_modified_at", OffsetDateTime.class)),
-                thamSoTrang.toArray());
+                pageParams.toArray());
 
-        return new PagedResult<>(dienThemChiTiet(khung, localeNguon),
+        return new PagedResult<>(enrichDetails(baseRows, sourceLocale),
                 query.page(), query.size(), totalItems);
     }
 
@@ -102,7 +102,7 @@ public class AdminCatalogRepository {
      * <p>Không lọc theo thị trường và không đếm sản phẩm. Đây là danh sách để
      * chọn, không phải trang danh mục.
      */
-    public List<DestinationOption> findDestinations(String localeNguon) {
+    public List<DestinationOption> findDestinations(String sourceLocale) {
         return jdbc.query("""
                 SELECT d.id, d.code, dt.name, rt.name AS region_name
                 FROM destination d
@@ -118,7 +118,7 @@ public class AdminCatalogRepository {
                 (rs, i) -> new DestinationOption(
                         rs.getObject("id", UUID.class), rs.getString("code"),
                         rs.getString("name"), rs.getString("region_name")),
-                localeNguon, localeNguon);
+                sourceLocale, sourceLocale);
     }
 
     // ------------------------------------------------------------ lọc
@@ -169,17 +169,17 @@ public class AdminCatalogRepository {
      * Hai truy vấn phụ cho <b>cả trang</b>, không phải hai truy vấn cho mỗi dòng.
      * Một trang 20 sản phẩm × 2 locale × 2 thị trường vẫn là ba lượt đi CSDL.
      */
-    private List<AdminProductRow> dienThemChiTiet(List<AdminProductRow> khung, String localeNguon) {
-        if (khung.isEmpty()) {
-            return khung;
+    private List<AdminProductRow> enrichDetails(List<AdminProductRow> baseRows, String sourceLocale) {
+        if (baseRows.isEmpty()) {
+            return baseRows;
         }
-        List<UUID> ids = khung.stream().map(AdminProductRow::id).toList();
-        String o = ids.stream().map(x -> "?").collect(Collectors.joining(","));
+        List<UUID> ids = baseRows.stream().map(AdminProductRow::id).toList();
+        String placeholders = ids.stream().map(x -> "?").collect(Collectors.joining(","));
 
-        Object[] thamSoDich = new Object[ids.size() + 1];
-        thamSoDich[0] = localeNguon;
+        Object[] translationParams = new Object[ids.size() + 1];
+        translationParams[0] = sourceLocale;
         for (int i = 0; i < ids.size(); i++) {
-            thamSoDich[i + 1] = ids.get(i);
+            translationParams[i + 1] = ids.get(i);
         }
 
         Map<UUID, List<TranslationState>> translationService = new LinkedHashMap<>();
@@ -190,22 +190,22 @@ public class AdminCatalogRepository {
                         + "JOIN locale l ON l.code = t.locale\n"
                         + "JOIN product_translation s\n"
                         + "  ON s.product_id = t.product_id AND s.locale = ? AND NOT s.soft_delete\n"
-                        + "WHERE NOT t.soft_delete AND t.product_id IN (" + o + ")\n"
+                        + "WHERE NOT t.soft_delete AND t.product_id IN (" + placeholders + ")\n"
                         + "ORDER BY l.is_source DESC, t.locale",
                 rs -> {
-                    boolean laNguon = rs.getBoolean("is_source");
-                    OffsetDateTime dichLuc = rs.getObject("translated_at", OffsetDateTime.class);
-                    OffsetDateTime nguonSuaLuc = rs.getObject("source_modified", OffsetDateTime.class);
+                    boolean isSource = rs.getBoolean("is_source");
+                    OffsetDateTime translatedAt = rs.getObject("translated_at", OffsetDateTime.class);
+                    OffsetDateTime sourceModifiedAt = rs.getObject("source_modified", OffsetDateTime.class);
                     translationService.computeIfAbsent(rs.getObject("product_id", UUID.class), k -> new ArrayList<>())
                             .add(new TranslationState(
-                                    rs.getString("locale"), rs.getString("status"), laNguon,
-                                    !laNguon && (dichLuc == null || nguonSuaLuc.isAfter(dichLuc))));
+                                    rs.getString("locale"), rs.getString("status"), isSource,
+                                    !isSource && (translatedAt == null || sourceModifiedAt.isAfter(translatedAt))));
                 },
-                thamSoDich);
+                translationParams);
 
         Map<UUID, List<MarketState>> market = new LinkedHashMap<>();
         jdbc.query("SELECT product_id, market, is_published FROM product_market"
-                        + " WHERE product_id IN (" + o + ") ORDER BY market",
+                        + " WHERE product_id IN (" + placeholders + ") ORDER BY market",
                 rs -> {
                     // Thân lambda phải là KHỐI: `add()` trả về boolean, và khi đó
                     // trình biên dịch không phân biệt được RowCallbackHandler với
@@ -215,7 +215,7 @@ public class AdminCatalogRepository {
                 },
                 ids.toArray());
 
-        return khung.stream()
+        return baseRows.stream()
                 .map(r -> new AdminProductRow(
                         r.id(), r.productType(), r.sourceTitle(), r.sourceStatus(),
                         market.getOrDefault(r.id(), List.of()),

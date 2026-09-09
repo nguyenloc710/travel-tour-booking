@@ -55,29 +55,29 @@ class CorsIT {
     }
 
     @LocalServerPort
-    int cong;
+    int port;
 
     private RestClient client() {
-        return RestClient.builder().baseUrl("http://localhost:" + cong).build();
+        return RestClient.builder().baseUrl("http://localhost:" + port).build();
     }
 
     @Test
     @DisplayName("preflight của site khách được chấp nhận, kèm đủ header của đường ghi")
     void preflightFromPublicSite() {
-        ResponseHeaders kq = preflight("http://localhost:3000", "POST",
+        ResponseHeaders response = preflight("http://localhost:3000", "POST",
                 "content-type,idempotency-key,accept-language");
 
-        assertEquals(HttpStatus.OK, kq.status);
-        assertEquals("http://localhost:3000", kq.headers.getFirst("Access-Control-Allow-Origin"));
+        assertEquals(HttpStatus.OK, response.status);
+        assertEquals("http://localhost:3000", response.headers.getFirst("Access-Control-Allow-Origin"));
 
         // Idempotency-Key là header của RIÊNG dự án này, nên trình duyệt chỉ gửi
         // nó sau khi preflight nói rõ là được. Thiếu nó thì đặt tour chết mà
         // không ai biết vì sao.
-        String allowed = kq.headers.getFirst("Access-Control-Allow-Headers");
+        String allowed = response.headers.getFirst("Access-Control-Allow-Headers");
         assertTrue(allowed != null && allowed.toLowerCase().contains("idempotency-key"),
                 "phải cho phép Idempotency-Key, đang là: " + allowed);
 
-        String httpMethod = kq.headers.getFirst("Access-Control-Allow-Methods");
+        String httpMethod = response.headers.getFirst("Access-Control-Allow-Methods");
         assertTrue(httpMethod != null && httpMethod.contains("POST"),
                 "phải cho phép POST, đang là: " + httpMethod);
     }
@@ -85,39 +85,39 @@ class CorsIT {
     @Test
     @DisplayName("trang quản trị được gửi kèm cookie phiên")
     void preflightFromAdminSendsCookies() {
-        ResponseHeaders kq = preflight("http://localhost:3001", "PUT", "content-type,x-xsrf-token");
+        ResponseHeaders response = preflight("http://localhost:3001", "PUT", "content-type,x-xsrf-token");
 
-        assertEquals(HttpStatus.OK, kq.status);
-        assertEquals("http://localhost:3001", kq.headers.getFirst("Access-Control-Allow-Origin"));
+        assertEquals(HttpStatus.OK, response.status);
+        assertEquals("http://localhost:3001", response.headers.getFirst("Access-Control-Allow-Origin"));
 
         // Trang quản trị xác thực bằng cookie phiên, nên nếu thiếu dòng này thì
         // trình duyệt gửi yêu cầu KHÔNG kèm cookie và mọi lời gọi trả 401.
-        assertEquals("true", kq.headers.getFirst("Access-Control-Allow-Credentials"));
+        assertEquals("true", response.headers.getFirst("Access-Control-Allow-Credentials"));
     }
 
     @Test
     @DisplayName("gốc lạ bị từ chối — danh sách là danh sách cho phép, không phải trang trí")
     void unknownOriginRejected() {
-        ResponseHeaders kq = preflight("https://ke-tan-cong.example", "POST", "content-type");
+        ResponseHeaders response = preflight("https://ke-tan-cong.example", "POST", "content-type");
 
         // Spring trả 403 cho preflight của gốc không nằm trong danh sách. Điều
         // quan trọng hơn mã trạng thái: KHÔNG có Allow-Origin, nên dù mã có là
         // gì thì trình duyệt cũng chặn.
-        assertNull(kq.headers.getFirst("Access-Control-Allow-Origin"));
-        assertEquals(HttpStatus.FORBIDDEN, kq.status);
+        assertNull(response.headers.getFirst("Access-Control-Allow-Origin"));
+        assertEquals(HttpStatus.FORBIDDEN, response.status);
     }
 
     private ResponseHeaders preflight(String origin, String httpMethod, String header) {
-        var kq = client()
+        var response = client()
                 .method(HttpMethod.OPTIONS)
                 .uri("/api/v1/dk/seat-holds")
                 .header(HttpHeaders.ORIGIN, origin)
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, httpMethod)
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, header)
                 .retrieve()
-                .onStatus(status -> true, (yc, pt) -> { })
+                .onStatus(status -> true, (req, res) -> { })
                 .toBodilessEntity();
-        return new ResponseHeaders(HttpStatus.valueOf(kq.getStatusCode().value()), kq.getHeaders());
+        return new ResponseHeaders(HttpStatus.valueOf(response.getStatusCode().value()), response.getHeaders());
     }
 
     private record ResponseHeaders(HttpStatus status, HttpHeaders headers) { }

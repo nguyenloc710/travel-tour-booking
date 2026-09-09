@@ -27,6 +27,6 @@ public record AdminBookingQuery(
         int size) {
 
     /** Ba trạng thái mà nhân viên còn nợ khách một hành động — docs/22 mục 6. */
-    public static final java.util.List<String> CAN_XU_LY =
+    public static final java.util.List<String> NEEDS_ACTION_STATUSES =
             java.util.List.of("DRAFT", "PENDING_PAYMENT", "PENDING_CONFIRMATION");
 }

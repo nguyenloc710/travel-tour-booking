@@ -92,13 +92,13 @@ class BookingStatusesTest {
     @Test
     @DisplayName("Trạng thái nào đang chiếm chỗ trong kho — huỷ là trả chỗ ngay")
     void statesHoldingInventoryReleaseOnCancel() {
-        assertTrue(BookingStatuses.dangChiemCho(PENDING_PAYMENT));
-        assertTrue(BookingStatuses.dangChiemCho(CONFIRMED));
+        assertTrue(BookingStatuses.occupiesSeat(PENDING_PAYMENT));
+        assertTrue(BookingStatuses.occupiesSeat(CONFIRMED));
 
-        assertFalse(BookingStatuses.dangChiemCho(CANCELLED),
+        assertFalse(BookingStatuses.occupiesSeat(CANCELLED),
                 "Chỗ về kho ngay lúc huỷ, không chờ hoàn tiền xong — docs/14 mục 6.5");
-        assertFalse(BookingStatuses.dangChiemCho(EXPIRED));
-        assertFalse(BookingStatuses.dangChiemCho(DRAFT),
+        assertFalse(BookingStatuses.occupiesSeat(EXPIRED));
+        assertFalse(BookingStatuses.occupiesSeat(DRAFT),
                 "Đơn nháp chưa chiếm chỗ; chỗ đang nằm ở seat_hold");
     }
 }

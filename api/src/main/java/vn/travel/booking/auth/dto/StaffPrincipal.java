@@ -23,34 +23,34 @@ import java.util.UUID;
  */
 public final class StaffPrincipal implements UserDetails, CredentialsContainer {
 
-    private final StaffCredentials thongTin;
+    private final StaffCredentials credentials;
     private String passwordHash;
 
-    public StaffPrincipal(StaffCredentials thongTin) {
-        this.thongTin = thongTin;
-        this.passwordHash = thongTin.passwordHash();
+    public StaffPrincipal(StaffCredentials credentials) {
+        this.credentials = credentials;
+        this.passwordHash = credentials.passwordHash();
     }
 
     public UUID id() {
-        return thongTin.id();
+        return credentials.id();
     }
 
     public String email() {
-        return thongTin.email();
+        return credentials.email();
     }
 
     public String displayName() {
-        return thongTin.displayName();
+        return credentials.displayName();
     }
 
     public List<String> roleList() {
-        return thongTin.roles().stream().sorted().toList();
+        return credentials.roles().stream().sorted().toList();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // Tiền tố ROLE_ là quy ước của Spring Security cho hasRole(...).
-        return thongTin.roles().stream()
+        return credentials.roles().stream()
                 .map(v -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + v))
                 .toList();
     }
@@ -62,7 +62,7 @@ public final class StaffPrincipal implements UserDetails, CredentialsContainer {
 
     @Override
     public String getUsername() {
-        return thongTin.email();
+        return credentials.email();
     }
 
     @Override

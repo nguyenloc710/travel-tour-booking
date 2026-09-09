@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import vn.travel.booking.auth.dto.StaffPrincipal;
+import vn.travel.booking.auth.mapper.AdminUserMapper;
 import vn.travel.booking.common.util.SecurityUtils;
 import vn.travel.booking.web.generated.model.LoginRequest;
 import vn.travel.booking.web.generated.model.StaffProfile;
@@ -42,6 +43,7 @@ import static vn.travel.booking.common.util.AdminResponses.servlet;
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
+    private final AdminUserMapper mapper;
 
     /**
      * Ghi {@code SecurityContext} vào phiên bằng tay.
@@ -53,8 +55,9 @@ public class AuthController {
     private final SecurityContextRepository contextRepository =
             new HttpSessionSecurityContextRepository();
 
-    public AuthController(AuthenticationManager authenticationManager) {
+    public AuthController(AuthenticationManager authenticationManager, AdminUserMapper mapper) {
         this.authenticationManager = authenticationManager;
+        this.mapper = mapper;
     }
 
     /**
@@ -67,7 +70,7 @@ public class AuthController {
             produces = {"application/json"},
             consumes = {"application/json"}
     )
-    public ResponseEntity<Void> dangNhap(
+    public ResponseEntity<Void> login(
             @Valid @RequestBody LoginRequest loginRequest
     ) {
         HttpServletRequest request = servlet().getRequest();
@@ -105,7 +108,7 @@ public class AuthController {
             method = RequestMethod.DELETE,
             value = "/api/v1/admin/session"
     )
-    public ResponseEntity<Void> dangXuat() {
+    public ResponseEntity<Void> logout() {
         HttpSession session = servlet().getRequest().getSession(false);
         if (session != null) {
             session.invalidate();
@@ -119,13 +122,8 @@ public class AuthController {
             value = "/api/v1/admin/me",
             produces = {"application/json"}
     )
-    public ResponseEntity<StaffProfile> hoSoNhanVien() {
+    public ResponseEntity<StaffProfile> getStaffProfile() {
         StaffPrincipal staff = SecurityUtils.currentStaff();
-
-        return noCache().body(new StaffProfile(
-                staff.id(), staff.email(), staff.displayName(),
-                staff.roleList().stream()
-                        .map(StaffProfile.RolesEnum::fromValue)
-                        .toList()));
+        return noCache().body(mapper.toProfile(staff));
     }
 }

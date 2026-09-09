@@ -13,6 +13,7 @@ import vn.travel.booking.web.generated.model.QuoteLine;
 import vn.travel.booking.web.generated.model.QuoteStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Báo giá sang DTO của hợp đồng — M8 của {@code docs/22}.
@@ -28,10 +29,14 @@ public interface AdminQuoteMapper {
 
     AdminQuoteSummary toSummary(AdminQuoteRow row);
 
-    @Mapping(target = ".", source = "tomTat")
+    @Mapping(target = ".", source = "summary")
     AdminQuoteDetail toDetail(AdminQuoteDetailView view);
 
     QuoteLine toLine(QuoteLineRow row);
+
+    vn.travel.booking.quote.dto.QuoteLineDraft toDraft(vn.travel.booking.web.generated.model.QuoteLineInput line);
+
+    List<vn.travel.booking.quote.dto.QuoteLineDraft> toDraftList(List<vn.travel.booking.web.generated.model.QuoteLineInput> lines);
 
     default QuoteStatus toStatus(vn.travel.booking.quote.dto.QuoteStatus status) {
         return status == null ? null : QuoteStatus.fromValue(status.name());
@@ -46,7 +51,7 @@ public interface AdminQuoteMapper {
     }
 
     default vn.travel.booking.web.generated.model.Money toMoney(Money money) {
-        return RefMapper.sangTien(money);
+        return RefMapper.toMoney(money);
     }
 
     /**
@@ -56,5 +61,9 @@ public interface AdminQuoteMapper {
      */
     default String toDecimalText(BigDecimal value) {
         return value == null ? null : value.toPlainString();
+    }
+
+    default BigDecimal toBigDecimal(String value) {
+        return value == null ? null : new BigDecimal(value);
     }
 }

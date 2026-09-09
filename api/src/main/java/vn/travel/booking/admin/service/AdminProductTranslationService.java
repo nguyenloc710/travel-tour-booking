@@ -53,12 +53,12 @@ public class AdminProductTranslationService {
                                       Set<String> roles, ProductTranslationInput input) {
         requireExists(productId);
 
-        boolean laNguon = sourceLocale.equals(locale);
+        boolean isSource = sourceLocale.equals(locale);
         boolean allowed = roles.contains("ADMIN")
-                || (laNguon ? roles.contains("EDITOR") : roles.contains("TRANSLATOR"));
+                || (isSource ? roles.contains("EDITOR") : roles.contains("TRANSLATOR"));
 
         if (!allowed) {
-            throw new ForbiddenException(laNguon
+            throw new ForbiddenException(isSource
                     ? "chỉ EDITOR hoặc ADMIN sửa được bản ngôn ngữ nguồn"
                     : "chỉ TRANSLATOR hoặc ADMIN sửa được bản dịch");
         }

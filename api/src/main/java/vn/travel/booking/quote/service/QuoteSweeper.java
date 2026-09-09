@@ -35,24 +35,24 @@ public class QuoteSweeper {
     private static final Logger log = LoggerFactory.getLogger(QuoteSweeper.class);
 
     private final QuoteRepository quote;
-    private final Clock dongHo;
+    private final Clock clock;
 
-    public QuoteSweeper(QuoteRepository quote, Clock dongHo) {
+    public QuoteSweeper(QuoteRepository quote, Clock clock) {
         this.quote = quote;
-        this.dongHo = dongHo;
+        this.clock = clock;
     }
 
     @Scheduled(cron = "0 0 5 * * *")
     @SchedulerLock(name = "quoteSweeper", lockAtLeastFor = "PT1M", lockAtMostFor = "PT10M")
-    public void quet() {
-        int count = donDep();
+    public void sweep() {
+        int count = cleanup();
         if (count > 0) {
             log.info("Đã cho {} báo giá quá hạn sang EXPIRED", count);
         }
     }
 
     /** Tách riêng để test gọi được mà không phải chờ lịch. */
-    public int donDep() {
-        return quote.hetHan(LocalDate.now(dongHo));
+    public int cleanup() {
+        return quote.expireQuotes(LocalDate.now(clock));
     }
 }

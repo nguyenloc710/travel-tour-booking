@@ -14,6 +14,7 @@ import vn.travel.booking.common.exception.SinglePriceMissingException;
 import vn.travel.booking.common.money.Money;
 import vn.travel.booking.departure.entity.DepartureEntity;
 import vn.travel.booking.departure.entity.DeparturePriceEntity;
+import vn.travel.booking.departure.mapper.DepartureEntityMapper;
 import vn.travel.booking.departure.repository.DeparturePriceRepository;
 import vn.travel.booking.departure.repository.DepartureWriteRepository;
 import vn.travel.booking.market.repository.MarketRepository;
@@ -40,21 +41,24 @@ import java.util.UUID;
 public class AdminDepartureService {
 
     private final DepartureWriteRepository departureRepository;
-    private final DeparturePriceRepository bangGia;
+    private final DeparturePriceRepository departurePriceRepository;
     private final ProductWriteRepository product;
     private final MarketRepository market;
-    private final PaxTypeRepository loaiKhach;
+    private final PaxTypeRepository paxTypeRepository;
+    private final DepartureEntityMapper departureEntityMapper;
 
     public AdminDepartureService(DepartureWriteRepository departureRepository,
-                                 DeparturePriceRepository bangGia,
+                                 DeparturePriceRepository departurePriceRepository,
                                  ProductWriteRepository product,
                                  MarketRepository market,
-                                 PaxTypeRepository loaiKhach) {
+                                 PaxTypeRepository paxTypeRepository,
+                                 DepartureEntityMapper departureEntityMapper) {
         this.departureRepository = departureRepository;
-        this.bangGia = bangGia;
+        this.departurePriceRepository = departurePriceRepository;
         this.product = product;
         this.market = market;
-        this.loaiKhach = loaiKhach;
+        this.paxTypeRepository = paxTypeRepository;
+        this.departureEntityMapper = departureEntityMapper;
     }
 
     // ------------------------------------------------------------ đọc
@@ -68,21 +72,21 @@ public class AdminDepartureService {
     public List<DepartureView> list(UUID productId, String marketCode) {
         requireProduct(productId);
 
-        List<DepartureEntity> ds = marketCode == null
+        List<DepartureEntity> departures = marketCode == null
                 ? departureRepository.findByProductIdAndSoftDeleteFalseOrderByMarketAscDepartDateAsc(productId)
                 : departureRepository.findByProductIdAndMarketAndSoftDeleteFalseOrderByDepartDateAsc(
                         productId, marketCode);
 
-        return ds.stream().map(this::sangView).toList();
+        return departures.stream().map(this::toView).toList();
     }
 
     // ------------------------------------------------------------ tạo và sửa
 
     @Transactional
-    public DepartureView tao(UUID productId, DepartureCreateInput input) {
-        ProductEntity sp = requireProduct(productId);
+    public DepartureView create(UUID productId, DepartureCreateInput input) {
+        ProductEntity prod = requireProduct(productId);
         requireMarket(input.market());
-        validateCabin(sp.getProductType(), input.cabinCategory());
+        validateCabin(prod.getProductType(), input.cabinCategory());
 
         DepartureEntity e = new DepartureEntity(UUID.randomUUID(), productId, input.market());
         e.setSchedule(input.departDate(), input.days());
@@ -93,16 +97,16 @@ public class AdminDepartureService {
             e.setBaseStatus(input.baseStatus());
         }
 
-        return sangView(departureRepository.saveAndFlush(e));
+        return toView(departureRepository.saveAndFlush(e));
     }
 
     @Transactional
-    public DepartureView sua(UUID departureId, DeparturePatchInput input) {
+    public DepartureView update(UUID departureId, DeparturePatchInput input) {
         DepartureEntity e = requireDeparture(departureId);
-        ProductEntity sp = requireProduct(e.getProductId());
+        ProductEntity prod = requireProduct(e.getProductId());
 
         if (input.cabinCategory() != null) {
-            validateCabin(sp.getProductType(), input.cabinCategory());
+            validateCabin(prod.getProductType(), input.cabinCategory());
             e.setCabinCategory(input.cabinCategory());
         }
         if (input.departDate() != null || input.days() != null) {
@@ -125,7 +129,7 @@ public class AdminDepartureService {
             e.setDepartureOriginId(input.departureOriginId());
         }
 
-        return sangView(departureRepository.saveAndFlush(e));
+        return toView(departureRepository.saveAndFlush(e));
     }
 
     // ------------------------------------------------------------ nhân bản
@@ -147,43 +151,43 @@ public class AdminDepartureService {
      * vậy gọi lại lần hai không tạo bản sao thứ hai và không xoá giá vừa nhập.
      */
     @Transactional
-    public CopyResult duplicate(UUID productId, String tu, String sang, LocalDate tuNgay) {
+    public CopyResult duplicate(UUID productId, String fromMarket, String toMarket, LocalDate fromDate) {
         requireProduct(productId);
-        requireMarket(tu);
-        requireMarket(sang);
+        requireMarket(fromMarket);
+        requireMarket(toMarket);
 
-        if (tu.equals(sang)) {
+        if (fromMarket.equals(toMarket)) {
             throw new IllegalArgumentException("nhân bản sang chính thị trường nguồn");
         }
 
-        int create = 0;
-        int boQua = 0;
+        int created = 0;
+        int skipped = 0;
 
         for (DepartureEntity source
-                : departureRepository.findByProductIdAndMarketAndSoftDeleteFalseOrderByDepartDateAsc(productId, tu)) {
+                : departureRepository.findByProductIdAndMarketAndSoftDeleteFalseOrderByDepartDateAsc(productId, fromMarket)) {
 
-            if (tuNgay != null && source.getDepartDate().isBefore(tuNgay)) {
+            if (fromDate != null && source.getDepartDate().isBefore(fromDate)) {
                 continue;
             }
             if (departureRepository.existsByProductIdAndMarketAndDepartDateAndSoftDeleteFalse(
-                    productId, sang, source.getDepartDate())) {
-                boQua++;
+                    productId, toMarket, source.getDepartDate())) {
+                skipped++;
                 continue;
             }
 
-            DepartureEntity moi = new DepartureEntity(UUID.randomUUID(), productId, sang);
-            moi.setSchedule(source.getDepartDate(), source.getDays());
-            moi.setCapacity(source.getCapacity());
-            moi.setCabinCategory(source.getCabinCategory());
+            DepartureEntity newDeparture = new DepartureEntity(UUID.randomUUID(), productId, toMarket);
+            newDeparture.setSchedule(source.getDepartDate(), source.getDays());
+            newDeparture.setCapacity(source.getCapacity());
+            newDeparture.setCabinCategory(source.getCabinCategory());
             // departure_origin_id KHÔNG chép: điểm khởi hành là dữ liệu riêng
             // của từng thị trường (bảng departure_origin có cột market), nên id
             // của thị trường nguồn không có nghĩa gì ở thị trường đích.
-            departureRepository.save(moi);
-            create++;
+            departureRepository.save(newDeparture);
+            created++;
         }
 
         departureRepository.flush();
-        return new CopyResult(create, boQua);
+        return new CopyResult(created, skipped);
     }
 
     // ------------------------------------------------------------ bảng giá
@@ -209,16 +213,16 @@ public class AdminDepartureService {
     @Transactional
     public List<DeparturePriceView> savePrices(UUID departureId, List<DeparturePriceInput> price) {
         DepartureEntity d = requireDeparture(departureId);
-        MarketRepository.CauHinh config = requireMarket(d.getMarket());
-        Map<String, UUID> ma = loaiKhach.byCode(d.getMarket());
+        MarketRepository.MarketConfig config = requireMarket(d.getMarket());
+        Map<String, UUID> paxTypeMap = paxTypeRepository.byCode(d.getMarket());
 
-        List<DeparturePriceEntity> moi = new ArrayList<>();
+        List<DeparturePriceEntity> newPrices = new ArrayList<>();
         for (DeparturePriceInput row : price) {
-            UUID paxTypeId = ma.get(row.paxTypeCode());
+            UUID paxTypeId = paxTypeMap.get(row.paxTypeCode());
             if (paxTypeId == null) {
                 throw new AdminErrors.UnknownPaxType(row.paxTypeCode(), d.getMarket());
             }
-            moi.add(new DeparturePriceEntity(departureId, paxTypeId, row.occupancy(),
+            newPrices.add(new DeparturePriceEntity(departureId, paxTypeId, row.occupancy(),
                     row.amount(), config.currency()));
         }
 
@@ -231,9 +235,9 @@ public class AdminDepartureService {
         // Xoá rồi ghi lại, và flush() ở giữa: không flush thì Hibernate có thể
         // xếp câu INSERT trước câu DELETE và đụng khoá chính của chính dòng đang
         // thay.
-        bangGia.deleteByDepartureId(departureId);
-        bangGia.flush();
-        bangGia.saveAllAndFlush(moi);
+        departurePriceRepository.deleteByDepartureId(departureId);
+        departurePriceRepository.flush();
+        departurePriceRepository.saveAllAndFlush(newPrices);
 
         return readPrice(departureId, d.getMarket());
     }
@@ -251,7 +255,7 @@ public class AdminDepartureService {
     }
 
     /** Thị trường đã tắt trả 404: với bề mặt quản trị, "không có" và "đã tắt" dẫn tới cùng một việc. */
-    private MarketRepository.CauHinh requireMarket(String marketCode) {
+    private MarketRepository.MarketConfig requireMarket(String marketCode) {
         return market.config(marketCode)
                 .orElseThrow(() -> new NotFoundException("market=" + marketCode));
     }
@@ -277,30 +281,30 @@ public class AdminDepartureService {
             return;
         }
 
-        Map<String, BigDecimal> phongDoi = new LinkedHashMap<>();
-        Map<String, BigDecimal> phongDon = new LinkedHashMap<>();
+        Map<String, BigDecimal> doublePrices = new LinkedHashMap<>();
+        Map<String, BigDecimal> singlePrices = new LinkedHashMap<>();
         for (DeparturePriceInput row : price) {
-            ("SINGLE".equals(row.occupancy()) ? phongDon : phongDoi)
+            ("SINGLE".equals(row.occupancy()) ? singlePrices : doublePrices)
                     .put(row.paxTypeCode(), row.amount());
         }
 
-        if (phongDon.isEmpty()) {
+        if (singlePrices.isEmpty()) {
             throw SinglePriceMissingException.forDeparture(departureId.toString());
         }
 
         // Dòng phòng đơn có mặt nhưng không cao hơn phòng đôi để lại đúng hậu quả
         // như khi vắng mặt: phụ thu bằng 0, và khách đi một mình trả giá chia đôi
         // phòng. Quy tắc 23b của bộ kiểm bắt cùng thứ này trên toàn CSDL.
-        for (Map.Entry<String, BigDecimal> e : phongDon.entrySet()) {
-            BigDecimal doi = phongDoi.get(e.getKey());
-            if (doi != null && e.getValue().compareTo(doi) <= 0) {
+        for (Map.Entry<String, BigDecimal> e : singlePrices.entrySet()) {
+            BigDecimal doublePrice = doublePrices.get(e.getKey());
+            if (doublePrice != null && e.getValue().compareTo(doublePrice) <= 0) {
                 throw new SinglePriceMissingException(
                         "giá phòng đơn " + e.getValue() + " không cao hơn giá phòng đôi "
-                                + doi + " (loại khách " + e.getKey() + ")",
+                                + doublePrice + " (loại khách " + e.getKey() + ")",
                         Map.of("departureId", departureId.toString(),
                                 "paxTypeCode", e.getKey(),
                                 "singleAmount", e.getValue().toPlainString(),
-                                "doubleAmount", doi.toPlainString()));
+                                "doubleAmount", doublePrice.toPlainString()));
             }
         }
     }
@@ -312,20 +316,15 @@ public class AdminDepartureService {
         }
     }
 
-    private DepartureView sangView(DepartureEntity e) {
-        return new DepartureView(e.getId(), e.getMarket(), e.getDepartDate(), e.getReturnDate(),
-                e.getDays(), e.getCabinCategory(), e.getBaseStatus(), e.getCapacity(),
-                e.getSeatsBooked(), e.getDepartureOriginId(),
-                readPrice(e.getId(), e.getMarket()));
+    private DepartureView toView(DepartureEntity e) {
+        return departureEntityMapper.toView(e, readPrice(e.getId(), e.getMarket()));
     }
 
     private List<DeparturePriceView> readPrice(UUID departureId, String marketCode) {
-        Map<UUID, String> byId = loaiKhach.byId(marketCode);
-        return bangGia.findByDepartureId(departureId).stream()
-                .map(g -> new DeparturePriceView(
-                        byId.getOrDefault(g.getPaxTypeId(), g.getPaxTypeId().toString()),
-                        g.getOccupancy(),
-                        new Money(g.getAmount(), g.getCurrency())))
+        Map<UUID, String> byId = paxTypeRepository.byId(marketCode);
+        return departurePriceRepository.findByDepartureId(departureId).stream()
+                .map(g -> departureEntityMapper.toPriceView(
+                        g, byId.getOrDefault(g.getPaxTypeId(), g.getPaxTypeId().toString())))
                 .toList();
     }
 }

@@ -53,7 +53,7 @@ public class ProductRepository {
      * Một chuỗi chứ không ba: ba bản sao của cùng bộ điều kiện là ba cơ hội để
      * một bản quên mất {@code NOT soft_delete}.
      */
-    private static final String NGUON = """
+    private static final String BASE_FROM = """
             FROM product p
             JOIN product_market pm
               ON pm.product_id = p.id
@@ -84,7 +84,7 @@ public class ProductRepository {
             WHERE NOT p.soft_delete
             """;
 
-    private static final String CHON = """
+    private static final String BASE_SELECT = """
             SELECT pt.slug,
                    pt.title,
                    p.product_type,
@@ -105,99 +105,99 @@ public class ProductRepository {
             """;
 
     /** Tên collation chỉ gồm chữ, số và gạch nối — chặn mọi thứ khác trước khi nối chuỗi. */
-    private static final Pattern TEN_COLLATION = Pattern.compile("^[A-Za-z0-9_-]+$");
+    private static final Pattern COLLATION_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_-]+$");
 
     private final JdbcTemplate jdbc;
-    private final DiaChiKho diaChiKho;
+    private final DiaChiKho storageUrl;
 
-    public ProductRepository(JdbcTemplate jdbc, DiaChiKho diaChiKho) {
+    public ProductRepository(JdbcTemplate jdbc, DiaChiKho storageUrl) {
         this.jdbc = jdbc;
-        this.diaChiKho = diaChiKho;
+        this.storageUrl = storageUrl;
     }
     public PagedResult<ProductSummary> findProducts(ProductQuery query) {
         List<Object> params = new ArrayList<>();
-        String loc = buildFilterClause(query, params);
+        String filterClause = buildFilterClause(query, params);
 
-        Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
+        Long totalCount = jdbc.queryForObject(
+                "SELECT count(*) " + BASE_FROM + filterClause, Long.class, params.toArray());
 
-        long totalItems = tong == null ? 0L : tong;
+        long totalItems = totalCount == null ? 0L : totalCount;
         if (totalItems == 0 || query.offset() >= totalItems) {
             return new PagedResult<>(List.of(), query.page(), query.size(), totalItems);
         }
 
-        List<Object> thamSoTrang = new ArrayList<>(params);
-        thamSoTrang.add(query.size());
-        thamSoTrang.add(query.offset());
+        List<Object> pageParams = new ArrayList<>(params);
+        pageParams.add(query.size());
+        pageParams.add(query.offset());
 
         List<ProductSummary> items = jdbc.query(
-                CHON + NGUON + loc + sapXep(query) + " LIMIT ? OFFSET ?",
+                BASE_SELECT + BASE_FROM + filterClause + sortClause(query) + " LIMIT ? OFFSET ?",
                 (rs, i) -> readSummary(rs),
-                thamSoTrang.toArray());
+                pageParams.toArray());
 
         return new PagedResult<>(items, query.page(), query.size(), totalItems);
     }
     public Optional<ProductDetail> findProduct(String market, String locale, String slug) {
-        String sql = CHON + """
+        String sql = BASE_SELECT + """
                      , pt.long_description,
                        pt.why_choose_this,
                        p.map_image,
                        p.layout,
                        p.id AS product_id
-                """ + NGUON + " AND pt.slug = ?";
+                """ + BASE_FROM + " AND pt.slug = ?";
 
-        List<ProductDetail> ket_qua = jdbc.query(
+        List<ProductDetail> results = jdbc.query(
                 sql,
                 (RowMapper<ProductDetail>) (rs, i) -> readDetail(rs, locale),
                 market, locale, locale, locale, slug);
 
-        return ket_qua.stream().findFirst();
+        return results.stream().findFirst();
     }
 
     // ------------------------------------------------------------------ lọc
 
     private String buildFilterClause(ProductQuery query, List<Object> params) {
-        // Bốn tham số của NGUON, đúng thứ tự dấu ? xuất hiện.
+        // Bốn tham số của BASE_FROM, đúng thứ tự dấu ? xuất hiện.
         params.add(query.market());
         params.add(query.locale());
         params.add(query.locale());
         params.add(query.locale());
 
-        StringBuilder loc = new StringBuilder();
+        StringBuilder filter = new StringBuilder();
 
         if (query.regionSlug() != null && !query.regionSlug().isBlank()) {
-            loc.append(" AND rt.slug = ?");
+            filter.append(" AND rt.slug = ?");
             params.add(query.regionSlug());
         }
         if (query.destinationSlug() != null && !query.destinationSlug().isBlank()) {
             // Lọc theo điểm đến CHÍNH của sản phẩm. Một tour xuyên Việt thuộc về
             // một điểm đến khởi hành, không thuộc về mọi điểm đến nó ghé qua.
-            loc.append(" AND dt.slug = ?");
+            filter.append(" AND dt.slug = ?");
             params.add(query.destinationSlug());
         }
         if (query.themeSlugs() != null && !query.themeSlugs().isEmpty()) {
             // EXISTS chứ không JOIN: với JOIN thì sản phẩm mang hai chủ đề đang
             // lọc sẽ xuất hiện HAI LẦN, và totalItems đếm sai theo.
-            String dauHoi = String.join(",",
+            String placeholders = String.join(",",
                     java.util.Collections.nCopies(query.themeSlugs().size(), "?"));
-            loc.append(" AND EXISTS (SELECT 1 FROM product_theme pth")
+            filter.append(" AND EXISTS (SELECT 1 FROM product_theme pth")
                .append(" JOIN theme_translation tt ON tt.theme_id = pth.theme_id")
                .append(" AND tt.locale = ? AND NOT tt.soft_delete")
-               .append(" WHERE pth.product_id = p.id AND tt.slug IN (").append(dauHoi).append("))");
+               .append(" WHERE pth.product_id = p.id AND tt.slug IN (").append(placeholders).append("))");
             params.add(query.locale());
             params.addAll(query.themeSlugs());
         }
         if (query.productType() != null) {
-            loc.append(" AND p.product_type = ?");
+            filter.append(" AND p.product_type = ?");
             params.add(query.productType().name());
         }
         if (query.q() != null && !query.q().isBlank()) {
             // f_unaccent ở CẢ HAI VẾ: gõ "hoi an" phải ra "Hội An", mà gõ
             // "Hội An" cũng phải ra. ILIKE lo phần chữ hoa chữ thường.
-            loc.append(" AND f_unaccent(pt.title) ILIKE '%' || f_unaccent(?) || '%'");
+            filter.append(" AND f_unaccent(pt.title) ILIKE '%' || f_unaccent(?) || '%'");
             params.add(query.q().trim());
         }
-        return loc.toString();
+        return filter.toString();
     }
 
     /**
@@ -207,14 +207,14 @@ public class ProductRepository {
      * (CSDL vẫn là nguồn sự thật) rồi kiểm bằng biểu thức chính quy trước khi
      * nối chuỗi. Nối thẳng chuỗi do người dùng gửi vào đây là lỗ SQL injection.
      */
-    private String sapXep(ProductQuery query) {
-        String chieu = switch (query.sort()) {
+    private String sortClause(ProductQuery query) {
+        String direction = switch (query.sort()) {
             case TITLE_DESC, PRICE_FROM_DESC, DURATION_DAYS_DESC -> "DESC";
             default -> "ASC";
         };
 
         String column = switch (query.sort()) {
-            case TITLE_ASC, TITLE_DESC -> "pt.title COLLATE \"" + collationCua(query.locale()) + "\"";
+            case TITLE_ASC, TITLE_DESC -> "pt.title COLLATE \"" + collationOf(query.locale()) + "\"";
             case PRICE_FROM_ASC, PRICE_FROM_DESC -> "pm.price_from";
             case DURATION_DAYS_ASC, DURATION_DAYS_DESC -> "p.duration_days";
         };
@@ -222,16 +222,16 @@ public class ProductRepository {
         // NULLS LAST: sản phẩm chưa có giá xuống cuối chứ không lên đầu.
         // Tiêu chí phụ theo slug để hai lần gọi cùng một trang ra cùng thứ tự —
         // thiếu nó thì phân trang offset lặp hoặc bỏ sót bản ghi.
-        return " ORDER BY " + column + " " + chieu + " NULLS LAST, pt.slug ASC";
+        return " ORDER BY " + column + " " + direction + " NULLS LAST, pt.slug ASC";
     }
 
-    private String collationCua(String locale) {
-        String ten = jdbc.queryForObject(
+    private String collationOf(String locale) {
+        String collationName = jdbc.queryForObject(
                 "SELECT collation_name FROM locale WHERE code = ?", String.class, locale);
-        if (ten == null || !TEN_COLLATION.matcher(ten).matches()) {
-            throw new IllegalStateException("Tên collation không hợp lệ cho locale " + locale + ": " + ten);
+        if (collationName == null || !COLLATION_NAME_PATTERN.matcher(collationName).matches()) {
+            throw new IllegalStateException("Tên collation không hợp lệ cho locale " + locale + ": " + collationName);
         }
-        return ten;
+        return collationName;
     }
 
     // ------------------------------------------------------------------ đọc
@@ -247,7 +247,7 @@ public class ProductRepository {
                 intOrNull(rs, "duration_days"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
                 new NamedRef(rs.getString("destination_slug"), rs.getString("destination_name")),
-                tien(rs),
+                readPrice(rs),
                 rs.getBoolean("is_new"),
                 decimalOrNull(rs, "rating"),
                 rs.getInt("review_count"));
@@ -271,7 +271,7 @@ public class ProductRepository {
                 intOrNull(rs, "duration_days"),
                 new NamedRef(rs.getString("region_slug"), rs.getString("region_name")),
                 new NamedRef(rs.getString("destination_slug"), rs.getString("destination_name")),
-                tien(rs),
+                readPrice(rs),
                 rs.getBoolean("is_new"),
                 decimalOrNull(rs, "rating"),
                 rs.getInt("review_count"),
@@ -308,7 +308,7 @@ public class ProductRepository {
                 ORDER BY pi.sort_order
                 """,
                 (rs, i) -> new GalleryImage(
-                        diaChiKho.diaChiCua(rs.getString("path")),
+                        storageUrl.urlOf(rs.getString("path")),
                         rs.getString("alt"),
                         rs.getInt("width"),
                         rs.getInt("height")),
@@ -383,7 +383,7 @@ public class ProductRepository {
      * Không làm tròn thì API trả {@code "18900000.00"} cho tiền đồng — đúng về
      * mặt số học nhưng sai về mặt tiền tệ.
      */
-    private Money tien(ResultSet rs) throws SQLException {
+    private Money readPrice(ResultSet rs) throws SQLException {
         BigDecimal amount = rs.getBigDecimal("price_from");
         if (amount == null) {
             return null;
@@ -400,12 +400,12 @@ public class ProductRepository {
     }
 
     private static Integer intOrNull(ResultSet rs, String column) throws SQLException {
-        int gia_tri = rs.getInt(column);
-        return rs.wasNull() ? null : gia_tri;
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
     }
 
     private static Double decimalOrNull(ResultSet rs, String column) throws SQLException {
-        double gia_tri = rs.getDouble(column);
-        return rs.wasNull() ? null : gia_tri;
+        double value = rs.getDouble(column);
+        return rs.wasNull() ? null : value;
     }
 }

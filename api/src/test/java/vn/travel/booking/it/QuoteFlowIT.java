@@ -81,11 +81,11 @@ class QuoteFlowIT {
     }
 
     private static final String PASSWORD = "mat-khau-rat-dai";
-    private static final int HAN_BAO_TRUOC = 7;
-    private static final int SO_NGAY_HIEU_LUC = 14;
+    private static final int LEAD_TIME_DAYS = 7;
+    private static final int QUOTE_VALID_DAYS = 14;
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -204,17 +204,17 @@ class QuoteFlowIT {
     @DisplayName("Ngày quá gần: 422 LEAD_TIME_NOT_MET, kèm ngày sớm nhất")
     void leadTimeNotMetReturns422() {
         ResponseEntity<ErrorResponse> response = sendQuoteRequestExpectingError("da", requestBody(
-                "privat-rundrejse", 2, LocalDate.now().plusDays(HAN_BAO_TRUOC - 1)));
+                "privat-rundrejse", 2, LocalDate.now().plusDays(LEAD_TIME_DAYS - 1)));
 
-        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
-        ErrorResponse loi = response.getBody();
-        assertEquals("LEAD_TIME_NOT_MET", loi.getCode());
-
-        // Tham số là DỮ LIỆU, không phải câu tiếng người: frontend dựng câu
-        // "tour này cần báo trước 7 ngày, sớm nhất là 12/09" từ hai giá trị này.
-        assertEquals(HAN_BAO_TRUOC, ((Number) loi.getParams().get("leadTimeDays")).intValue());
-        assertEquals(LocalDate.now().plusDays(HAN_BAO_TRUOC).toString(),
-                loi.getParams().get("earliestDate"));
+        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        ErrorResponse error = response.getBody();
+        assertEquals("LEAD_TIME_NOT_MET", error.getCode());
+        // docs/14 mục 2.3: lỗi không đạt hạn báo trước PHẢI trả về đúng con số cấu hình
+        // và ngày sớm nhất có thể đi, để giao diện điền thẳng vào ô chọn ngày.
+        assertNotNull(error.getParams());
+        assertEquals(LEAD_TIME_DAYS, ((Number) error.getParams().get("leadTimeDays")).intValue());
+        assertEquals(LocalDate.now().plusDays(LEAD_TIME_DAYS).toString(),
+                error.getParams().get("earliestDate"));
     }
 
     @Test
@@ -280,7 +280,7 @@ class QuoteFlowIT {
         String sent = sendQuoteRequest("da", requestBody("privat-rundrejse", 5, null))
                 .getBody().getReference();
 
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
         buildPriceTiers(session, sent, "DKK", 1);
         changeStatus(session, sent, "SENT");
 
@@ -308,7 +308,7 @@ class QuoteFlowIT {
         String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2,
                 LocalDate.now().plusDays(60))).getBody().getReference();
 
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
         ResponseEntity<AdminQuoteDetail> response = session.call(HttpMethod.PUT,
                 "/api/v1/admin/quotes/" + reference + "/lines",
                 """
@@ -320,15 +320,15 @@ class QuoteFlowIT {
                 """, AdminQuoteDetail.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        AdminQuoteDetail bg = response.getBody();
-        assertNotNull(bg);
+        AdminQuoteDetail detail = response.getBody();
+        assertNotNull(detail);
 
-        assertEquals(3, bg.getLines().size());
+        assertEquals(3, detail.getLines().size());
         // 36000 + 4000 − 2000. Dòng âm là giảm trừ, cùng quy ước với booking_line.
-        assertEquals("38000.00", bg.getTotal().getAmount());
-        assertEquals("DKK", bg.getTotal().getCurrency());
-        assertEquals(HAN_BAO_TRUOC, bg.getLeadTimeDays());
-        assertEquals(SO_NGAY_HIEU_LUC, bg.getQuoteValidDays());
+        assertEquals("38000.00", detail.getTotal().getAmount());
+        assertEquals("DKK", detail.getTotal().getCurrency());
+        assertEquals(LEAD_TIME_DAYS, detail.getLeadTimeDays());
+        assertEquals(QUOTE_VALID_DAYS, detail.getQuoteValidDays());
     }
 
     /**
@@ -354,7 +354,7 @@ class QuoteFlowIT {
     @Test
     @DisplayName("Đã gửi rồi thì không sửa bảng giá sau lưng khách — 409")
     void sentQuoteCannotEditPriceTiers() {
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
         String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
@@ -394,7 +394,7 @@ class QuoteFlowIT {
     @Test
     @DisplayName("Gửi đặt hạn = hôm nay + quoteValidDays, không nhận từ client")
     void sendingSetsValidUntilFromServer() {
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
         String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
@@ -402,13 +402,13 @@ class QuoteFlowIT {
         AdminQuoteDetail afterSend = changeStatus(session, reference, "SENT");
 
         assertEquals(QuoteStatus.SENT, afterSend.getStatus());
-        assertEquals(LocalDate.now().plusDays(SO_NGAY_HIEU_LUC), afterSend.getValidUntil());
+        assertEquals(LocalDate.now().plusDays(QUOTE_VALID_DAYS), afterSend.getValidUntil());
     }
 
     @Test
     @DisplayName("Vòng đầy đủ: yêu cầu → dựng giá → gửi → khách nhận")
     void fullRoundRequestPriceSendAccept() {
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
         String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 4,
                 LocalDate.now().plusDays(90))).getBody().getReference();
 
@@ -452,7 +452,7 @@ class QuoteFlowIT {
     @Test
     @DisplayName("Quá hạn thì không chấp nhận được — 409 QUOTE_EXPIRED")
     void expiredQuoteCannotBeAccepted() {
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
         String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
@@ -473,7 +473,7 @@ class QuoteFlowIT {
     @Test
     @DisplayName("Job quét hạn cho báo giá quá hạn sang EXPIRED, không đụng cái còn hạn")
     void expirySweepMovesOverdueQuotesToExpired() {
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
 
         String expired = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
@@ -487,7 +487,7 @@ class QuoteFlowIT {
         jdbc.update("UPDATE quote SET valid_until = ? WHERE reference = ?",
                 java.sql.Date.valueOf(LocalDate.now().minusDays(1)), expired);
 
-        assertEquals(1, sweepExpiry.donDep());
+        assertEquals(1, sweepExpiry.cleanup());
 
         assertEquals("EXPIRED", status(expired));
         assertEquals("SENT", status(stillValid));
@@ -499,24 +499,24 @@ class QuoteFlowIT {
         String reference = sendQuoteRequest("da", requestBody("privat-rundrejse", 2, null))
                 .getBody().getReference();
 
-        AdminQuoteDetail bg = detail(login("tuvan@travel.test"), reference);
+        AdminQuoteDetail detail = detail(login("tuvan@travel.test"), reference);
 
-        // Trả 0 ở đây là bịa ra một con số mà màn hình sẽ hiển thị như một báo
-        // giá miễn phí.
-        assertNull(bg.getTotal());
-        assertNull(bg.getValidUntil());
-        assertTrue(bg.getLines().isEmpty());
+        // docs/14 mục 2.3: yêu cầu mới nhận chưa tính giá, chưa có hạn thanh toán,
+        // chưa có dòng giá nào.
+        assertNull(detail.getTotal());
+        assertNull(detail.getValidUntil());
+        assertTrue(detail.getLines().isEmpty());
     }
 
     // ------------------------------------------------------------ tiện ích
 
-    private static String requestBody(String slug, int paxCount, LocalDate ngay) {
+    private static String requestBody(String slug, int paxCount, LocalDate requestedDate) {
         return """
                 {"productSlug":"%s","partySize":%d,%s
                  "contactName":"Anne Sørensen","contactEmail":"anne@example.dk",
                  "contactPhone":"+4520000001","message":"Hai người ăn chay."}
                 """.formatted(slug, paxCount,
-                ngay == null ? "" : "\"requestedDate\":\"" + ngay + "\",");
+                requestedDate == null ? "" : "\"requestedDate\":\"" + requestedDate + "\",");
     }
 
     private ResponseEntity<QuoteReceipt> sendQuoteRequest(String locale, String body) {
@@ -533,7 +533,7 @@ class QuoteFlowIT {
 
     private <T> ResponseEntity<T> client(String locale, String body, UUID key, Class<T> type) {
         return RestClient.builder()
-                .baseUrl("http://localhost:" + cong)
+                .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build()
                 .post()
@@ -546,14 +546,14 @@ class QuoteFlowIT {
                 .toEntity(type);
     }
 
-    private AdminQuoteDetail detail(Phien session, String reference) {
+    private AdminQuoteDetail detail(Session session, String reference) {
         ResponseEntity<AdminQuoteDetail> response =
                 session.get("/api/v1/admin/quotes/" + reference, AdminQuoteDetail.class);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         return response.getBody();
     }
 
-    private void buildPriceTiers(Phien session, String reference, String currency, int rowCount) {
+    private void buildPriceTiers(Session session, String reference, String currency, int rowCount) {
         StringBuilder row = new StringBuilder();
         for (int i = 1; i <= rowCount; i++) {
             row.append(i > 1 ? "," : "")
@@ -566,7 +566,7 @@ class QuoteFlowIT {
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
-    private AdminQuoteDetail changeStatus(Phien session, String reference, String toStatus) {
+    private AdminQuoteDetail changeStatus(Session session, String reference, String toStatus) {
         ResponseEntity<AdminQuoteDetail> response = session.call(HttpMethod.POST,
                 "/api/v1/admin/quotes/" + reference + "/status",
                 "{\"toStatus\":\"%s\"}".formatted(toStatus), AdminQuoteDetail.class);
@@ -595,13 +595,13 @@ class QuoteFlowIT {
                 """, id, roles);
     }
 
-    private Phien login(String email) {
-        Phien session = new Phien();
+    private Session login(String email) {
+        Session session = new Session();
         assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
         return session;
     }
 
-    private final class Phien {
+    private final class Session {
 
         private final List<String> cookies = new ArrayList<>();
 
@@ -617,7 +617,7 @@ class QuoteFlowIT {
 
         <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
             RestClient.RequestBodySpec request = RestClient.builder()
-                    .baseUrl("http://localhost:" + cong)
+                    .baseUrl("http://localhost:" + port)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
                     .method(httpMethod)
@@ -633,19 +633,19 @@ class QuoteFlowIT {
             }
 
             ResponseEntity<T> response = request.retrieve().toEntity(type);
-            nhoCookie(response);
+            rememberCookies(response);
             return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> response) {
-            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-            if (moi == null) {
+        private void rememberCookies(ResponseEntity<?> response) {
+            List<String> newCookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+            if (newCookies == null) {
                 return;
             }
-            for (String c : moi) {
+            for (String c : newCookies) {
                 String summary = c.split(";", 2)[0];
                 String name = summary.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.removeIf(existing -> existing.startsWith(name + "="));
                 cookies.add(summary);
             }
         }

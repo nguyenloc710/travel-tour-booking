@@ -61,7 +61,7 @@ public class AdminQuoteController {
             produces = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuotePage> danhSachBaoGia(
+    public ResponseEntity<AdminQuotePage> listQuotes(
             @Valid @RequestParam(value = "status", required = false, defaultValue = "DRAFT") AdminQuoteFilter status,
             @Valid @RequestParam(value = "market", required = false) @Nullable String market,
             @Size(max = 120) @Valid @RequestParam(value = "q", required = false) @Nullable String q,
@@ -82,7 +82,7 @@ public class AdminQuoteController {
             produces = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuoteDetail> chiTietBaoGia(
+    public ResponseEntity<AdminQuoteDetail> getQuoteDetail(
             @Size(max = 20) @PathVariable("reference") String reference
     ) {
         return noCache().body(mapper.toDetail(quotes.detail(reference)));
@@ -102,20 +102,14 @@ public class AdminQuoteController {
             consumes = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuoteDetail> dungBangGiaBaoGia(
+    public ResponseEntity<AdminQuoteDetail> setQuoteLines(
             @Size(max = 20) @PathVariable("reference") String reference,
             @Valid @RequestBody AdminQuoteLinesInput input
     ) {
         return noCache().body(mapper.toDetail(quotes.setQuoteLines(
                 reference,
                 input.getCurrency(),
-                input.getLines().stream()
-                        .map(line -> new QuoteLineDraft(
-                                line.getLabelKey(),
-                                line.getQuantity() == null ? null : new BigDecimal(line.getQuantity()),
-                                line.getUnitAmount() == null ? null : new BigDecimal(line.getUnitAmount()),
-                                new BigDecimal(line.getAmount())))
-                        .toList(),
+                mapper.toDraftList(input.getLines()),
                 SecurityUtils.currentStaff().id())));
     }
 
@@ -136,7 +130,7 @@ public class AdminQuoteController {
             consumes = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminQuoteDetail> doiTrangThaiBaoGia(
+    public ResponseEntity<AdminQuoteDetail> changeQuoteStatus(
             @Size(max = 20) @PathVariable("reference") String reference,
             @Valid @RequestBody AdminQuoteStatusChange input
     ) {

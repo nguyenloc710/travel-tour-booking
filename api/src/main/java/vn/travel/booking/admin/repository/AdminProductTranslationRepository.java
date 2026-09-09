@@ -53,13 +53,13 @@ public class AdminProductTranslationRepository {
      * không phải tình cờ.
      */
     public List<ProductTranslationView> findAll(UUID productId) {
-        String source = locale.localeNguon();
-        Map<String, OffsetPair> moc = mocThoiGian(productId);
+        String source = locale.sourceLocale();
+        Map<String, OffsetPair> timestamps = timestamps(productId);
 
         return repository.findByProductIdAndSoftDeleteFalse(productId).stream()
                 .sorted(Comparator.comparing((ProductTranslationEntity e) ->
                         e.getLocale().equals(source) ? 0 : 1).thenComparing(ProductTranslationEntity::getLocale))
-                .map(e -> dienThemTinhRa(e, source, moc))
+                .map(e -> enrichComputedFields(e, source, timestamps))
                 .toList();
     }
     public ProductTranslationView save(UUID productId, String locale, ProductTranslationInput input) {
@@ -69,48 +69,48 @@ public class AdminProductTranslationRepository {
 
         mapper.writeTo(input, entity);
 
-        ProductTranslationEntity daLuu = repository.saveAndFlush(entity);
+        ProductTranslationEntity saved = repository.saveAndFlush(entity);
 
         // Mốc thời gian đọc LẠI TỪ CSDL sau khi lưu: cột last_modified_at do
         // TRIGGER đặt chứ không do Java, nên giá trị còn trong bộ nhớ là giá trị
         // trước lần lưu này. Đây là cái giá của việc để CSDL sở hữu cột đó — và
         // vẫn rẻ hơn nhiều so với hai chỗ cùng ghi một cột.
-        return dienThemTinhRa(daLuu, this.locale.localeNguon(), mocThoiGian(productId));
+        return enrichComputedFields(saved, this.locale.sourceLocale(), timestamps(productId));
     }
 
     // ------------------------------------------------------------ tính ra
 
-    private ProductTranslationView dienThemTinhRa(ProductTranslationEntity e,
-                                                  String localeNguon,
-                                                  Map<String, OffsetPair> moc) {
-        ProductTranslationView co_ban = mapper.sangView(e);
-        boolean laNguon = e.getLocale().equals(localeNguon);
-        OffsetPair forItself = moc.get(e.getLocale());
+    private ProductTranslationView enrichComputedFields(ProductTranslationEntity entity,
+                                                        String sourceLocale,
+                                                        Map<String, OffsetPair> timestamps) {
+        ProductTranslationView baseView = mapper.toView(entity);
+        boolean isSource = entity.getLocale().equals(sourceLocale);
+        OffsetPair forItself = timestamps.get(entity.getLocale());
 
         return new ProductTranslationView(
-                co_ban.locale(), co_ban.slug(), co_ban.title(), co_ban.shortDescription(),
-                co_ban.longDescription(), co_ban.whyChooseThis(), co_ban.heroImageAlt(),
-                co_ban.status(), laNguon,
-                laNguon ? null : quaHan(e, moc.get(localeNguon)),
-                forItself != null ? forItself.lastModifiedAt() : co_ban.lastModifiedAt(),
-                co_ban.lastModifiedBy());
+                baseView.locale(), baseView.slug(), baseView.title(), baseView.shortDescription(),
+                baseView.longDescription(), baseView.whyChooseThis(), baseView.heroImageAlt(),
+                baseView.status(), isSource,
+                isSource ? null : isOutdated(entity, timestamps.get(sourceLocale)),
+                forItself != null ? forItself.lastModifiedAt() : baseView.lastModifiedAt(),
+                baseView.lastModifiedBy());
     }
 
     /**
      * {@code OUTDATED} = bản nguồn sửa <b>sau</b> lần dịch gần nhất. Chưa dịch
      * lần nào thì cũng là quá hạn — nó chưa bao giờ khớp bản nguồn.
      */
-    private static Boolean quaHan(ProductTranslationEntity ban, OffsetPair source) {
+    private static Boolean isOutdated(ProductTranslationEntity translation, OffsetPair source) {
         if (source == null) {
             return Boolean.FALSE;
         }
-        if (ban.getTranslatedAt() == null) {
+        if (translation.getTranslatedAt() == null) {
             return Boolean.TRUE;
         }
-        return source.lastModifiedAt().isAfter(ban.getTranslatedAt());
+        return source.lastModifiedAt().isAfter(translation.getTranslatedAt());
     }
 
-    private Map<String, OffsetPair> mocThoiGian(UUID productId) {
+    private Map<String, OffsetPair> timestamps(UUID productId) {
         return jdbc.query("""
                 SELECT locale, last_modified_at
                 FROM product_translation

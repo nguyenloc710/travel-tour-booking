@@ -25,11 +25,11 @@ public final class AdminErrors {
     }
 
     /** Gốc chung, chỉ để mang {@code params}. Không bắt trực tiếp lớp này. */
-    public abstract static class CoThamSo extends RuntimeException {
+    public abstract static class WithParams extends RuntimeException {
 
         private final transient Map<String, Object> params;
 
-        protected CoThamSo(String detail, Map<String, Object> params) {
+        protected WithParams(String detail, Map<String, Object> params) {
             super(detail);
             this.params = params;
         }
@@ -43,7 +43,7 @@ public final class AdminErrors {
      * Khối riêng của loại không khớp {@code productType}: thiếu, sai, hoặc gửi
      * hai khối. HTTP 400.
      */
-    public static class ProductTypeBlockMismatch extends CoThamSo {
+    public static class ProductTypeBlockMismatch extends WithParams {
         public ProductTypeBlockMismatch(String productType, String requiredBlocks, int blockCount) {
             super("cần đúng khối " + requiredBlocks + " cho " + productType + ", nhận " + blockCount,
                     Map.of("productType", productType, "expectedBlock", requiredBlocks, "blockCount", blockCount));
@@ -58,7 +58,7 @@ public final class AdminErrors {
      * <p>Bắt ở tầng nghiệp vụ chứ không để CSDL ném: lỗi ràng buộc nổi lên thành
      * {@code 500} kèm {@code traceId}, và biên tập viên không đọc được gì từ đó.
      */
-    public static class DurationDaysRuleViolated extends CoThamSo {
+    public static class DurationDaysRuleViolated extends WithParams {
         public DurationDaysRuleViolated(String productType) {
             super("durationDays sai với " + productType,
                     Map.of("productType", productType));
@@ -66,7 +66,7 @@ public final class AdminErrors {
     }
 
     /** Hạng cabin chỉ có ở {@code CRUISE}. HTTP 400. */
-    public static class CabinCategoryNotAllowed extends CoThamSo {
+    public static class CabinCategoryNotAllowed extends WithParams {
         public CabinCategoryNotAllowed(String productType) {
             super("cabinCategory không dùng được với " + productType,
                     Map.of("productType", productType));
@@ -74,7 +74,7 @@ public final class AdminErrors {
     }
 
     /** Mã loại khách không có trong thị trường này. HTTP 400. */
-    public static class UnknownPaxType extends CoThamSo {
+    public static class UnknownPaxType extends WithParams {
         public UnknownPaxType(String paxTypeCode, String market) {
             super("không có loại khách " + paxTypeCode + " ở thị trường " + market,
                     Map.of("paxTypeCode", paxTypeCode, "market", market));
@@ -88,15 +88,15 @@ public final class AdminErrors {
      * cuối không có trần. Một khoảng hở nghĩa là có số khách mà hệ thống không
      * tính ra giá — và không ai phát hiện cho tới khi đúng nhóm khách đó hỏi.
      */
-    public static class PriceTierNotContiguous extends CoThamSo {
-        public PriceTierNotContiguous(String lyDo, Object taiMinPax) {
-            super("thang giá không liền mạch: " + lyDo,
-                    Map.of("reason", lyDo, "atMinPax", taiMinPax));
+    public static class PriceTierNotContiguous extends WithParams {
+        public PriceTierNotContiguous(String reason, Object atMinPax) {
+            super("thang giá không liền mạch: " + reason,
+                    Map.of("reason", reason, "atMinPax", atMinPax));
         }
     }
 
     /** Hạ sức chứa xuống dưới số chỗ đã bán. HTTP 409. */
-    public static class CapacityBelowBooked extends CoThamSo {
+    public static class CapacityBelowBooked extends WithParams {
         public CapacityBelowBooked(int capacity, int seatsBooked) {
             super("sức chứa " + capacity + " nhỏ hơn số chỗ đã bán " + seatsBooked,
                     Map.of("capacity", capacity, "seatsBooked", seatsBooked));
@@ -111,7 +111,7 @@ public final class AdminErrors {
      * Đó là kiểu hỏng tệ nhất: đúng chính sách không-fallback đang làm việc của
      * nó, nên không có lỗi nào ghi ra, và không ai nối được hai sự việc với nhau.
      */
-    public static class DestinationInUse extends CoThamSo {
+    public static class DestinationInUse extends WithParams {
         public DestinationInUse(int productCount) {
             super("còn " + productCount + " sản phẩm trỏ tới điểm đến này",
                     Map.of("productCount", productCount));
@@ -125,7 +125,7 @@ public final class AdminErrors {
      * người dùng để sửa, và lối ra duy nhất là {@code UPDATE} tay trên cơ sở dữ
      * liệu lúc nửa đêm.
      */
-    public static class LastAdmin extends CoThamSo {
+    public static class LastAdmin extends WithParams {
         public LastAdmin(String detail) {
             super(detail, Map.of());
         }
@@ -138,7 +138,7 @@ public final class AdminErrors {
      * ngừng bán thì tắt công tắc thị trường — thao tác đó không đụng tới đơn đã
      * đặt.
      */
-    public static class ProductHasActiveBookings extends CoThamSo {
+    public static class ProductHasActiveBookings extends WithParams {
         public ProductHasActiveBookings(int bookingCount) {
             super("còn " + bookingCount + " đơn chưa kết thúc",
                     Map.of("activeBookings", bookingCount));

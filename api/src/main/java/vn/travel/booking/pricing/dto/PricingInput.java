@@ -48,25 +48,25 @@ public final class PricingInput {
      *                       Không hardcode ở bất kỳ đâu (docs/14 mục 3 quy tắc 1)
      * @param depositRate    lấy từ {@code market.deposit_rate}
      */
-    public static PricingInput cua(List<PaxLine> pax, int fractionDigits, BigDecimal depositRate) {
-    return new PricingInput(pax, fractionDigits, depositRate);
+    public static PricingInput of(List<PaxLine> pax, int fractionDigits, BigDecimal depositRate) {
+        return new PricingInput(pax, fractionDigits, depositRate);
     }
 
     /** Phụ thu phòng đơn = (giá phòng đơn − giá phòng đôi) × số khách ở một mình. */
-    public PricingInput phongDon(int soloPaxCount, Money chenhLechMoiNguoi) {
+    public PricingInput singleSupplement(int soloPaxCount, Money differencePerPerson) {
         this.singleTravellers = soloPaxCount;
-        this.singleSupplementPerPerson = chenhLechMoiNguoi;
+        this.singleSupplementPerPerson = differencePerPerson;
         return this;
     }
 
     /** Chỉ {@code CRUISE}: chênh giá hạng đã chọn so với hạng thấp nhất của đúng ngày đó. */
-    public PricingInput nangHangCabin(Money chenhMoiNguoi) {
-        this.cabinUpgradePerPerson = chenhMoiNguoi;
+    public PricingInput cabinUpgrade(Money differencePerPerson) {
+        this.cabinUpgradePerPerson = differencePerPerson;
         return this;
     }
 
     /** Chỉ thị trường có nhiều điểm khởi hành. */
-    public PricingInput phuThuDiemKhoiHanh(Money perPerson) {
+    public PricingInput departureOriginSurcharge(Money perPerson) {
         this.departureOriginSurchargePerPerson = perPerson;
         return this;
     }
@@ -76,7 +76,7 @@ public final class PricingInput {
         return this;
     }
 
-    public PricingInput countHotelsBeforeFlight(int roomCount, int nights, Money pricePerRoomPerNight) {
+    public PricingInput preTourHotel(int roomCount, int nights, Money pricePerRoomPerNight) {
         this.preTourHotelRooms = roomCount;
         this.preTourHotelNights = nights;
         this.preTourHotelPricePerRoomNight = pricePerRoomPerNight;
@@ -84,13 +84,13 @@ public final class PricingInput {
     }
 
     /** Mức giảm mỗi người; tính bằng {@link EarlyBird}. */
-    public PricingInput giamDatSom(Money perPerson) {
+    public PricingInput earlyBirdDiscount(Money perPerson) {
         this.earlyBirdPerPerson = perPerson;
         return this;
     }
 
     /** Cố định một lần mỗi đơn, không nhân theo số khách. */
-    public PricingInput phiXuLy(Money perBooking) {
+    public PricingInput processingFee(Money perBooking) {
         this.processingFee = perBooking;
         return this;
     }
@@ -109,7 +109,7 @@ public final class PricingInput {
         return depositRate;
     }
 
-    public int tongSoKhach() {
+    public int totalPaxCount() {
         return pax.stream().mapToInt(PaxLine::count).sum();
     }
 

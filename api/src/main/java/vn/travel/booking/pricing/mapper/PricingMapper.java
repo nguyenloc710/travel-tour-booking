@@ -1,38 +1,47 @@
 package vn.travel.booking.pricing.mapper;
 
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
 import vn.travel.booking.common.mapper.RefMapper;
+import vn.travel.booking.common.money.Money;
 import vn.travel.booking.web.generated.model.PriceBreakdown;
 import vn.travel.booking.web.generated.model.PriceLine;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Bảng phân rã giá sang DTO sinh từ spec.
- *
- * <p>{@code quantity} đi ra dưới dạng <b>chuỗi</b>, cùng lý do với tiền: số dấu
- * phẩy động của JavaScript làm hỏng cả hai.
+ * Bảng phân rã giá sang DTO sinh từ spec bằng MapStruct.
  */
-public final class PricingMapper {
+@Mapper(componentModel = "spring")
+public interface PricingMapper {
 
-    private PricingMapper() {
+    PricingMapper INSTANCE = Mappers.getMapper(PricingMapper.class);
+
+    @Mapping(target = "lines", source = "lines")
+    @Mapping(target = "total", source = "total")
+    @Mapping(target = "deposit", source = "deposit")
+    @Mapping(target = "balance", source = "balance")
+    PriceBreakdown toPriceBreakdown(vn.travel.booking.pricing.dto.PriceBreakdown b);
+
+    List<PriceLine> toPriceLines(List<vn.travel.booking.pricing.dto.PriceLine> row);
+
+    @Mapping(target = "kind", source = "kind")
+    @Mapping(target = "quantity", expression = "java(toQuantityText(d.quantity()))")
+    @Mapping(target = "unitAmount", source = "unitAmount")
+    @Mapping(target = "amount", source = "amount")
+    PriceLine toPriceLine(vn.travel.booking.pricing.dto.PriceLine d);
+
+    default PriceLine.KindEnum toKindEnum(vn.travel.booking.pricing.dto.PriceLineKind kind) {
+        return kind == null ? null : PriceLine.KindEnum.fromValue(kind.name());
     }
 
-    public static PriceBreakdown sangBang(vn.travel.booking.pricing.dto.PriceBreakdown b) {
-        return new PriceBreakdown(
-                sangDong(b.lines()),
-                RefMapper.sangTien(b.total()),
-                RefMapper.sangTien(b.deposit()),
-                RefMapper.sangTien(b.balance()));
+    default vn.travel.booking.web.generated.model.Money toMoney(Money money) {
+        return RefMapper.toMoney(money);
     }
 
-    public static List<PriceLine> sangDong(List<vn.travel.booking.pricing.dto.PriceLine> row) {
-        return row.stream()
-                .map(d -> new PriceLine(
-                        PriceLine.KindEnum.fromValue(d.kind().name()),
-                        d.labelKey(),
-                        RefMapper.sangTien(d.amount()))
-                        .quantity(d.quantity() == null ? null : d.quantity().toPlainString())
-                        .unitAmount(RefMapper.sangTien(d.unitAmount())))
-                .toList();
+    default String toQuantityText(BigDecimal quantity) {
+        return quantity == null ? null : quantity.toPlainString();
     }
 }

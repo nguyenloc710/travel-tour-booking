@@ -44,25 +44,25 @@ import java.util.UUID;
 @Service
 public class AdminContentService {
 
-    private final AdminContentRepository noiDung;
+    private final AdminContentRepository adminContentRepository;
 
-    public AdminContentService(AdminContentRepository noiDung) {
-        this.noiDung = noiDung;
+    public AdminContentService(AdminContentRepository adminContentRepository) {
+        this.adminContentRepository = adminContentRepository;
     }
 
     // ==================================================== điểm đến
 
     @Transactional(readOnly = true)
     public DestinationDetailView destination(UUID id, String sourceLocale) {
-        return noiDung.findDestination(id, sourceLocale)
+        return adminContentRepository.findDestination(id, sourceLocale)
                 .orElseThrow(() -> new NotFoundException("destination id=" + id));
     }
 
     @Transactional
-    public DestinationDetailView suaDiemDen(UUID id, UUID regionId, Integer sortOrder,
-                                            String sourceLocale, UUID staffUserId) {
+    public DestinationDetailView updateDestination(UUID id, UUID regionId, Integer sortOrder,
+                                                   String sourceLocale, UUID staffUserId) {
         requireDestination(id);
-        noiDung.patchDestination(id, regionId, sortOrder, staffUserId);
+        adminContentRepository.patchDestination(id, regionId, sortOrder, staffUserId);
         return destination(id, sourceLocale);
     }
 
@@ -76,45 +76,45 @@ public class AdminContentService {
      * sự việc với nhau.
      */
     @Transactional
-    public void xoaDiemDen(UUID id, UUID staffUserId) {
+    public void deleteDestination(UUID id, UUID staffUserId) {
         requireDestination(id);
 
-        int productCount = noiDung.countProductsOfDestination(id);
+        int productCount = adminContentRepository.countProductsOfDestination(id);
         if (productCount > 0) {
             throw new AdminErrors.DestinationInUse(productCount);
         }
-        noiDung.softDeleteDestination(id, staffUserId);
+        adminContentRepository.softDeleteDestination(id, staffUserId);
     }
 
     @Transactional
-    public DestinationDetailView luuBanDichDiemDen(UUID id, String locale, String sourceLocale,
-                                                   Set<String> roles,
-                                                   DestinationTranslationInput input,
-                                                   UUID staffUserId) {
+    public DestinationDetailView saveDestinationTranslation(UUID id, String locale, String sourceLocale,
+                                                           Set<String> roles,
+                                                           DestinationTranslationInput input,
+                                                           UUID staffUserId) {
         requireDestination(id);
         requireLocaleEditable(locale, sourceLocale, roles);
 
-        noiDung.saveDestinationTranslation(id, locale, input, staffUserId);
+        adminContentRepository.saveDestinationTranslation(id, locale, input, staffUserId);
         return destination(id, sourceLocale);
     }
 
     // ==================================================== thẻ
 
     @Transactional(readOnly = true)
-    public List<TagView> tag(String sourceLocale) {
-        return noiDung.tags(sourceLocale);
+    public List<TagView> tags(String sourceLocale) {
+        return adminContentRepository.tags(sourceLocale);
     }
 
     // ==================================================== bài viết
 
     @Transactional(readOnly = true)
-    public PagedResult<PostRow> danhSachBaiViet(String q, int page, int size, String sourceLocale) {
-        return noiDung.findPosts(q, page, size, sourceLocale);
+    public PagedResult<PostRow> listPosts(String q, int page, int size, String sourceLocale) {
+        return adminContentRepository.findPosts(q, page, size, sourceLocale);
     }
 
     @Transactional(readOnly = true)
     public PostDetailView post(UUID id, String sourceLocale) {
-        return noiDung.findPost(id, sourceLocale)
+        return adminContentRepository.findPost(id, sourceLocale)
                 .orElseThrow(() -> new NotFoundException("post id=" + id));
     }
 
@@ -126,48 +126,48 @@ public class AdminContentService {
      * nghĩa là có một bài chỉ tồn tại ở tiếng Việt, và không có gì để dịch ngược.
      */
     @Transactional
-    public PostDetailView taoBaiViet(PostCreateInput input, String sourceLocale,
+    public PostDetailView createPost(PostCreateInput input, String sourceLocale,
                                      Set<String> roles, UUID staffUserId) {
         requireLocaleEditable(sourceLocale, sourceLocale, roles);
 
-        UUID id = noiDung.createPost(input, sourceLocale, staffUserId);
+        UUID id = adminContentRepository.createPost(input, sourceLocale, staffUserId);
         return post(id, sourceLocale);
     }
 
     @Transactional
-    public PostDetailView suaBaiViet(UUID id, PostPatchInput input, String sourceLocale,
+    public PostDetailView updatePost(UUID id, PostPatchInput input, String sourceLocale,
                                      UUID staffUserId) {
         requirePost(id);
-        noiDung.patchPost(id, input, staffUserId);
+        adminContentRepository.patchPost(id, input, staffUserId);
         return post(id, sourceLocale);
     }
 
     @Transactional
-    public PostDetailView datTheChoBaiViet(UUID id, List<UUID> tagIds, String sourceLocale,
-                                           UUID staffUserId) {
+    public PostDetailView setPostTags(UUID id, List<UUID> tagIds, String sourceLocale,
+                                       UUID staffUserId) {
         requirePost(id);
-        noiDung.datTheChoBaiViet(id, tagIds);
+        adminContentRepository.setPostTags(id, tagIds);
         // Gán thẻ vẫn là một lần sửa bài viết, nên nó phải đứng tên ai đó: bảng
         // nối `post_tag` không có cột kiểm toán (nhóm C), nên dấu vết duy nhất
         // là `last_modified_by` của chính bài viết.
-        noiDung.patchPost(id, new PostPatchInput(null, null), staffUserId);
+        adminContentRepository.patchPost(id, new PostPatchInput(null, null), staffUserId);
         return post(id, sourceLocale);
     }
 
     @Transactional
-    public void xoaBaiViet(UUID id, UUID staffUserId) {
+    public void deletePost(UUID id, UUID staffUserId) {
         requirePost(id);
-        noiDung.softDeletePost(id, staffUserId);
+        adminContentRepository.softDeletePost(id, staffUserId);
     }
 
     @Transactional
-    public PostDetailView luuBanDichBaiViet(UUID id, String locale, String sourceLocale,
-                                            Set<String> roles, PostTranslationInput input,
-                                            UUID staffUserId) {
+    public PostDetailView savePostTranslation(UUID id, String locale, String sourceLocale,
+                                             Set<String> roles, PostTranslationInput input,
+                                             UUID staffUserId) {
         requirePost(id);
         requireLocaleEditable(locale, sourceLocale, roles);
 
-        noiDung.savePostTranslation(id, locale, input, staffUserId);
+        adminContentRepository.savePostTranslation(id, locale, input, staffUserId);
         return post(id, sourceLocale);
     }
 
@@ -175,22 +175,22 @@ public class AdminContentService {
 
     @Transactional(readOnly = true)
     public PagedResult<LectureRow> listEvents(int page, int size, String sourceLocale) {
-        return noiDung.findLectures(page, size, sourceLocale);
+        return adminContentRepository.findLectures(page, size, sourceLocale);
     }
 
     @Transactional(readOnly = true)
-    public LectureDetailView suKien(UUID id, String sourceLocale) {
-        return noiDung.findLecture(id, sourceLocale)
+    public LectureDetailView getEvent(UUID id, String sourceLocale) {
+        return adminContentRepository.findLecture(id, sourceLocale)
                 .orElseThrow(() -> new NotFoundException("lecture id=" + id));
     }
 
     @Transactional
-    public LectureDetailView taoSuKien(LectureCreateInput input, String sourceLocale,
-                                       Set<String> roles, UUID staffUserId) {
+    public LectureDetailView createEvent(LectureCreateInput input, String sourceLocale,
+                                        Set<String> roles, UUID staffUserId) {
         requireLocaleEditable(sourceLocale, sourceLocale, roles);
 
-        UUID id = noiDung.createLecture(input, sourceLocale, staffUserId);
-        return suKien(id, sourceLocale);
+        UUID id = adminContentRepository.createLecture(input, sourceLocale, staffUserId);
+        return getEvent(id, sourceLocale);
     }
 
     /**
@@ -202,36 +202,36 @@ public class AdminContentService {
      * không phải một mã cho một bảng.
      */
     @Transactional
-    public LectureDetailView suaSuKien(UUID id, LecturePatchInput input, String sourceLocale,
-                                       UUID staffUserId) {
+    public LectureDetailView updateEvent(UUID id, LecturePatchInput input, String sourceLocale,
+                                        UUID staffUserId) {
         requireEvent(id);
 
         if (input.seats() != null) {
-            int daDangKy = noiDung.seatsTaken(id);
-            if (input.seats() < daDangKy) {
-                throw new AdminErrors.CapacityBelowBooked(input.seats(), daDangKy);
+            int seatsTaken = adminContentRepository.seatsTaken(id);
+            if (input.seats() < seatsTaken) {
+                throw new AdminErrors.CapacityBelowBooked(input.seats(), seatsTaken);
             }
         }
 
-        noiDung.patchLecture(id, input, staffUserId);
-        return suKien(id, sourceLocale);
+        adminContentRepository.patchLecture(id, input, staffUserId);
+        return getEvent(id, sourceLocale);
     }
 
     @Transactional
-    public void xoaSuKien(UUID id, UUID staffUserId) {
+    public void deleteEvent(UUID id, UUID staffUserId) {
         requireEvent(id);
-        noiDung.softDeleteLecture(id, staffUserId);
+        adminContentRepository.softDeleteLecture(id, staffUserId);
     }
 
     @Transactional
-    public LectureDetailView luuBanDichSuKien(UUID id, String locale, String sourceLocale,
-                                              Set<String> roles, LectureTranslationInput input,
-                                              UUID staffUserId) {
+    public LectureDetailView saveEventTranslation(UUID id, String locale, String sourceLocale,
+                                                  Set<String> roles, LectureTranslationInput input,
+                                                  UUID staffUserId) {
         requireEvent(id);
         requireLocaleEditable(locale, sourceLocale, roles);
 
-        noiDung.saveLectureTranslation(id, locale, input, staffUserId);
-        return suKien(id, sourceLocale);
+        adminContentRepository.saveLectureTranslation(id, locale, input, staffUserId);
+        return getEvent(id, sourceLocale);
     }
 
     // ==================================================== nội bộ
@@ -245,31 +245,31 @@ public class AdminContentService {
      * trong ma trận, hai chỗ kiểm — ngày nào đó chúng sẽ trả lời khác nhau.
      */
     private static void requireLocaleEditable(String locale, String sourceLocale, Set<String> roles) {
-        boolean laNguon = sourceLocale.equals(locale);
+        boolean isSource = sourceLocale.equals(locale);
         boolean allowed = roles.contains("ADMIN")
-                || (laNguon ? roles.contains("EDITOR") : roles.contains("TRANSLATOR"));
+                || (isSource ? roles.contains("EDITOR") : roles.contains("TRANSLATOR"));
 
         if (!allowed) {
-            throw new ForbiddenException(laNguon
+            throw new ForbiddenException(isSource
                     ? "chỉ EDITOR hoặc ADMIN sửa được bản ngôn ngữ nguồn"
                     : "chỉ TRANSLATOR hoặc ADMIN sửa được bản dịch");
         }
     }
 
     private void requireDestination(UUID id) {
-        if (!noiDung.destinationExists(id)) {
+        if (!adminContentRepository.destinationExists(id)) {
             throw new NotFoundException("destination id=" + id);
         }
     }
 
     private void requirePost(UUID id) {
-        if (!noiDung.postExists(id)) {
+        if (!adminContentRepository.postExists(id)) {
             throw new NotFoundException("post id=" + id);
         }
     }
 
     private void requireEvent(UUID id) {
-        if (!noiDung.lectureExists(id)) {
+        if (!adminContentRepository.lectureExists(id)) {
             throw new NotFoundException("lecture id=" + id);
         }
     }

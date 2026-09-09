@@ -29,7 +29,7 @@ public interface ProductTranslationMapper {
 
     @Mapping(target = "isSource", ignore = true)
     @Mapping(target = "outdated", ignore = true)
-    ProductTranslationView sangView(ProductTranslationEntity entity);
+    ProductTranslationView toView(ProductTranslationEntity entity);
 
     /**
      * Ghi dữ liệu vào entity đang có. Cố tình <b>không</b> chạm tới khoá chính,
@@ -44,7 +44,7 @@ public interface ProductTranslationMapper {
     @Mapping(target = "softDelete", ignore = true)
     void writeTo(ProductTranslationInput input, @MappingTarget ProductTranslationEntity entity);
 
-    default String[] sangMang(List<String> list) {
+    default String[] toArray(List<String> list) {
         return list == null ? null : list.toArray(String[]::new);
     }
 

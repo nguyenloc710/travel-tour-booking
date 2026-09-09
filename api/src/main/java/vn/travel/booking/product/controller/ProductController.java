@@ -1,18 +1,16 @@
 package vn.travel.booking.product.controller;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.common.util.RequestScope;
-import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RestController;
+import vn.travel.booking.product.mapper.ProductWebMapper;
 import vn.travel.booking.product.dto.DepartureView;
-import vn.travel.booking.product.service.ProductService;
 import vn.travel.booking.product.service.ProductService;
 import vn.travel.booking.product.service.ProductContentService;
 import vn.travel.booking.product.service.SlugRedirectService;
@@ -41,15 +39,18 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService products;
-    private final ProductContentService noiDung;
-    private final SlugRedirectService slugCu;
+    private final ProductContentService contentService;
+    private final SlugRedirectService slugRedirectService;
+    private final ProductWebMapper mapper;
 
     public ProductController(ProductService products,
-                             ProductContentService noiDung,
-                             SlugRedirectService slugCu) {
+                             ProductContentService contentService,
+                             SlugRedirectService slugRedirectService,
+                             ProductWebMapper mapper) {
         this.products = products;
-        this.noiDung = noiDung;
-        this.slugCu = slugCu;
+        this.contentService = contentService;
+        this.slugRedirectService = slugRedirectService;
+        this.mapper = mapper;
     }
 
     @RequestMapping(
@@ -72,7 +73,7 @@ public class ProductController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        ProductQuery truyVan = new ProductQuery(
+        ProductQuery query = new ProductQuery(
                 RequestScope.market(market),
                 locale,
                 region,
@@ -81,15 +82,15 @@ public class ProductController {
                 productType == null ? null
                         : vn.travel.booking.product.dto.ProductType.valueOf(productType.getValue()),
                 q,
-                sortCuaUngDung(sort),
+                mapper.toDomainSort(sort),
                 page == null ? 0 : page,
                 size == null ? 24 : size);
 
-        ProductPage than = RefMapper.sangTrang(products.list(truyVan));
+        ProductPage body = mapper.toPage(products.list(query));
 
         // Listing sản phẩm: 60 giây. Ngày khởi hành và giá thì no-store —
         // docs/13 mục 8. Chỗ còn thay đổi từng phút không được cache.
-        return phanHoi(locale, Duration.ofMinutes(1)).body(than);
+        return response(locale, Duration.ofMinutes(1)).body(body);
     }
 
     /**
@@ -113,9 +114,9 @@ public class ProductController {
     ) {
 
         String locale = RequestScope.locale(acceptLanguage);
-        String moi = slugCu.giai(RequestScope.market(market), locale, type, slug);
+        String newSlug = slugRedirectService.resolve(RequestScope.market(market), locale, type, slug);
 
-        return phanHoi(locale, Duration.ofDays(1)).body(new SlugRedirect(moi));
+        return response(locale, Duration.ofDays(1)).body(new SlugRedirect(newSlug));
     }
 
     @RequestMapping(
@@ -130,10 +131,10 @@ public class ProductController {
     ) {
         String locale = RequestScope.locale(acceptLanguage);
 
-        ProductDetail than = RefMapper.sangChiTiet(
+        ProductDetail body = mapper.toDetail(
                 products.detail(RequestScope.market(market), locale, slug));
 
-        return phanHoi(locale, Duration.ofMinutes(1)).body(than);
+        return response(locale, Duration.ofMinutes(1)).body(body);
     }
 
     @RequestMapping(
@@ -149,14 +150,10 @@ public class ProductController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        List<ItineraryDay> than = noiDung
-                .itinerary(RequestScope.market(market), locale, slug).stream()
-                .map(d -> new ItineraryDay(d.dayNumber(), d.title(), d.description())
-                        .destination(d.destination() == null ? null : RefMapper.sangRef(d.destination()))
-                        .hotelName(d.hotelName()))
-                .toList();
+        List<ItineraryDay> body = mapper.toItineraryDayList(
+                contentService.itinerary(RequestScope.market(market), locale, slug));
 
-        return phanHoi(locale, Duration.ofMinutes(1)).body(than);
+        return response(locale, Duration.ofMinutes(1)).body(body);
     }
 
     @RequestMapping(
@@ -172,15 +169,10 @@ public class ProductController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        List<HotelStay> than = noiDung
-                .hotelStays(RequestScope.market(market), locale, slug).stream()
-                .map(h -> new HotelStay(h.name(), h.nights(), RefMapper.sangRef(h.destination()))
-                        .stars(h.stars())
-                        .description(h.description())
-                        .image(h.image()))
-                .toList();
+        List<HotelStay> body = mapper.toHotelStayList(
+                contentService.hotelStays(RequestScope.market(market), locale, slug));
 
-        return phanHoi(locale, Duration.ofMinutes(1)).body(than);
+        return response(locale, Duration.ofMinutes(1)).body(body);
     }
 
     /**
@@ -200,42 +192,21 @@ public class ProductController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        List<Departure> than = noiDung
-                .departures(RequestScope.market(market), locale, slug).stream()
-                .map(ProductController::sangNgayKhoiHanh)
-                .toList();
+        List<Departure> body = mapper.toDepartureList(
+                contentService.departures(RequestScope.market(market), locale, slug));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_LANGUAGE, locale)
                 .header(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE)
                 .cacheControl(CacheControl.noStore())
-                .body(than);
+                .body(body);
     }
 
-    private static Departure sangNgayKhoiHanh(DepartureView d) {
-        return new Departure(
-                d.id(), d.departDate(), d.returnDate(), d.days(),
-                DepartureStatus.fromValue(d.status().name()), d.seatsAvailable())
-                .priceFrom(RefMapper.sangTien(d.priceFrom()))
-                .cabinCategory(d.cabinCategory())
-                .departureCity(d.departureCity());
-    }
-
-    private static ResponseEntity.BodyBuilder phanHoi(String locale, Duration age) {
+    private static ResponseEntity.BodyBuilder response(String locale, Duration age) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_LANGUAGE, locale)
                 // Thiếu Vary là CDN phục vụ bản tiếng Đan cho khách Việt.
                 .header(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE)
                 .cacheControl(CacheControl.maxAge(age).cachePublic());
-    }
-
-    /**
-     * Enum sinh ra mang giá trị dạng {@code "title,asc"}; enum của tầng
-     * application mang tên hằng. Dịch bằng tên hằng chứ không bằng giá trị, để
-     * đổi cách viết trong spec không kéo theo sửa tầng application.
-     */
-    private static vn.travel.booking.product.dto.ProductSort sortCuaUngDung(ProductSort sort) {
-        ProductSort thuc_te = sort == null ? ProductSort.TITLE_ASC : sort;
-        return vn.travel.booking.product.dto.ProductSort.valueOf(thuc_te.name());
     }
 }

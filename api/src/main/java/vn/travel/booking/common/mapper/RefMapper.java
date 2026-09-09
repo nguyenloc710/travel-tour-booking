@@ -30,16 +30,16 @@ public final class RefMapper {
     private RefMapper() {
     }
 
-    public static ProductPage sangTrang(PagedResult<vn.travel.booking.product.dto.ProductSummary> trang) {
+    public static ProductPage toProductPage(PagedResult<vn.travel.booking.product.dto.ProductSummary> page) {
         return new ProductPage(
-                trang.items().stream().map(RefMapper::sangTomTat).toList(),
-                trang.page(),
-                trang.size(),
-                trang.totalItems(),
-                trang.totalPages());
+                page.items().stream().map(RefMapper::toProductSummary).toList(),
+                page.page(),
+                page.size(),
+                page.totalItems(),
+                page.totalPages());
     }
 
-    public static ProductSummary sangTomTat(vn.travel.booking.product.dto.ProductSummary s) {
+    public static ProductSummary toProductSummary(vn.travel.booking.product.dto.ProductSummary s) {
         return new ProductSummary(
                 s.slug(),
                 s.title(),
@@ -47,14 +47,14 @@ public final class RefMapper {
                 s.shortDescription(),
                 s.heroImage(),
                 s.heroImageAlt(),
-                sangRef(s.region()),
-                sangRef(s.destination()),
+                toRef(s.region()),
+                toRef(s.destination()),
                 s.isNew(),
                 s.reviewCount())
                 // Trường rỗng bị bỏ hẳn khỏi JSON, không trả null — docs/13 mục 4.
                 // Cấu hình Jackson lo việc đó (application.yml), ở đây cứ đặt null.
                 .durationDays(s.durationDays())
-                .priceFrom(sangTien(s.priceFrom()))
+                .priceFrom(toMoney(s.priceFrom()))
                 .rating(s.rating());
     }
 
@@ -68,52 +68,52 @@ public final class RefMapper {
      * lấy điều này: mỗi loại có đúng những trường của nó, không có trường thừa
      * mang giá trị null để frontend phải đoán.
      */
-    public static ProductDetail sangChiTiet(vn.travel.booking.product.dto.ProductDetail d) {
+    public static ProductDetail toProductDetail(vn.travel.booking.product.dto.ProductDetail d) {
         return switch (d.variant()) {
             case ProductVariant.GroupTour v -> new GroupTourDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
                     d.longDescription(), d.whyChooseThis(), d.heroImage(), d.heroImageAlt(),
-                    sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
+                    toRef(d.region()), toRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.minPax(), v.maxPax(), v.guaranteedThreshold(), v.tourLeaderLanguage(),
                     v.fitnessLevel())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .priceFrom(toMoney(d.priceFrom())).rating(d.rating())
                     .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.IndividualPackage v -> new IndividualPackageDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
                     d.longDescription(), d.whyChooseThis(), d.heroImage(), d.heroImageAlt(),
-                    sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
+                    toRef(d.region()), toRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.minPartySize(), v.flexibleDateWindowDays())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .priceFrom(toMoney(d.priceFrom())).rating(d.rating())
                     .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.PrivateTour v -> new PrivateTourDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
                     d.longDescription(), d.whyChooseThis(), d.heroImage(), d.heroImageAlt(),
-                    sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
+                    toRef(d.region()), toRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.leadTimeDays(), v.quoteValidDays())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .priceFrom(toMoney(d.priceFrom())).rating(d.rating())
                     .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.Cruise v -> new CruiseDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
                     d.longDescription(), d.whyChooseThis(), d.heroImage(), d.heroImageAlt(),
-                    sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
+                    toRef(d.region()), toRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.shipName(), v.portCount())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .priceFrom(toMoney(d.priceFrom())).rating(d.rating())
                     .gallery(imageSet(d.gallery())).layout(d.layout());
 
             case ProductVariant.Combo v -> new ComboDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
                     d.longDescription(), d.whyChooseThis(), d.heroImage(), d.heroImageAlt(),
-                    sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
+                    toRef(d.region()), toRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.nights(), v.validFrom(), v.validTo())
                     .mapImage(d.mapImage()).durationDays(d.durationDays())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .priceFrom(toMoney(d.priceFrom())).rating(d.rating())
                     .gallery(imageSet(d.gallery())).layout(d.layout());
 
             // DAY_TOUR không có durationDays — loại này đo bằng giờ, và CSDL
@@ -121,10 +121,10 @@ public final class RefMapper {
             case ProductVariant.DayTour v -> new DayTourDetail(
                     d.slug(), d.title(), d.productType().name(), d.shortDescription(),
                     d.longDescription(), d.whyChooseThis(), d.heroImage(), d.heroImageAlt(),
-                    sangRef(d.region()), sangRef(d.destination()), d.isNew(), d.reviewCount(),
+                    toRef(d.region()), toRef(d.destination()), d.isNew(), d.reviewCount(),
                     v.durationHours(), v.cutoffHours())
                     .mapImage(d.mapImage())
-                    .priceFrom(sangTien(d.priceFrom())).rating(d.rating())
+                    .priceFrom(toMoney(d.priceFrom())).rating(d.rating())
                     .gallery(imageSet(d.gallery())).layout(d.layout());
         };
     }
@@ -133,7 +133,7 @@ public final class RefMapper {
         return ProductType.fromValue(type.name());
     }
 
-    public static Ref sangRef(NamedRef r) {
+    public static Ref toRef(NamedRef r) {
         return new Ref(r.slug(), r.name());
     }
 
@@ -157,11 +157,11 @@ public final class RefMapper {
      * JavaScript làm hỏng tiền. {@code toPlainString()} chứ không
      * {@code toString()}: {@code BigDecimal} có thể in ra dạng mũ.
      */
-    public static vn.travel.booking.web.generated.model.Money sangTien(Money tien) {
-        if (tien == null) {
+    public static vn.travel.booking.web.generated.model.Money toMoney(Money money) {
+        if (money == null) {
             return null;
         }
         return new vn.travel.booking.web.generated.model.Money(
-                tien.amount().toPlainString(), tien.currency());
+                money.amount().toPlainString(), money.currency());
     }
 }

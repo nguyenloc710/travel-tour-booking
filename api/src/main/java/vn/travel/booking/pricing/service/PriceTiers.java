@@ -23,11 +23,11 @@ public final class PriceTiers {
      * nhóm hai người, và trả đơn giá của bậc nhỏ — đắt hơn hẳn, và không ai hiểu
      * vì sao.
      */
-    public static Money unitPricePerPerson(List<PriceTier> bac, int tongSoKhach) {
-        return bac.stream()
-                .filter(b -> b.fits(tongSoKhach))
+    public static Money unitPricePerPerson(List<PriceTier> tiers, int totalPaxCount) {
+        return tiers.stream()
+                .filter(b -> b.fits(totalPaxCount))
                 .findFirst()
                 .map(PriceTier::pricePerPerson)
-                .orElseThrow(() -> new PartySizeOutOfRangeException(tongSoKhach));
+                .orElseThrow(() -> new PartySizeOutOfRangeException(totalPaxCount));
     }
 }

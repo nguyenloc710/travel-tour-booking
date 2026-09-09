@@ -27,10 +27,10 @@ public class AuditConfig {
     @Bean
     AuditorAware<UUID> auditorAware() {
         return () -> {
-            Authentication xacThuc = SecurityContextHolder.getContext().getAuthentication();
-            if (xacThuc != null
-                    && xacThuc.isAuthenticated()
-                    && xacThuc.getPrincipal() instanceof StaffPrincipal staff) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null
+                    && auth.isAuthenticated()
+                    && auth.getPrincipal() instanceof StaffPrincipal staff) {
                 return Optional.of(staff.id());
             }
             return Optional.empty();

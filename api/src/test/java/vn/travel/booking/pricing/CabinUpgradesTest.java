@@ -45,25 +45,25 @@ class CabinUpgradesTest {
         Money diff = CabinUpgrades.diffAgainstLowestTier(marchDate(), "INSIDE");
         assertEquals(0, diff.amount().signum());
 
-        PriceBreakdown kq = PricingEngine.tinh(
-                PricingInput.cua(java.util.List.of(PaxLine.of("ADULT", 2, Money.of("8990.00", DKK))),
+        PriceBreakdown breakdown = PricingEngine.calculate(
+                PricingInput.of(java.util.List.of(PaxLine.of("ADULT", 2, Money.of("8990.00", DKK))),
                                 2, new java.math.BigDecimal("0.2500"))
-                        .nangHangCabin(diff));
+                        .cabinUpgrade(diff));
 
-        assertEquals(1, kq.lines().size(), "Không hiện dòng nâng hạng bằng 0");
+        assertEquals(1, breakdown.lines().size(), "Không hiện dòng nâng hạng bằng 0");
     }
 
     @Test
     @DisplayName("Cùng một hạng, hai ngày khởi hành khác nhau cho hai mức chênh khác nhau")
     void diffVariesByDepartureDate() {
-        Map<String, Money> mua_cao_diem = new LinkedHashMap<>();
-        mua_cao_diem.put("INSIDE", Money.of("11990.00", DKK));
-        mua_cao_diem.put("BALCONY", Money.of("17990.00", DKK));
+        Map<String, Money> peakSeasonPrice = new LinkedHashMap<>();
+        peakSeasonPrice.put("INSIDE", Money.of("11990.00", DKK));
+        peakSeasonPrice.put("BALCONY", Money.of("17990.00", DKK));
 
         assertEquals(Money.of("3300.00", DKK),
                 CabinUpgrades.diffAgainstLowestTier(marchDate(), "BALCONY"));
         assertEquals(Money.of("6000.00", DKK),
-                CabinUpgrades.diffAgainstLowestTier(mua_cao_diem, "BALCONY"));
+                CabinUpgrades.diffAgainstLowestTier(peakSeasonPrice, "BALCONY"));
 
         // Đây là lý do không dùng một mức chênh cố định giữa hai hạng: mùa cao
         // điểm chênh gấp gần hai lần, và bán theo mức cũ là bán lỗ.

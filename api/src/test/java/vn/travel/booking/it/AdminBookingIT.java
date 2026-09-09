@@ -86,11 +86,11 @@ class AdminBookingIT {
     }
 
     private static final String PASSWORD = "mat-khau-rat-dai";
-    private static final String TU_VAN = "bb100000-0000-4000-8000-000000000002";
+    private static final String CONSULTANT_ID = "bb100000-0000-4000-8000-000000000002";
     private static final String DEPARTURE_DK = "bb200000-0000-4000-8000-000000000001";
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -215,7 +215,7 @@ class AdminBookingIT {
 
         String hash = new BCryptPasswordEncoder().encode(PASSWORD);
         addStaff("bb100000-0000-4000-8000-000000000001", "bientap@travel.test", "Biên tập", hash, "EDITOR");
-        addStaff(TU_VAN, "tuvan@travel.test", "Trần Tư Vấn", hash, "CONSULTANT");
+        addStaff(CONSULTANT_ID, "tuvan@travel.test", "Trần Tư Vấn", hash, "CONSULTANT");
         addStaff("bb100000-0000-4000-8000-000000000003", "admin@travel.test", "Quản trị", hash, "ADMIN");
 
         // Nhật ký của B2 — ba dòng, và dòng cuối do NHÂN VIÊN làm. Đặt created_at
@@ -233,7 +233,7 @@ class AdminBookingIT {
                    'Đã gọi xác nhận','2026-09-02T14:30:00Z'),
                   ('bb500000-0000-4000-8000-000000000004','bb400000-0000-4000-8000-000000000001',
                    NULL,'PENDING_PAYMENT','CUSTOMER',NULL,NULL,'2026-09-01T10:00:00Z')
-                """, TU_VAN);
+                """, CONSULTANT_ID);
     }
 
     // ------------------------------------------------------------ M6
@@ -241,15 +241,15 @@ class AdminBookingIT {
     @Test
     @DisplayName("Mặc định chỉ trả đơn cần xử lý, không trả tất cả")
     void defaultReturnsOnlyActionableBookings() {
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(2L, trang.getTotalItems());
+        assertNotNull(page);
+        assertEquals(2L, page.getTotalItems());
 
         // Một danh sách vận hành mở ra mặc định "tất cả" là danh sách không dùng
         // được sau sáu tháng: việc cần làm hôm nay chìm giữa đơn đã xong.
-        List<BookingStatus> status = trang.getItems().stream()
+        List<BookingStatus> status = page.getItems().stream()
                 .map(AdminBookingSummary::getStatus).toList();
         assertTrue(status.contains(BookingStatus.PENDING_CONFIRMATION));
         assertTrue(status.contains(BookingStatus.PENDING_PAYMENT));
@@ -260,13 +260,13 @@ class AdminBookingIT {
     @Test
     @DisplayName("scope=ALL trả hết, mới nhất trước")
     void scopeAllReturnsEverythingNewestFirst() {
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(4L, trang.getTotalItems());
+        assertNotNull(page);
+        assertEquals(4L, page.getTotalItems());
         assertEquals(List.of("VN-2026-CCCC33", "DK-2026-BBBB22", "DK-2026-AAAA11", "DK-2026-DDDD44"),
-                trang.getItems().stream().map(AdminBookingSummary::getReference).toList());
+                page.getItems().stream().map(AdminBookingSummary::getReference).toList());
     }
 
     @Test
@@ -275,12 +275,12 @@ class AdminBookingIT {
         // COMPLETED không nằm trong NEEDS_ACTION. Không truyền scope, nhưng
         // truyền status: lựa chọn người dùng nhìn thấy thắng mặc định họ không
         // nhìn thấy.
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings?status=COMPLETED", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(1L, trang.getTotalItems());
-        assertEquals("DK-2026-DDDD44", trang.getItems().getFirst().getReference());
+        assertNotNull(page);
+        assertEquals(1L, page.getTotalItems());
+        assertEquals("DK-2026-DDDD44", page.getItems().getFirst().getReference());
     }
 
     @Test
@@ -289,12 +289,12 @@ class AdminBookingIT {
         // VN có is_active = FALSE trong dữ liệu tra cứu. Đơn đã đặt ở đó vẫn
         // phải nhìn thấy được: tắt một thị trường là ngừng bán, không phải xoá
         // những người đã mua.
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings?scope=ALL&market=VN", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(1L, trang.getTotalItems());
-        AdminBookingSummary b3 = trang.getItems().getFirst();
+        assertNotNull(page);
+        assertEquals(1L, page.getTotalItems());
+        AdminBookingSummary b3 = page.getItems().getFirst();
         assertEquals("VN-2026-CCCC33", b3.getReference());
         assertEquals("VND", b3.getTotal().getCurrency());
     }
@@ -302,16 +302,16 @@ class AdminBookingIT {
     @Test
     @DisplayName("Khoảng ngày lọc theo ngày TẠO đơn, và bao gồm cả ngày cuối")
     void dateRangeFiltersByCreatedAtInclusive() {
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings?scope=ALL&from=2026-09-01&to=2026-09-02",
                         AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
+        assertNotNull(page);
         // B4 tạo 01/08 nằm ngoài; B3 tạo 03/09 nằm ngoài. B2 tạo đúng ngày cuối
         // của khoảng và PHẢI nằm trong — "tới 02/09" nghĩa là hết ngày 02/09.
-        assertEquals(2L, trang.getTotalItems());
+        assertEquals(2L, page.getTotalItems());
         assertEquals(List.of("DK-2026-BBBB22", "DK-2026-AAAA11"),
-                trang.getItems().stream().map(AdminBookingSummary::getReference).toList());
+                page.getItems().stream().map(AdminBookingSummary::getReference).toList());
     }
 
     @Test
@@ -337,27 +337,27 @@ class AdminBookingIT {
     @Test
     @DisplayName("totalItems đếm ĐƠN, không đếm hành khách")
     void totalItemsCountsBookingsNotPassengers() {
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
+        assertNotNull(page);
         // Bốn đơn mang tổng cộng bảy hành khách. Viết truy vấn bằng
         // JOIN booking_passenger thì con số này ra 7 và không ai để ý, vì 7 vẫn
         // là một con số hợp lý.
-        assertEquals(4L, trang.getTotalItems());
-        assertEquals(4, trang.getItems().size());
-        assertEquals(3, find(trang, "VN-2026-CCCC33").getPaxCount());
-        assertEquals(2, find(trang, "DK-2026-AAAA11").getPaxCount());
+        assertEquals(4L, page.getTotalItems());
+        assertEquals(4, page.getItems().size());
+        assertEquals(3, find(page, "VN-2026-CCCC33").getPaxCount());
+        assertEquals(2, find(page, "DK-2026-AAAA11").getPaxCount());
     }
 
     @Test
     @DisplayName("Locale của đơn độc lập với thị trường")
     void bookingLocaleIndependentOfMarket() {
-        AdminBookingPage trang = login("tuvan@travel.test")
+        AdminBookingPage page = login("tuvan@travel.test")
                 .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
-        AdminBookingSummary b2 = find(trang, "DK-2026-BBBB22");
+        assertNotNull(page);
+        AdminBookingSummary b2 = find(page, "DK-2026-BBBB22");
         assertEquals(AdminBookingSummary.MarketEnum.DK, b2.getMarket());
         assertEquals("vi", b2.getLocale());
     }
@@ -449,20 +449,20 @@ class AdminBookingIT {
     @Test
     @DisplayName("Xác nhận đơn: trạng thái đổi và nhật ký có dòng mang tên nhân viên")
     void confirmingBookingWritesAuditRow() {
-        AdminBookingDetail sau = changeStatus("tuvan@travel.test", "DK-2026-AAAA11",
+        AdminBookingDetail updated = changeStatus("tuvan@travel.test", "DK-2026-AAAA11",
                 "CONFIRMED", "Khách đã chuyển khoản");
 
-        assertNotNull(sau);
-        assertEquals(BookingStatus.CONFIRMED, sau.getStatus());
+        assertNotNull(updated);
+        assertEquals(BookingStatus.CONFIRMED, updated.getStatus());
 
         // Dòng nhật ký là bằng chứng, không phải hiệu ứng phụ: docs/23 mục 4
         // quy tắc 1 không có ngoại lệ nào cho thao tác của nhân viên.
-        AdminBookingEvent moi = sau.getEvents().getLast();
-        assertEquals(BookingStatus.PENDING_CONFIRMATION, moi.getFromStatus());
-        assertEquals(BookingStatus.CONFIRMED, moi.getToStatus());
-        assertEquals(AdminBookingEvent.ActorTypeEnum.STAFF, moi.getActorType());
-        assertEquals("Trần Tư Vấn", moi.getActorName());
-        assertEquals("Khách đã chuyển khoản", moi.getNote());
+        AdminBookingEvent newEvent = updated.getEvents().getLast();
+        assertEquals(BookingStatus.PENDING_CONFIRMATION, newEvent.getFromStatus());
+        assertEquals(BookingStatus.CONFIRMED, newEvent.getToStatus());
+        assertEquals(AdminBookingEvent.ActorTypeEnum.STAFF, newEvent.getActorType());
+        assertEquals("Trần Tư Vấn", newEvent.getActorName());
+        assertEquals("Khách đã chuyển khoản", newEvent.getNote());
     }
 
     @Test
@@ -499,12 +499,12 @@ class AdminBookingIT {
                 login("tuvan@travel.test"), "DK-2026-DDDD44", "CONFIRMED", null);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        ErrorResponse loi = response.getBody();
-        assertNotNull(loi);
-        assertEquals("BOOKING_TRANSITION_NOT_ALLOWED", loi.getCode());
+        ErrorResponse error = response.getBody();
+        assertNotNull(error);
+        assertEquals("BOOKING_TRANSITION_NOT_ALLOWED", error.getCode());
         // Tham số, không phải câu tiếng người — frontend dựng câu.
-        assertEquals("COMPLETED", loi.getParams().get("from"));
-        assertEquals("CONFIRMED", loi.getParams().get("to"));
+        assertEquals("COMPLETED", error.getParams().get("from"));
+        assertEquals("CONFIRMED", error.getParams().get("to"));
     }
 
     @Test
@@ -565,18 +565,18 @@ class AdminBookingIT {
     @Test
     @DisplayName("Quản trị viên xem được đơn")
     void adminCanViewBookings() {
-        AdminBookingPage trang = login("admin@travel.test")
+        AdminBookingPage page = login("admin@travel.test")
                 .get("/api/v1/admin/bookings?scope=ALL", AdminBookingPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(4L, trang.getTotalItems());
+        assertNotNull(page);
+        assertEquals(4L, page.getTotalItems());
     }
 
     @Test
     @DisplayName("Chưa đăng nhập trả 401")
     void notLoggedInReturns401() {
         assertEquals(HttpStatus.UNAUTHORIZED,
-                new Phien().get("/api/v1/admin/bookings", String.class).getStatusCode());
+                new Session().get("/api/v1/admin/bookings", String.class).getStatusCode());
     }
 
     @Test
@@ -601,7 +601,7 @@ class AdminBookingIT {
         return response.getBody();
     }
 
-    private ResponseEntity<ErrorResponse> callChange(Phien session, String reference,
+    private ResponseEntity<ErrorResponse> callChange(Session session, String reference,
                                                  String toStatus, String note) {
         return session.call(HttpMethod.POST, "/api/v1/admin/bookings/" + reference + "/status",
                 body(toStatus, note), ErrorResponse.class);
@@ -620,9 +620,9 @@ class AdminBookingIT {
         return count == null ? -1 : count;
     }
 
-    private static AdminBookingSummary find(AdminBookingPage trang, String reference) {
-        return trang.getItems().stream()
-                .filter(d -> reference.equals(d.getReference()))
+    private static AdminBookingSummary find(AdminBookingPage page, String reference) {
+        return page.getItems().stream()
+                .filter(item -> reference.equals(item.getReference()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("không có đơn " + reference + " trong trang"));
     }
@@ -638,13 +638,13 @@ class AdminBookingIT {
                 """, id, roles);
     }
 
-    private Phien login(String email) {
-        Phien session = new Phien();
+    private Session login(String email) {
+        Session session = new Session();
         assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
         return session;
     }
 
-    private final class Phien {
+    private final class Session {
 
         private final List<String> cookies = new ArrayList<>();
 
@@ -660,7 +660,7 @@ class AdminBookingIT {
 
         <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
             RestClient.RequestBodySpec request = RestClient.builder()
-                    .baseUrl("http://localhost:" + cong)
+                    .baseUrl("http://localhost:" + port)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
                     .method(httpMethod)
@@ -676,19 +676,19 @@ class AdminBookingIT {
             }
 
             ResponseEntity<T> response = request.retrieve().toEntity(type);
-            nhoCookie(response);
+            rememberCookies(response);
             return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> response) {
-            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-            if (moi == null) {
+        private void rememberCookies(ResponseEntity<?> response) {
+            List<String> newCookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+            if (newCookies == null) {
                 return;
             }
-            for (String c : moi) {
+            for (String c : newCookies) {
                 String summary = c.split(";", 2)[0];
                 String name = summary.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.removeIf(existing -> existing.startsWith(name + "="));
                 cookies.add(summary);
             }
         }

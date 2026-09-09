@@ -73,7 +73,7 @@ public class AdminContentRepository {
     }
 
     public Optional<DestinationDetailView> findDestination(UUID id, String sourceLocale) {
-        List<DestinationDetailView> tim = jdbc.query("""
+        List<DestinationDetailView> results = jdbc.query("""
                 SELECT d.id, d.code, d.region_id, d.sort_order,
                        d.last_modified_at, s.display_name AS nguoi_sua,
                        rt.name AS region_name,
@@ -97,7 +97,7 @@ public class AdminContentRepository {
                         rs.getString("nguoi_sua")),
                 sourceLocale, id);
 
-        return tim.stream().findFirst();
+        return results.stream().findFirst();
     }
 
     private List<DestinationTranslationView> destinationTranslations(UUID id, String sourceLocale) {
@@ -203,12 +203,12 @@ public class AdminContentRepository {
     }
 
     public PagedResult<PostRow> findPosts(String q, int page, int size, String sourceLocale) {
-        String loc = "";
+        String filterSql = "";
         List<Object> params = new ArrayList<>();
         if (q != null && !q.isBlank()) {
             // Khớp tiêu đề ở BẤT KỲ ngôn ngữ nào: nhân viên nhớ tên bài bằng
             // thứ tiếng họ đang làm việc, không phải bằng ngôn ngữ nguồn.
-            loc = """
+            filterSql = """
                    AND EXISTS (SELECT 1 FROM post_translation pt
                                 WHERE pt.post_id = p.id AND NOT pt.soft_delete
                                   AND pt.title ILIKE '%' || ? || '%')
@@ -216,23 +216,23 @@ public class AdminContentRepository {
             params.add(q.trim());
         }
 
-        Long tong = jdbc.queryForObject(
-                "SELECT count(*) FROM post p WHERE NOT p.soft_delete\n" + loc,
+        Long total = jdbc.queryForObject(
+                "SELECT count(*) FROM post p WHERE NOT p.soft_delete\n" + filterSql,
                 Long.class, params.toArray());
-        long totalItems = tong == null ? 0L : tong;
+        long totalItems = total == null ? 0L : total;
 
-        List<Object> thamSoTrang = new ArrayList<>(params);
-        thamSoTrang.add(size);
-        thamSoTrang.add((long) page * size);
+        List<Object> pageParams = new ArrayList<>(params);
+        pageParams.add(size);
+        pageParams.add((long) page * size);
 
-        List<PostRow> row = jdbc.query(
+        List<PostRow> rows = jdbc.query(
                 """
                 SELECT p.id, p.hero_image, p.published_at,
                        p.last_modified_at, s.display_name AS nguoi_sua
                 FROM post p
                 LEFT JOIN staff_user s ON s.id = p.last_modified_by
                 WHERE NOT p.soft_delete
-                """ + loc
+                """ + filterSql
                         // Bài mới nhất trên cùng; NULLS FIRST để bài chưa đặt
                         // ngày xuất bản — tức bài đang soạn dở — không rơi
                         // xuống cuối, đúng chỗ ít ai cuộn tới nhất.
@@ -250,9 +250,9 @@ public class AdminContentRepository {
                             rs.getObject("last_modified_at", OffsetDateTime.class),
                             rs.getString("nguoi_sua"));
                 },
-                thamSoTrang.toArray());
+                pageParams.toArray());
 
-        return new PagedResult<>(row, page, size, totalItems);
+        return new PagedResult<>(rows, page, size, totalItems);
     }
 
     /**
@@ -282,7 +282,7 @@ public class AdminContentRepository {
     }
 
     public Optional<PostDetailView> findPost(UUID id, String sourceLocale) {
-        List<PostDetailView> tim = jdbc.query("""
+        List<PostDetailView> results = jdbc.query("""
                 SELECT p.id, p.hero_image, p.published_at,
                        p.last_modified_at, s.display_name AS nguoi_sua
                 FROM post p
@@ -299,7 +299,7 @@ public class AdminContentRepository {
                         rs.getString("nguoi_sua")),
                 id);
 
-        return tim.stream().findFirst();
+        return results.stream().findFirst();
     }
 
     private List<PostTranslationView> postTranslations(UUID id, String sourceLocale) {
@@ -316,7 +316,7 @@ public class AdminContentRepository {
                         rs.getString("slug"),
                         rs.getString("title"),
                         rs.getString("excerpt"),
-                        mangChu(rs, "body"),
+                        toStringList(rs, "body"),
                         rs.getString("status"),
                         sourceLocale.equals(rs.getString("locale")),
                         rs.getObject("last_modified_at", OffsetDateTime.class),
@@ -347,7 +347,7 @@ public class AdminContentRepository {
                 """, id, input.heroImage(), input.publishedAt(), staffUserId, staffUserId);
 
         savePostTranslation(id, sourceLocale, input.translation(), staffUserId);
-        datTheChoBaiViet(id, input.tagIds() == null ? List.of() : input.tagIds());
+        setPostTags(id, input.tagIds() == null ? List.of() : input.tagIds());
         return id;
     }
 
@@ -369,7 +369,7 @@ public class AdminContentRepository {
      * "không nhắc tới thẻ" và "gỡ hết thẻ" tới đây giống hệt nhau — và đổi mỗi
      * cái ảnh bìa sẽ lặng lẽ gỡ sạch thẻ của bài.
      */
-    public void datTheChoBaiViet(UUID id, List<UUID> tagIds) {
+    public void setPostTags(UUID id, List<UUID> tagIds) {
         jdbc.update("DELETE FROM post_tag WHERE post_id = ?", id);
         for (UUID tagId : tagIds) {
             jdbc.update("INSERT INTO post_tag (post_id, tag_id) VALUES (?, ?)", id, tagId);
@@ -417,11 +417,11 @@ public class AdminContentRepository {
     }
 
     public PagedResult<LectureRow> findLectures(int page, int size, String sourceLocale) {
-        Long tong = jdbc.queryForObject(
+        Long total = jdbc.queryForObject(
                 "SELECT count(*) FROM lecture WHERE NOT soft_delete", Long.class);
-        long totalItems = tong == null ? 0L : tong;
+        long totalItems = total == null ? 0L : total;
 
-        List<LectureRow> row = jdbc.query("""
+        List<LectureRow> rows = jdbc.query("""
                 SELECT l.id, l.market, l.event_date, l.start_time, l.city, l.venue,
                        l.seats, l.seats_taken, l.last_modified_at, s.display_name AS nguoi_sua
                 FROM lecture l
@@ -435,8 +435,8 @@ public class AdminContentRepository {
                     return new LectureRow(
                             id,
                             rs.getString("market"),
-                            ngay(rs.getDate("event_date")),
-                            gio(rs.getTime("start_time")),
+                            toLocalDate(rs.getDate("event_date")),
+                            toLocalTime(rs.getTime("start_time")),
                             rs.getString("city"),
                             rs.getString("venue"),
                             rs.getInt("seats"),
@@ -448,7 +448,7 @@ public class AdminContentRepository {
                 },
                 size, (long) page * size);
 
-        return new PagedResult<>(row, page, size, totalItems);
+        return new PagedResult<>(rows, page, size, totalItems);
     }
 
     private String lectureTitle(UUID id, String sourceLocale) {
@@ -481,7 +481,7 @@ public class AdminContentRepository {
     }
 
     public Optional<LectureDetailView> findLecture(UUID id, String sourceLocale) {
-        List<LectureDetailView> tim = jdbc.query("""
+        List<LectureDetailView> results = jdbc.query("""
                 SELECT l.id, l.market, l.event_date, l.start_time, l.city, l.venue,
                        l.seats, l.seats_taken, l.last_modified_at, s.display_name AS nguoi_sua
                 FROM lecture l
@@ -491,8 +491,8 @@ public class AdminContentRepository {
                 (rs, i) -> new LectureDetailView(
                         rs.getObject("id", UUID.class),
                         rs.getString("market"),
-                        ngay(rs.getDate("event_date")),
-                        gio(rs.getTime("start_time")),
+                        toLocalDate(rs.getDate("event_date")),
+                        toLocalTime(rs.getTime("start_time")),
                         rs.getString("city"),
                         rs.getString("venue"),
                         rs.getInt("seats"),
@@ -502,7 +502,7 @@ public class AdminContentRepository {
                         rs.getString("nguoi_sua")),
                 id);
 
-        return tim.stream().findFirst();
+        return results.stream().findFirst();
     }
 
     private List<LectureTranslationView> lectureTranslations(UUID id, String sourceLocale) {
@@ -594,29 +594,29 @@ public class AdminContentRepository {
      * quan trọng nhất — bài này <b>chưa</b> có bản tiếng Việt.
      */
     private Map<String, ContentLocaleState> localeStatus(String sql, UUID id) {
-        Map<String, ContentLocaleState> ket_qua = new LinkedHashMap<>();
+        Map<String, ContentLocaleState> result = new LinkedHashMap<>();
         jdbc.query(sql, rs -> {
             String status = rs.getString(2);
-            ket_qua.put(rs.getString(1), status == null
+            result.put(rs.getString(1), status == null
                     ? ContentLocaleState.MISSING
                     : ContentLocaleState.valueOf(status));
         }, id);
-        return ket_qua;
+        return result;
     }
 
-    private static List<String> mangChu(ResultSet rs, String column) throws SQLException {
+    private static List<String> toStringList(ResultSet rs, String column) throws SQLException {
         java.sql.Array array = rs.getArray(column);
         if (array == null) {
             return List.of();
-        }
+            }
         return List.of((String[]) array.getArray());
     }
 
-    private static LocalDate ngay(Date d) {
+    private static LocalDate toLocalDate(Date d) {
         return d == null ? null : d.toLocalDate();
     }
 
-    private static LocalTime gio(Time t) {
+    private static LocalTime toLocalTime(Time t) {
         return t == null ? null : t.toLocalTime();
     }
 }

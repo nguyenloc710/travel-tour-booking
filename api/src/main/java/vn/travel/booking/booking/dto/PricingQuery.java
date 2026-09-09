@@ -13,7 +13,7 @@ public record PricingQuery(
         int singleTravellers,
         UUID departureOriginId) {
 
-    public int tongSoKhach() {
+    public int totalPaxCount() {
         return pax.values().stream().mapToInt(Integer::intValue).sum();
     }
 }

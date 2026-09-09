@@ -85,15 +85,15 @@ class KiemNhatQuanIT {
         if (seeded) {
             return;
         }
-        Path moi = find("scripts/seed-dev.sql");
-        POSTGRES.copyFileToContainer(MountableFile.forHostPath(moi), "/tmp/seed-dev.sql");
+        Path seedPath = find("scripts/seed-dev.sql");
+        POSTGRES.copyFileToContainer(MountableFile.forHostPath(seedPath), "/tmp/seed-dev.sql");
 
-        for (int lan = 1; lan <= 2; lan++) {
-            Container.ExecResult kq = POSTGRES.execInContainer(
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            Container.ExecResult result = POSTGRES.execInContainer(
                     "psql", "-U", "travel", "-d", "travel",
                     "-v", "ON_ERROR_STOP=1", "-q", "-f", "/tmp/seed-dev.sql");
-            assertEquals(0, kq.getExitCode(),
-                    "seed-dev.sql đứt ở lần chạy thứ " + lan + ":\n" + kq.getStderr());
+            assertEquals(0, result.getExitCode(),
+                    "seed-dev.sql đứt ở lần chạy thứ " + attempt + ":\n" + result.getStderr());
         }
         seeded = true;
     }
@@ -104,11 +104,11 @@ class KiemNhatQuanIT {
         assertTrue(seeded, "chưa nạp được dữ liệu mồi");
 
         List<Map<String, Object>> violation = run();
-        List<Map<String, Object>> loi = violation.stream()
+        List<Map<String, Object>> errors = violation.stream()
                 .filter(v -> "LOI".equals(v.get("muc_do")))
                 .toList();
 
-        assertTrue(loi.isEmpty(), () -> "vi phạm mức LOI:\n" + description(loi));
+        assertTrue(errors.isEmpty(), () -> "vi phạm mức LOI:\n" + description(errors));
     }
 
     /**
@@ -141,7 +141,7 @@ class KiemNhatQuanIT {
     @Test
     @DisplayName("quy tắc 23 bắt được ngày khởi hành mất giá phòng đơn")
     void rule23CatchesMissingSingleRoomPrice() {
-        String ngay = jdbc.queryForObject("""
+        String departureId = jdbc.queryForObject("""
                 SELECT d.id::text
                 FROM departure d
                 JOIN product p ON p.id = d.product_id
@@ -151,27 +151,27 @@ class KiemNhatQuanIT {
                 """, String.class);
 
         jdbc.update("DELETE FROM departure_price WHERE departure_id = ?::uuid "
-                + "AND occupancy = 'SINGLE'", ngay);
+                + "AND occupancy = 'SINGLE'", departureId);
         try {
-            List<Map<String, Object>> bat = run().stream()
+            List<Map<String, Object>> caught = run().stream()
                     .filter(v -> Integer.valueOf(23).equals(v.get("quy_tac")))
-                    .filter(v -> String.valueOf(v.get("doi_tuong")).contains(ngay))
+                    .filter(v -> String.valueOf(v.get("doi_tuong")).contains(departureId))
                     .toList();
 
-            assertEquals(1, bat.size(),
-                    "quy tắc 23 phải bắt đúng ngày vừa gỡ giá, nhận: " + description(bat));
+            assertEquals(1, caught.size(),
+                    "quy tắc 23 phải bắt đúng ngày vừa gỡ giá, nhận: " + description(caught));
         } finally {
             // Trả dữ liệu về như cũ để hai bài test kia không phụ thuộc thứ tự chạy.
-            napLaiGiaPhongDon();
+            reloadSingleRoomPrice();
         }
     }
 
-    private void napLaiGiaPhongDon() {
+    private void reloadSingleRoomPrice() {
         try {
-            Container.ExecResult kq = POSTGRES.execInContainer(
+            Container.ExecResult result = POSTGRES.execInContainer(
                     "psql", "-U", "travel", "-d", "travel",
                     "-v", "ON_ERROR_STOP=1", "-q", "-f", "/tmp/seed-dev.sql");
-            assertEquals(0, kq.getExitCode(), kq.getStderr());
+            assertEquals(0, result.getExitCode(), result.getStderr());
         } catch (IOException | InterruptedException ex) {
             throw new IllegalStateException("không nạp lại được dữ liệu mồi", ex);
         }
@@ -185,11 +185,11 @@ class KiemNhatQuanIT {
         }
     }
 
-    private static String description(List<Map<String, Object>> v) {
-        return v.stream()
-                .map(d -> "  [%s] quy tắc %s · %s — %s"
-                        .formatted(d.get("muc_do"), d.get("quy_tac"),
-                                d.get("doi_tuong"), d.get("chi_tiet")))
+    private static String description(List<Map<String, Object>> violations) {
+        return violations.stream()
+                .map(item -> "  [%s] quy tắc %s · %s — %s"
+                        .formatted(item.get("muc_do"), item.get("quy_tac"),
+                                item.get("doi_tuong"), item.get("chi_tiet")))
                 .collect(Collectors.joining("\n"));
     }
 

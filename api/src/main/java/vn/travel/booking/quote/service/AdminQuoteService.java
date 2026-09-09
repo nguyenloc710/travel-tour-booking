@@ -29,11 +29,11 @@ import java.util.UUID;
 public class AdminQuoteService {
 
     private final QuoteRepository quote;
-    private final Clock dongHo;
+    private final Clock clock;
 
-    public AdminQuoteService(QuoteRepository quote, Clock dongHo) {
+    public AdminQuoteService(QuoteRepository quote, Clock clock) {
         this.quote = quote;
-        this.dongHo = dongHo;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -64,9 +64,9 @@ public class AdminQuoteService {
      */
     @Transactional
     public AdminQuoteDetailView setQuoteLines(String reference, String currency,
-                                           List<QuoteLineDraft> row, UUID staffUserId) {
+                                           List<QuoteLineDraft> rows, UUID staffUserId) {
 
-        QuoteRepository.BaoGiaDeDoi current = khoa(reference);
+        QuoteRepository.QuoteLockView current = lockQuote(reference);
 
         if (!current.currency().equalsIgnoreCase(currency)) {
             throw new QuoteErrors.CurrencyMismatch("báo giá thị trường " + current.market()
@@ -77,7 +77,7 @@ public class AdminQuoteService {
                     "chỉ sửa được bảng giá khi báo giá còn ở DRAFT");
         }
 
-        quote.setQuoteLines(current.id(), current.currency(), row, staffUserId);
+        quote.setQuoteLines(current.id(), current.currency(), rows, staffUserId);
 
         return detail(reference);
     }
@@ -100,37 +100,37 @@ public class AdminQuoteService {
      * </ol>
      */
     @Transactional
-    public AdminQuoteDetailView changeStatus(String reference, QuoteStatus sang, UUID staffUserId) {
-        QuoteRepository.BaoGiaDeDoi current = khoa(reference);
+    public AdminQuoteDetailView changeStatus(String reference, QuoteStatus toStatus, UUID staffUserId) {
+        QuoteRepository.QuoteLockView current = lockQuote(reference);
 
-        QuoteStatuses.requireTransition(current.status(), sang);
+        QuoteStatuses.requireTransition(current.status(), toStatus);
 
         OffsetDateTime sentAt = null;
         LocalDate validUntil = null;
 
-        if (sang == QuoteStatus.SENT) {
+        if (toStatus == QuoteStatus.SENT) {
             if (current.rowCount() == 0) {
                 throw new QuoteErrors.NotAcceptable(current.status(),
-                        "chưa có dòng giá nào để gửi");
+                    "chưa có dòng giá nào để gửi");
             }
-            sentAt = OffsetDateTime.now(dongHo);
-            validUntil = LocalDate.now(dongHo).plusDays(current.quoteValidDays());
+            sentAt = OffsetDateTime.now(clock);
+            validUntil = LocalDate.now(clock).plusDays(current.quoteValidDays());
         }
 
-        if (sang == QuoteStatus.ACCEPTED
+        if (toStatus == QuoteStatus.ACCEPTED
                 && current.validUntil() != null
-                && current.validUntil().isBefore(LocalDate.now(dongHo))) {
+                && current.validUntil().isBefore(LocalDate.now(clock))) {
             throw new QuoteErrors.QuoteExpired(
                     "báo giá " + reference + " hết hạn ngày " + current.validUntil());
         }
 
-        quote.setStatus(current.id(), sang, staffUserId, sentAt, validUntil);
+        quote.setStatus(current.id(), toStatus, staffUserId, sentAt, validUntil);
 
         return detail(reference);
     }
 
-    private QuoteRepository.BaoGiaDeDoi khoa(String reference) {
-        return quote.khoaBaoGia(reference)
+    private QuoteRepository.QuoteLockView lockQuote(String reference) {
+        return quote.lockQuote(reference)
                 .orElseThrow(() -> new NotFoundException("không có báo giá nào mang mã " + reference));
     }
 }

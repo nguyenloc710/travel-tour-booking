@@ -56,8 +56,8 @@ public class GlobalExceptionHandler {
      * thì một trang listing rỗng cũng mất luôn trường {@code items}, và frontend
      * vỡ đúng ở trạng thái rỗng — chỗ ít ai thử nhất.
      */
-    private static ErrorResponse loi(String ma) {
-        return new ErrorResponse(ma).params(null);
+    private static ErrorResponse error(String code) {
+        return new ErrorResponse(code).params(null);
     }
 
     /**
@@ -67,8 +67,8 @@ public class GlobalExceptionHandler {
      * "groupTour"}} chứ không phải "Bạn thiếu khối tour đoàn". Frontend vẫn là
      * chỗ dịch (docs/13 mục 5).
      */
-    private static ErrorResponse loi(String ma, AdminErrors.CoThamSo ex) {
-        return new ErrorResponse(ma).params(ex.params());
+    private static ErrorResponse error(String code, AdminErrors.WithParams ex) {
+        return new ErrorResponse(code).params(ex.params());
     }
 
     // ---------------------------------------------------- ghi quản trị: 400
@@ -78,47 +78,47 @@ public class GlobalExceptionHandler {
     // `@Valid` bắt và trả VALIDATION_FAILED như cũ.
 
     @ExceptionHandler(AdminErrors.ProductTypeBlockMismatch.class)
-    public ResponseEntity<ErrorResponse> saiKhoiLoai(AdminErrors.ProductTypeBlockMismatch ex) {
+    public ResponseEntity<ErrorResponse> handleProductTypeBlockMismatch(AdminErrors.ProductTypeBlockMismatch ex) {
         log.debug("400 PRODUCT_TYPE_BLOCK_MISMATCH: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("PRODUCT_TYPE_BLOCK_MISMATCH", ex));
+        return ResponseEntity.badRequest().body(error("PRODUCT_TYPE_BLOCK_MISMATCH", ex));
     }
 
     @ExceptionHandler(AdminErrors.DurationDaysRuleViolated.class)
-    public ResponseEntity<ErrorResponse> saiSoNgay(AdminErrors.DurationDaysRuleViolated ex) {
+    public ResponseEntity<ErrorResponse> handleDurationDaysRuleViolated(AdminErrors.DurationDaysRuleViolated ex) {
         log.debug("400 DURATION_DAYS_RULE_VIOLATED: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("DURATION_DAYS_RULE_VIOLATED", ex));
+        return ResponseEntity.badRequest().body(error("DURATION_DAYS_RULE_VIOLATED", ex));
     }
 
     @ExceptionHandler(AdminErrors.CabinCategoryNotAllowed.class)
     public ResponseEntity<ErrorResponse> cabinWrongProductType(AdminErrors.CabinCategoryNotAllowed ex) {
         log.debug("400 CABIN_CATEGORY_NOT_ALLOWED: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("CABIN_CATEGORY_NOT_ALLOWED", ex));
+        return ResponseEntity.badRequest().body(error("CABIN_CATEGORY_NOT_ALLOWED", ex));
     }
 
     @ExceptionHandler(AdminErrors.UnknownPaxType.class)
-    public ResponseEntity<ErrorResponse> laLoaiKhach(AdminErrors.UnknownPaxType ex) {
+    public ResponseEntity<ErrorResponse> handleUnknownPaxType(AdminErrors.UnknownPaxType ex) {
         log.debug("400 UNKNOWN_PAX_TYPE: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("UNKNOWN_PAX_TYPE", ex));
+        return ResponseEntity.badRequest().body(error("UNKNOWN_PAX_TYPE", ex));
     }
 
     @ExceptionHandler(AdminErrors.PriceTierNotContiguous.class)
     public ResponseEntity<ErrorResponse> priceTierGap(AdminErrors.PriceTierNotContiguous ex) {
         log.debug("400 PRICE_TIER_NOT_CONTIGUOUS: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("PRICE_TIER_NOT_CONTIGUOUS", ex));
+        return ResponseEntity.badRequest().body(error("PRICE_TIER_NOT_CONTIGUOUS", ex));
     }
 
     // ---------------------------------------------------- ghi quản trị: 409
 
     @ExceptionHandler(AdminErrors.CapacityBelowBooked.class)
-    public ResponseEntity<ErrorResponse> sucChuaThapHonDaBan(AdminErrors.CapacityBelowBooked ex) {
+    public ResponseEntity<ErrorResponse> handleCapacityBelowBooked(AdminErrors.CapacityBelowBooked ex) {
         log.debug("409 CAPACITY_BELOW_BOOKED: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("CAPACITY_BELOW_BOOKED", ex));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("CAPACITY_BELOW_BOOKED", ex));
     }
 
     @ExceptionHandler(AdminErrors.DestinationInUse.class)
     public ResponseEntity<ErrorResponse> destinationStillInUse(AdminErrors.DestinationInUse ex) {
         log.debug("409 DESTINATION_IN_USE: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DESTINATION_IN_USE", ex));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("DESTINATION_IN_USE", ex));
     }
 
     /**
@@ -129,7 +129,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AdminErrors.LastAdmin.class)
     public ResponseEntity<ErrorResponse> lastAdmin(AdminErrors.LastAdmin ex) {
         log.warn("409 LAST_ADMIN: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("LAST_ADMIN", ex));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("LAST_ADMIN", ex));
     }
 
     /**
@@ -145,17 +145,17 @@ public class GlobalExceptionHandler {
      * thiếu, và cửa trước đã không giữ được nó.
      */
     @ExceptionHandler(SinglePriceMissingException.class)
-    public ResponseEntity<ErrorResponse> thieuGiaPhongDon(SinglePriceMissingException ex) {
+    public ResponseEntity<ErrorResponse> handleSinglePriceMissing(SinglePriceMissingException ex) {
         log.warn("409 SINGLE_PRICE_MISSING: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse("SINGLE_PRICE_MISSING").params(ex.params()));
     }
 
     @ExceptionHandler(AdminErrors.ProductHasActiveBookings.class)
-    public ResponseEntity<ErrorResponse> conDonChuaXong(AdminErrors.ProductHasActiveBookings ex) {
+    public ResponseEntity<ErrorResponse> handleProductHasActiveBookings(AdminErrors.ProductHasActiveBookings ex) {
         log.warn("409 PRODUCT_HAS_ACTIVE_BOOKINGS: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(loi("PRODUCT_HAS_ACTIVE_BOOKINGS", ex));
+                .body(error("PRODUCT_HAS_ACTIVE_BOOKINGS", ex));
     }
 
     /**
@@ -176,7 +176,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> notFound(NotFoundException ex) {
         log.debug("404 NOT_FOUND: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(loi("NOT_FOUND"));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND"));
     }
 
     /**
@@ -186,7 +186,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponse> notLoggedIn(AuthenticationException ex) {
         log.debug("401 UNAUTHENTICATED: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(loi("UNAUTHENTICATED"));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error("UNAUTHENTICATED"));
     }
 
     /**
@@ -200,13 +200,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({AccessDeniedException.class, ForbiddenException.class})
     public ResponseEntity<ErrorResponse> forbidden(Exception ex) {
         log.debug("403 FORBIDDEN: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(loi("FORBIDDEN"));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error("FORBIDDEN"));
     }
 
     @ExceptionHandler(UnsupportedLocaleException.class)
     public ResponseEntity<ErrorResponse> locale(UnsupportedLocaleException ex) {
         log.debug("400 UNSUPPORTED_LOCALE: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("UNSUPPORTED_LOCALE"));
+        return ResponseEntity.badRequest().body(error("UNSUPPORTED_LOCALE"));
     }
 
     /**
@@ -242,7 +242,7 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ErrorResponse> invalidInput(Exception ex) {
         log.debug("400 VALIDATION_FAILED: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(loi("VALIDATION_FAILED"));
+        return ResponseEntity.badRequest().body(error("VALIDATION_FAILED"));
     }
 
     /**
@@ -253,21 +253,21 @@ public class GlobalExceptionHandler {
      * hợp lệ", 409 là "lúc khác thì được".
      */
     @ExceptionHandler(BookingErrors.DepartureSoldOut.class)
-    public ResponseEntity<ErrorResponse> hetCho(BookingErrors.DepartureSoldOut ex) {
+    public ResponseEntity<ErrorResponse> handleDepartureSoldOut(BookingErrors.DepartureSoldOut ex) {
         log.debug("409 DEPARTURE_SOLD_OUT: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DEPARTURE_SOLD_OUT"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("DEPARTURE_SOLD_OUT"));
     }
 
     @ExceptionHandler(BookingErrors.SeatHoldExpired.class)
     public ResponseEntity<ErrorResponse> holdExpired(BookingErrors.SeatHoldExpired ex) {
         log.debug("409 SEAT_HOLD_EXPIRED: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("SEAT_HOLD_EXPIRED"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("SEAT_HOLD_EXPIRED"));
     }
 
     @ExceptionHandler(BookingErrors.DepartureClosed.class)
-    public ResponseEntity<ErrorResponse> daDongBan(BookingErrors.DepartureClosed ex) {
+    public ResponseEntity<ErrorResponse> handleDepartureClosed(BookingErrors.DepartureClosed ex) {
         log.debug("409 DEPARTURE_CLOSED: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("DEPARTURE_CLOSED"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("DEPARTURE_CLOSED"));
     }
 
     // ---------------------------------------------------- luồng báo giá
@@ -278,7 +278,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(QuoteErrors.QuoteExpired.class)
     public ResponseEntity<ErrorResponse> quoteExpired(QuoteErrors.QuoteExpired ex) {
         log.debug("409 QUOTE_EXPIRED: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("QUOTE_EXPIRED"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("QUOTE_EXPIRED"));
     }
 
     /**
@@ -304,7 +304,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(QuoteErrors.ProductNotQuotable.class)
     public ResponseEntity<ErrorResponse> cannotQuote(QuoteErrors.ProductNotQuotable ex) {
         log.debug("422 PRODUCT_NOT_QUOTABLE: {}", ex.getMessage());
-        return ResponseEntity.unprocessableEntity().body(loi("PRODUCT_NOT_QUOTABLE"));
+        return ResponseEntity.unprocessableEntity().body(error("PRODUCT_NOT_QUOTABLE"));
     }
 
     /**
@@ -314,7 +314,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IdempotencyConflictException.class)
     public ResponseEntity<ErrorResponse> duplicateKey(IdempotencyConflictException ex) {
         log.warn("409 IDEMPOTENCY_KEY_REUSED: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(loi("IDEMPOTENCY_KEY_REUSED"));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("IDEMPOTENCY_KEY_REUSED"));
     }
 
     /**
@@ -324,19 +324,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BookingErrors.ProductNotBookable.class)
     public ResponseEntity<ErrorResponse> cannotBook(BookingErrors.ProductNotBookable ex) {
         log.debug("422 PRODUCT_NOT_BOOKABLE: {}", ex.getMessage());
-        return ResponseEntity.unprocessableEntity().body(loi("PRODUCT_NOT_BOOKABLE"));
+        return ResponseEntity.unprocessableEntity().body(error("PRODUCT_NOT_BOOKABLE"));
     }
 
     @ExceptionHandler(PartySizeOutOfRangeException.class)
     public ResponseEntity<ErrorResponse> paxOutsideNorth(PartySizeOutOfRangeException ex) {
         log.debug("422 PARTY_SIZE_OUT_OF_RANGE: {}", ex.getMessage());
-        return ResponseEntity.unprocessableEntity().body(loi("PARTY_SIZE_OUT_OF_RANGE"));
+        return ResponseEntity.unprocessableEntity().body(error("PARTY_SIZE_OUT_OF_RANGE"));
     }
 
     /** Đường dẫn không tồn tại — vẫn phải là JSON, không phải trang lỗi HTML. */
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> noPath(NoResourceFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(loi("NOT_FOUND"));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("NOT_FOUND"));
     }
 
     /**
@@ -345,10 +345,10 @@ public class GlobalExceptionHandler {
      * ngoại lệ vào phản hồi — nó lộ cấu trúc bên trong.
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> loiKhongLuong(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleUncaughtException(Exception ex) {
         String traceId = UUID.randomUUID().toString();
         log.error("500 INTERNAL_ERROR traceId={}", traceId, ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(loi("INTERNAL_ERROR").traceId(traceId));
+                .body(error("INTERNAL_ERROR").traceId(traceId));
     }
 }

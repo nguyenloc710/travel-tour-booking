@@ -182,10 +182,10 @@ public class ProductContentRepository {
                     int capacity = rs.getInt("capacity");
                     int booked = rs.getInt("seats_booked");
                     int held = rs.getInt("held");
-                    int conLai = Math.max(0, capacity - booked - held);
+                    int available = Math.max(0, capacity - booked - held);
 
-                    int nguong = rs.getInt("guaranteed_threshold");
-                    Integer guaranteed = rs.wasNull() ? null : nguong;
+                    int threshold = rs.getInt("guaranteed_threshold");
+                    Integer guaranteed = rs.wasNull() ? null : threshold;
 
                     BigDecimal price = rs.getBigDecimal("price_from");
 
@@ -196,8 +196,8 @@ public class ProductContentRepository {
                             rs.getInt("days"),
                             DepartureStatuses.resolve(
                                     BaseDepartureStatus.valueOf(rs.getString("base_status")),
-                                    booked, conLai, guaranteed, fewSeatsThreshold),
-                            conLai,
+                                    booked, available, guaranteed, fewSeatsThreshold),
+                            available,
                             price == null ? null
                                     : new Money(price, rs.getString("currency"))
                                             .round(rs.getInt("fraction_digits")),
@@ -207,7 +207,7 @@ public class ProductContentRepository {
                 productId, market);
     }
 
-    private static Integer intOrNull(int gia_tri, boolean rong) {
-        return rong ? null : gia_tri;
+    private static Integer intOrNull(int value, boolean empty) {
+        return empty ? null : value;
     }
 }

@@ -66,12 +66,12 @@ class BookingFlowIT {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    private static final String NGAY_DI = "bb100000-0000-4000-8000-000000000001";
-    private static final String NGAY_DI_CHOT = "bb100000-0000-4000-8000-000000000002";
-    private static final String DIEM_KHOI_HANH = "bb200000-0000-4000-8000-000000000001";
+    private static final String DEPARTURE_ID = "bb100000-0000-4000-8000-000000000001";
+    private static final String CONFIRMED_DEPARTURE_ID = "bb100000-0000-4000-8000-000000000002";
+    private static final String ORIGIN_ID = "bb200000-0000-4000-8000-000000000001";
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -162,7 +162,7 @@ class BookingFlowIT {
         PriceBreakdown b = call(HttpMethod.POST, "/api/v1/dk/pricing/preview", null,
                 ("{\"departureId\":\"%s\",\"pax\":[{\"paxTypeCode\":\"ADULT\",\"count\":2}],"
                         + "\"singleTravellers\":0,\"departureOriginId\":\"%s\"}")
-                        .formatted(NGAY_DI, DIEM_KHOI_HANH),
+                        .formatted(DEPARTURE_ID, ORIGIN_ID),
                 PriceBreakdown.class).getBody();
 
         // 2 × 24.990 + 2 × 800 phụ thu điểm khởi hành + 295 phí xử lý
@@ -179,7 +179,7 @@ class BookingFlowIT {
     void singleSupplementIsRoomPriceDifference() {
         PriceBreakdown b = call(HttpMethod.POST, "/api/v1/dk/pricing/preview", null,
                 ("{\"departureId\":\"%s\",\"pax\":[{\"paxTypeCode\":\"ADULT\",\"count\":1}],"
-                        + "\"singleTravellers\":1}").formatted(NGAY_DI),
+                        + "\"singleTravellers\":1}").formatted(DEPARTURE_ID),
                 PriceBreakdown.class).getBody();
 
         // 24.990 + (29.490 − 24.990) + 295
@@ -215,7 +215,7 @@ class BookingFlowIT {
     void closedDepartureReturns409() {
         ResponseEntity<ErrorResponse> response = call(HttpMethod.POST, "/api/v1/dk/seat-holds",
                 UUID.randomUUID(),
-                "{\"departureId\":\"%s\",\"seats\":1}".formatted(NGAY_DI_CHOT), ErrorResponse.class);
+                "{\"departureId\":\"%s\",\"seats\":1}".formatted(CONFIRMED_DEPARTURE_ID), ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("DEPARTURE_CLOSED", response.getBody().getCode());
@@ -283,7 +283,7 @@ class BookingFlowIT {
     @DisplayName("Giữ chỗ quá hạn không còn được tính, KỂ CẢ trước khi job quét chạy")
     void expiredHoldNoLongerCountsBeforeSweep() {
         SeatHold hold = seatHold(2).getBody();
-        heHan(hold.getId());
+        expireSeatHold(hold.getId());
 
         assertEquals(HttpStatus.CREATED, seatHold(2).getStatusCode(),
                 "Công thức dùng expires_at > now(), nên chỗ về kho ngay khi hết hạn");
@@ -295,10 +295,10 @@ class BookingFlowIT {
     @Test
     @DisplayName("Job quét chạy hai lần cho cùng kết quả")
     void sweepJobIsIdempotent() {
-        heHan(seatHold(1).getBody().getId());
+        expireSeatHold(seatHold(1).getBody().getId());
 
-        assertEquals(1, sweepBookings.donDep(), "Lần đầu dọn một dòng");
-        assertEquals(0, sweepBookings.donDep(), "Lần hai không còn gì để dọn — lệnh bất biến khi lặp");
+        assertEquals(1, sweepBookings.cleanup(), "Lần đầu dọn một dòng");
+        assertEquals(0, sweepBookings.cleanup(), "Lần hai không còn gì để dọn — lệnh bất biến khi lặp");
     }
 
     // ------------------------------------------------------------ đặt tour
@@ -314,7 +314,7 @@ class BookingFlowIT {
         assertTrue(booking.getReference().startsWith("DK-"));
 
         assertEquals(20, count("SELECT seats_booked FROM departure WHERE id = CAST('"
-                + NGAY_DI + "' AS uuid)"));
+                + DEPARTURE_ID + "' AS uuid)"));
         assertEquals(0, count("SELECT count(*) FROM seat_hold WHERE released_at IS NULL"),
                 "Giữ chỗ đã chuyển thành đơn");
         assertEquals(1, count("SELECT count(*) FROM booking_event WHERE to_status = 'PENDING_PAYMENT'"),
@@ -339,7 +339,7 @@ class BookingFlowIT {
     @DisplayName("Giữ chỗ đã hết hạn thì đặt tour trả 409 SEAT_HOLD_EXPIRED")
     void expiredHoldOnBookingReturns409() {
         SeatHold hold = seatHold(2).getBody();
-        heHan(hold.getId());
+        expireSeatHold(hold.getId());
 
         ResponseEntity<ErrorResponse> response = call(HttpMethod.POST, "/api/v1/dk/bookings",
                 UUID.randomUUID(), bookingBody(hold.getId()), ErrorResponse.class);
@@ -347,7 +347,7 @@ class BookingFlowIT {
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("SEAT_HOLD_EXPIRED", response.getBody().getCode());
         assertEquals(18, count("SELECT seats_booked FROM departure WHERE id = CAST('"
-                        + NGAY_DI + "' AS uuid)"),
+                        + DEPARTURE_ID + "' AS uuid)"),
                 "Đơn không thành thì seats_booked không được đổi");
     }
 
@@ -377,7 +377,7 @@ class BookingFlowIT {
                 "Khách bấm nút hai lần không được thành hai đơn");
         assertEquals(1, count("SELECT count(*) FROM booking"));
         assertEquals(20, count("SELECT seats_booked FROM departure WHERE id = CAST('"
-                        + NGAY_DI + "' AS uuid)"),
+                        + DEPARTURE_ID + "' AS uuid)"),
                 "Chỗ không bị trừ hai lần");
     }
 
@@ -389,12 +389,12 @@ class BookingFlowIT {
 
         assertEquals(HttpStatus.CREATED, bookTour(hold.getId(), key).getStatusCode());
 
-        ResponseEntity<ErrorResponse> khac = call(HttpMethod.POST, "/api/v1/dk/bookings", key,
+        ResponseEntity<ErrorResponse> conflictResponse = call(HttpMethod.POST, "/api/v1/dk/bookings", key,
                 bookingBody(hold.getId()).replace("Anders Jensen", "Người khác hẳn"),
                 ErrorResponse.class);
 
-        assertEquals(HttpStatus.CONFLICT, khac.getStatusCode());
-        assertEquals("IDEMPOTENCY_KEY_REUSED", khac.getBody().getCode(),
+        assertEquals(HttpStatus.CONFLICT, conflictResponse.getStatusCode());
+        assertEquals("IDEMPOTENCY_KEY_REUSED", conflictResponse.getBody().getCode(),
                 "Trả kết quả cũ ở đây là im lặng nuốt mất một đơn thật");
     }
 
@@ -407,7 +407,7 @@ class BookingFlowIT {
                 call(HttpMethod.POST, "/api/v1/dk/seat-holds", key, holdBody(3), Object.class)
                         .getStatusCode());
 
-        jdbc.update("UPDATE departure SET seats_booked = 17 WHERE id = CAST(? AS uuid)", NGAY_DI);
+        jdbc.update("UPDATE departure SET seats_booked = 17 WHERE id = CAST(? AS uuid)", DEPARTURE_ID);
 
         assertEquals(HttpStatus.CREATED,
                 call(HttpMethod.POST, "/api/v1/dk/seat-holds", key, holdBody(3), Object.class)
@@ -456,7 +456,7 @@ class BookingFlowIT {
     }
 
     private static String holdBody(int seatCount) {
-        return "{\"departureId\":\"%s\",\"seats\":%d}".formatted(NGAY_DI, seatCount);
+        return "{\"departureId\":\"%s\",\"seats\":%d}".formatted(DEPARTURE_ID, seatCount);
     }
 
     private static String bookingBody(UUID seatHoldId) {
@@ -466,10 +466,10 @@ class BookingFlowIT {
                 + "\"passengers\":[{\"paxTypeCode\":\"ADULT\",\"fullName\":\"Anders Jensen\"},"
                 + "{\"paxTypeCode\":\"ADULT\",\"fullName\":\"Mette Jensen\"}],"
                 + "\"contactEmail\":\"anders@example.dk\",\"contactPhone\":\"+4512345678\"}")
-                .formatted(NGAY_DI, hold);
+                .formatted(DEPARTURE_ID, hold);
     }
 
-    private void heHan(UUID seatHoldId) {
+    private void expireSeatHold(UUID seatHoldId) {
         jdbc.update("UPDATE seat_hold SET expires_at = now() - interval '1 minute' WHERE id = ?",
                 seatHoldId);
     }
@@ -482,7 +482,7 @@ class BookingFlowIT {
     private <T> ResponseEntity<T> call(HttpMethod httpMethod, String path,
                                       UUID key, String body, Class<T> type) {
         RestClient.RequestBodySpec request = RestClient.builder()
-                .baseUrl("http://localhost:" + cong)
+                .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build()
                 .method(httpMethod)

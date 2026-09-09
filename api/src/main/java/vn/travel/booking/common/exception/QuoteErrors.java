@@ -41,9 +41,9 @@ public final class QuoteErrors {
 
         private final transient Map<String, Object> params;
 
-        public LeadTimeNotMet(int leadTimeDays, LocalDate somNhat) {
-            super("cần báo trước " + leadTimeDays + " ngày, sớm nhất là " + somNhat);
-            this.params = Map.of("leadTimeDays", leadTimeDays, "earliestDate", somNhat.toString());
+        public LeadTimeNotMet(int leadTimeDays, LocalDate earliestDate) {
+            super("cần báo trước " + leadTimeDays + " ngày, sớm nhất là " + earliestDate);
+            this.params = Map.of("leadTimeDays", leadTimeDays, "earliestDate", earliestDate.toString());
         }
 
         public Map<String, Object> params() {
@@ -82,14 +82,14 @@ public final class QuoteErrors {
 
         private final transient Map<String, Object> params;
 
-        public NotAcceptable(QuoteStatus tu, QuoteStatus sang) {
-            super("không đi từ " + tu + " sang " + sang + " được");
-            this.params = Map.of("from", tu.name(), "to", sang.name());
+        public NotAcceptable(QuoteStatus from, QuoteStatus to) {
+            super("không đi từ " + from + " sang " + to + " được");
+            this.params = Map.of("from", from.name(), "to", to.name());
         }
 
-        public NotAcceptable(QuoteStatus tu, String lyDo) {
-            super(lyDo);
-            this.params = Map.of("from", tu.name());
+        public NotAcceptable(QuoteStatus from, String reason) {
+            super(reason);
+            this.params = Map.of("from", from.name());
         }
 
         public Map<String, Object> params() {

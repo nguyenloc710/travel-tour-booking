@@ -60,24 +60,24 @@ public class AdminBookingService {
      * cho người sau ở docs/41 mục 6.2.
      */
     @Transactional
-    public AdminBookingDetailView changeStatus(String reference, BookingStatus sang,
+    public AdminBookingDetailView changeStatus(String reference, BookingStatus toStatus,
                                                UUID staffUserId, String note) {
 
-        AdminBookingRepository.DonDeDoi current = booking.khoaDon(reference)
+        AdminBookingRepository.BookingLockView current = booking.lockBooking(reference)
                 .orElseThrow(() -> new NotFoundException("không có đơn nào mang mã " + reference));
 
         // Hàm thuần, không context, không CSDL — 9 test JUnit đã canh nó.
-        BookingStatuses.requireTransition(current.status(), sang);
+        BookingStatuses.requireTransition(current.status(), toStatus);
 
-        booking.setStatus(current.id(), sang, staffUserId);
-        booking.writeAuditLog(current.id(), current.status(), sang, staffUserId, note);
+        booking.setStatus(current.id(), toStatus, staffUserId);
+        booking.writeAuditLog(current.id(), current.status(), toStatus, staffUserId, note);
 
         // Rời nhóm đang chiếm chỗ thì trả chỗ NGAY, không chờ hoàn tiền xong
         // (docs/14 mục 6.5). CONFIRMED → CANCELLED trả chỗ; CANCELLED →
         // REFUNDED thì không, vì chỗ đã về kho từ bước trước rồi.
-        boolean vuaNhaCho = BookingStatuses.dangChiemCho(current.status())
-                && !BookingStatuses.dangChiemCho(sang);
-        if (vuaNhaCho && current.departureId() != null) {
+        boolean justReleasedSeat = BookingStatuses.occupiesSeat(current.status())
+                && !BookingStatuses.occupiesSeat(toStatus);
+        if (justReleasedSeat && current.departureId() != null) {
             booking.releaseSeats(current.departureId(), current.paxCount());
         }
 

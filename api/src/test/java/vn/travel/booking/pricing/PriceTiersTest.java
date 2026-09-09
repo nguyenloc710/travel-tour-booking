@@ -25,7 +25,7 @@ class PriceTiersTest {
     private static final String DKK = "DKK";
 
     /** Bốn bậc, bậc cuối không có trần. Giá giảm dần theo số khách. */
-    private static final List<PriceTier> BAC = List.of(
+    private static final List<PriceTier> TIERS = List.of(
             new PriceTier(2, 3, Money.of("38000.00", DKK)),
             new PriceTier(4, 7, Money.of("31000.00", DKK)),
             new PriceTier(8, 14, Money.of("27000.00", DKK)),
@@ -34,21 +34,21 @@ class PriceTiersTest {
     @Test
     @DisplayName("Đúng bậc cho 2, 4, 8, 15 và 20 khách")
     void picksCorrectTier() {
-        assertEquals(Money.of("38000.00", DKK), PriceTiers.unitPricePerPerson(BAC, 2));
-        assertEquals(Money.of("31000.00", DKK), PriceTiers.unitPricePerPerson(BAC, 4));
-        assertEquals(Money.of("27000.00", DKK), PriceTiers.unitPricePerPerson(BAC, 8));
-        assertEquals(Money.of("24000.00", DKK), PriceTiers.unitPricePerPerson(BAC, 15));
-        assertEquals(Money.of("24000.00", DKK), PriceTiers.unitPricePerPerson(BAC, 20),
+        assertEquals(Money.of("38000.00", DKK), PriceTiers.unitPricePerPerson(TIERS, 2));
+        assertEquals(Money.of("31000.00", DKK), PriceTiers.unitPricePerPerson(TIERS, 4));
+        assertEquals(Money.of("27000.00", DKK), PriceTiers.unitPricePerPerson(TIERS, 8));
+        assertEquals(Money.of("24000.00", DKK), PriceTiers.unitPricePerPerson(TIERS, 15));
+        assertEquals(Money.of("24000.00", DKK), PriceTiers.unitPricePerPerson(TIERS, 20),
                 "Bậc cuối không có trần: nhóm đông hơn vẫn trả đơn giá đó");
     }
 
     @Test
     @DisplayName("Số khách dưới bậc thấp nhất: ném lỗi, KHÔNG lấy bậc gần nhất")
     void belowLowestTierThrows() {
-        PartySizeOutOfRangeException loi =
-                assertThrows(PartySizeOutOfRangeException.class, () -> PriceTiers.unitPricePerPerson(BAC, 1));
+        PartySizeOutOfRangeException ex =
+                assertThrows(PartySizeOutOfRangeException.class, () -> PriceTiers.unitPricePerPerson(TIERS, 1));
 
-        assertEquals(1, loi.partySize(),
+        assertEquals(1, ex.partySize(),
                 "Đoán giùm nghĩa là bán một mức giá không ai từng duyệt");
     }
 
@@ -71,23 +71,23 @@ class PriceTiersTest {
         int totalPax = adult + child;
 
         // Bốn người → bậc 4–7, đơn giá 31.000 cho MỌI người, kể cả trẻ em.
-        Money unitPrice = PriceTiers.unitPricePerPerson(BAC, totalPax);
+        Money unitPrice = PriceTiers.unitPricePerPerson(TIERS, totalPax);
         assertEquals(Money.of("31000.00", DKK), unitPrice);
 
-        PriceBreakdown kq = PricingEngine.tinh(PricingInput.cua(List.of(
+        PriceBreakdown breakdown = PricingEngine.calculate(PricingInput.of(List.of(
                         new PaxLine("ADULT", adult, unitPrice, BigDecimal.ZERO),
                         new PaxLine("CHILD", child, unitPrice, new BigDecimal("0.25"))),
                 2, new BigDecimal("0.2500")));
 
         // 2 × 31.000 + 2 × 31.000 × 0,75 = 62.000 + 46.500
-        assertEquals(Money.of("108500.00", DKK), kq.total());
+        assertEquals(Money.of("108500.00", DKK), breakdown.total());
     }
 
     @Test
     @DisplayName("Bỏ trẻ em ra khỏi số khách khi chọn bậc là chọn SAI bậc, và đắt hơn")
     void excludingChildrenPicksWrongTier() {
-        Money picksCorrectTier = PriceTiers.unitPricePerPerson(BAC, 4);   // 2 người lớn + 2 trẻ em
-        Money wrongTier = PriceTiers.unitPricePerPerson(BAC, 2);    // chỉ đếm người lớn
+        Money picksCorrectTier = PriceTiers.unitPricePerPerson(TIERS, 4);   // 2 người lớn + 2 trẻ em
+        Money wrongTier = PriceTiers.unitPricePerPerson(TIERS, 2);    // chỉ đếm người lớn
 
         assertEquals(Money.of("31000.00", DKK), picksCorrectTier);
         assertEquals(Money.of("38000.00", DKK), wrongTier);

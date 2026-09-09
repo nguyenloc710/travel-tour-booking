@@ -32,8 +32,8 @@ import java.util.UUID;
 public class BookingRepository {
 
     /** Không có I, O, 0, 1 — khách đọc mã này qua điện thoại cho tổng đài. */
-    private static final char[] CHU_CAI = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
-    private static final SecureRandom NGAU_NHIEN = new SecureRandom();
+    private static final char[] REFERENCE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final JdbcTemplate jdbc;
 
@@ -42,14 +42,14 @@ public class BookingRepository {
     }
     @Transactional
     public BookingView create(BookingDraft draft) {
-        int paxCount = draft.tongSoKhach();
+        int paxCount = draft.totalPaxCount();
 
         if (draft.seatHoldId() != null) {
-            khoaVaDungGiuCho(draft.seatHoldId(), draft.departureId(), paxCount);
+            lockAndConsumeSeatHold(draft.seatHoldId(), draft.departureId(), paxCount);
         }
 
         UUID bookingId = UUID.randomUUID();
-        String reference = sinhMa(draft.market());
+        String reference = generateReference(draft.market());
         PriceBreakdown b = draft.breakdown();
         LocalDate departDate = jdbc.queryForObject(
                 "SELECT depart_date FROM departure WHERE id = ?", LocalDate.class, draft.departureId());
@@ -86,11 +86,11 @@ public class BookingRepository {
      * <p>Kiểm lại dù tầng trên đã kiểm: thời gian trôi giữa hai lần gọi, và giữ
      * chỗ có thể vừa hết hạn (docs/14 mục 6.3 bước 2).
      */
-    private void khoaVaDungGiuCho(UUID seatHoldId, UUID departureId, int paxCount) {
+    private void lockAndConsumeSeatHold(UUID seatHoldId, UUID departureId, int paxCount) {
         Map<String, Object> h;
         try {
             h = jdbc.queryForMap("""
-                    SELECT seats, departure_id, released_at, expires_at > now() AS con_han
+                    SELECT seats, departure_id, released_at, expires_at > now() AS not_expired
                     FROM seat_hold WHERE id = ?
                     FOR UPDATE
                     """, seatHoldId);
@@ -98,7 +98,7 @@ public class BookingRepository {
             throw new BookingErrors.SeatHoldExpired("không có giữ chỗ id=" + seatHoldId);
         }
 
-        if (h.get("released_at") != null || !Boolean.TRUE.equals(h.get("con_han"))) {
+        if (h.get("released_at") != null || !Boolean.TRUE.equals(h.get("not_expired"))) {
             throw new BookingErrors.SeatHoldExpired("giữ chỗ đã hết hạn hoặc đã dùng");
         }
         if (!departureId.equals(h.get("departure_id"))) {
@@ -128,9 +128,9 @@ public class BookingRepository {
         }
     }
 
-    private void writePassengers(UUID bookingId, List<PassengerDraft> khach) {
+    private void writePassengers(UUID bookingId, List<PassengerDraft> passengers) {
         int seq = 1;
-        for (PassengerDraft k : khach) {
+        for (PassengerDraft k : passengers) {
             jdbc.update("""
                     INSERT INTO booking_passenger (booking_id, seq, pax_type_id, full_name,
                                                    date_of_birth, nationality)
@@ -165,7 +165,7 @@ public class BookingRepository {
 
         String currency = (String) b.get("currency");
         int fractionDigits = ((Number) b.get("fraction_digits")).intValue();
-        Money tong = new Money((BigDecimal) b.get("total"), currency);
+        Money total = new Money((BigDecimal) b.get("total"), currency);
         Money deposit = new Money((BigDecimal) b.get("deposit"), currency);
 
         List<PriceLine> row = jdbc.query("""
@@ -181,15 +181,15 @@ public class BookingRepository {
                         new Money(rs.getBigDecimal("amount"), currency)),
                 b.get("id"));
 
-        Object ngay = b.get("depart_date");
+        Object departDateObj = b.get("depart_date");
 
         return Optional.of(new BookingView(
                 (String) b.get("reference"),
                 BookingStatus.valueOf((String) b.get("status")),
                 (String) b.get("product_title"),
-                ngay == null ? null : ((Date) ngay).toLocalDate(),
-                new PriceBreakdown(row, tong.round(fractionDigits), deposit.round(fractionDigits),
-                        tong.minus(deposit).round(fractionDigits))));
+                departDateObj == null ? null : ((Date) departDateObj).toLocalDate(),
+                new PriceBreakdown(row, total.round(fractionDigits), deposit.round(fractionDigits),
+                        total.minus(deposit).round(fractionDigits))));
     }
 
     /**
@@ -199,11 +199,11 @@ public class BookingRepository {
      * vì khách đọc mã này qua điện thoại, và "I hay 1" là câu hỏi tổng đài sẽ
      * phải hỏi lại mỗi ngày.
      */
-    private String sinhMa(String market) {
-        StringBuilder duoi = new StringBuilder(6);
+    private String generateReference(String market) {
+        StringBuilder suffix = new StringBuilder(6);
         for (int i = 0; i < 6; i++) {
-            duoi.append(CHU_CAI[NGAU_NHIEN.nextInt(CHU_CAI.length)]);
+            suffix.append(REFERENCE_CHARS[RANDOM.nextInt(REFERENCE_CHARS.length)]);
         }
-        return market + "-" + LocalDate.now().getYear() + "-" + duoi;
+        return market + "-" + LocalDate.now().getYear() + "-" + suffix;
     }
 }

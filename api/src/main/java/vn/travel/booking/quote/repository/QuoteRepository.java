@@ -35,8 +35,8 @@ import java.util.UUID;
 public class QuoteRepository {
 
     /** Cùng bộ chữ với mã đơn: không có I, O, 0, 1 — khách đọc mã qua điện thoại. */
-    private static final char[] CHU_CAI = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
-    private static final SecureRandom NGAU_NHIEN = new SecureRandom();
+    private static final char[] REFERENCE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     /**
      * Nguồn dùng chung cho danh sách, đếm tổng và chi tiết.
@@ -47,7 +47,7 @@ public class QuoteRepository {
      * chứ không {@code LEFT JOIN} — báo giá chỉ sinh ra được từ một sản phẩm đã
      * dịch, nên không có dòng nào rơi ra vì thiếu bản dịch.
      */
-    private static final String NGUON = """
+    private static final String BASE_FROM = """
             FROM quote q
             JOIN market m ON m.code = q.market
             JOIN product_translation pt
@@ -113,7 +113,7 @@ public class QuoteRepository {
                                       QuoteRequestCommand command) {
 
         UUID id = UUID.randomUUID();
-        String reference = sinhMa(market);
+        String reference = generateReference(market);
 
         OffsetDateTime createdAt = jdbc.queryForObject("""
                 INSERT INTO quote (id, reference, product_id, market, locale, status, party_size,
@@ -135,33 +135,33 @@ public class QuoteRepository {
 
     public PagedResult<AdminQuoteRow> list(AdminQuoteQuery query) {
         List<Object> params = new ArrayList<>();
-        String loc = buildFilterClause(query, params);
+        String filterClause = buildFilterClause(query, params);
 
-        Long tong = jdbc.queryForObject(
-                "SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
-        long totalItems = tong == null ? 0L : tong;
+        Long total = jdbc.queryForObject(
+                "SELECT count(*) " + BASE_FROM + filterClause, Long.class, params.toArray());
+        long totalItems = total == null ? 0L : total;
 
-        List<Object> thamSoTrang = new ArrayList<>(params);
-        thamSoTrang.add(query.size());
-        thamSoTrang.add((long) query.page() * query.size());
+        List<Object> pageParams = new ArrayList<>(params);
+        pageParams.add(query.size());
+        pageParams.add((long) query.page() * query.size());
 
-        List<AdminQuoteRow> row = jdbc.query(
-                CHON_DONG + NGUON + loc
+        List<AdminQuoteRow> rows = jdbc.query(
+                BASE_SELECT + BASE_FROM + filterClause
                         // CŨ NHẤT TRƯỚC — ngược với danh sách đơn, và có chủ ý:
                         // đây là hàng đợi việc, mà việc chờ lâu nhất thì gấp
                         // nhất. Tiêu chí phụ theo id để phân trang ổn định.
                         + "ORDER BY q.created_at, q.id\n"
                         + "LIMIT ? OFFSET ?",
                 QuoteRepository::readRow,
-                thamSoTrang.toArray());
+                pageParams.toArray());
 
-        return new PagedResult<>(row, query.page(), query.size(), totalItems);
+        return new PagedResult<>(rows, query.page(), query.size(), totalItems);
     }
 
     /**
      * Chi tiết một báo giá.
      *
-     * <p>Truy vấn viết đủ chứ không ghép từ {@link #NGUON}: nó cần thêm
+     * <p>Truy vấn viết đủ chứ không ghép từ {@link #BASE_FROM}: nó cần thêm
      * {@code LEFT JOIN product_private} ở giữa mệnh đề {@code FROM}, và ghép
      * chuỗi để chèn vào giữa là thứ đọc lên không ai biết câu SQL cuối cùng
      * trông ra sao.
@@ -184,14 +184,14 @@ public class QuoteRepository {
                 WHERE q.reference = ? AND NOT q.soft_delete
                 """,
                 (rs, i) -> {
-                    AdminQuoteRow tomTat = readRow(rs, i);
+                    AdminQuoteRow summary = readRow(rs, i);
                     return new AdminQuoteDetailView(
-                            tomTat,
+                            summary,
                             rs.getString("contact_phone"),
                             rs.getString("message"),
                             rs.getInt("lead_time_days"),
                             rs.getInt("quote_valid_days"),
-                            dongGia(tomTat.id(), rs.getString("currency"),
+                            priceLines(summary.id(), rs.getString("currency"),
                                     rs.getInt("fraction_digits")));
                 },
                 reference)
@@ -202,15 +202,15 @@ public class QuoteRepository {
     // ------------------------------------------------------ đường ghi M8
 
     /** Ảnh chụp một báo giá vừa đủ để quyết bước chuyển. */
-    public record BaoGiaDeDoi(UUID id, QuoteStatus status, String market, String currency,
-                              int fractionDigits, int quoteValidDays, LocalDate validUntil,
-                              int rowCount) {
+    public record QuoteLockView(UUID id, QuoteStatus status, String market, String currency,
+                                int fractionDigits, int quoteValidDays, LocalDate validUntil,
+                                int rowCount) {
     }
 
     /**
      * Khoá dòng báo giá rồi đọc trạng thái hiện tại.
      *
-     * <p>Cùng lý do với {@code khoaDon}: thiếu {@code FOR UPDATE} thì hai tư vấn
+     * <p>Cùng lý do với {@code lockBooking}: thiếu {@code FOR UPDATE} thì hai tư vấn
      * viên cùng bấm "Gửi" đều đọc {@code DRAFT}, đều thấy hợp lệ, và khách nhận
      * hai báo giá mang hai hạn khác nhau cho cùng một chuyến đi.
      *
@@ -218,7 +218,7 @@ public class QuoteRepository {
      * {@code JOIN} sang {@code market} và {@code product_private}, và khoá luôn
      * hai bảng tra cứu đó là khoá mọi báo giá khác cùng thị trường.
      */
-    public Optional<BaoGiaDeDoi> khoaBaoGia(String reference) {
+    public Optional<QuoteLockView> lockQuote(String reference) {
         return jdbc.query("""
                 SELECT q.id, q.status, q.market, q.valid_until,
                        m.currency, m.fraction_digits,
@@ -230,14 +230,14 @@ public class QuoteRepository {
                 WHERE q.reference = ? AND NOT q.soft_delete
                 FOR UPDATE OF q
                 """,
-                (rs, i) -> new BaoGiaDeDoi(
+                (rs, i) -> new QuoteLockView(
                         rs.getObject("id", UUID.class),
                         QuoteStatus.valueOf(rs.getString("status")),
                         rs.getString("market"),
                         rs.getString("currency"),
                         rs.getInt("fraction_digits"),
                         rs.getInt("quote_valid_days"),
-                        ngay(rs.getDate("valid_until")),
+                        toLocalDate(rs.getDate("valid_until")),
                         rs.getInt("so_dong")),
                 reference)
                 .stream().findFirst();
@@ -253,25 +253,25 @@ public class QuoteRepository {
      * <p>{@code total} do <b>máy chủ cộng</b>, không nhận từ client — nhận rồi
      * tin là mở đường cho một báo giá mà tổng không khớp bảng.
      */
-    public void setQuoteLines(UUID quoteId, String currency, List<QuoteLineDraft> row,
-                           UUID staffUserId) {
+    public void setQuoteLines(UUID quoteId, String currency, List<QuoteLineDraft> rows,
+                              UUID staffUserId) {
         jdbc.update("DELETE FROM quote_line WHERE quote_id = ?", quoteId);
 
-        BigDecimal tong = BigDecimal.ZERO;
+        BigDecimal total = BigDecimal.ZERO;
         int seq = 1;
-        for (QuoteLineDraft d : row) {
+        for (QuoteLineDraft d : rows) {
             jdbc.update("""
                     INSERT INTO quote_line (quote_id, seq, label_key, quantity, unit_amount, amount)
                     VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     quoteId, seq++, d.labelKey(), d.quantity(), d.unitAmount(), d.amount());
-            tong = tong.add(d.amount());
+            total = total.add(d.amount());
         }
 
         // last_modified_by do ứng dụng ghi, last_modified_at do trigger —
         // api/CLAUDE.md mục 7b.
         jdbc.update("UPDATE quote SET total = ?, currency = ?, last_modified_by = ? WHERE id = ?",
-                tong, currency, staffUserId, quoteId);
+                total, currency, staffUserId, quoteId);
     }
 
     /**
@@ -282,8 +282,8 @@ public class QuoteRepository {
      * {@code COALESCE} thay vì hai câu riêng — ràng buộc {@code ck_quote_sent}
      * bắt mọi trạng thái sau {@code DRAFT} phải có cả hai.
      */
-    public void setStatus(UUID quoteId, QuoteStatus sang, UUID staffUserId,
-                             OffsetDateTime sentAt, LocalDate validUntil) {
+    public void setStatus(UUID quoteId, QuoteStatus toStatus, UUID staffUserId,
+                          OffsetDateTime sentAt, LocalDate validUntil) {
         jdbc.update("""
                 UPDATE quote
                 SET status = ?,
@@ -292,7 +292,7 @@ public class QuoteRepository {
                     last_modified_by = ?
                 WHERE id = ?
                 """,
-                sang.name(), sentAt, validUntil == null ? null : Date.valueOf(validUntil),
+                toStatus.name(), sentAt, validUntil == null ? null : Date.valueOf(validUntil),
                 staffUserId, quoteId);
     }
 
@@ -304,16 +304,16 @@ public class QuoteRepository {
      *
      * @return số báo giá vừa hết hạn
      */
-    public int hetHan(LocalDate homNay) {
+    public int expireQuotes(LocalDate today) {
         return jdbc.update("""
                 UPDATE quote SET status = 'EXPIRED'
                 WHERE status = 'SENT' AND valid_until < ? AND NOT soft_delete
-                """, Date.valueOf(homNay));
+                """, Date.valueOf(today));
     }
 
     // ------------------------------------------------------------ nội bộ
 
-    private static final String CHON_DONG = """
+    private static final String BASE_SELECT = """
             SELECT q.id, q.reference, q.status, q.market, q.locale, q.product_id,
                    pt.title, q.party_size, q.requested_date, q.contact_name,
                    q.contact_email, q.total, q.valid_until, q.created_at,
@@ -321,7 +321,7 @@ public class QuoteRepository {
             """;
 
     private static AdminQuoteRow readRow(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
-        BigDecimal tong = rs.getBigDecimal("total");
+        BigDecimal total = rs.getBigDecimal("total");
         String currency = rs.getString("currency");
 
         return new AdminQuoteRow(
@@ -333,17 +333,17 @@ public class QuoteRepository {
                 rs.getObject("product_id", UUID.class),
                 rs.getString("title"),
                 rs.getInt("party_size"),
-                ngay(rs.getDate("requested_date")),
+                toLocalDate(rs.getDate("requested_date")),
                 rs.getString("contact_name"),
                 rs.getString("contact_email"),
                 // Chưa dựng bảng giá thì KHÔNG có tổng — trả 0 ở đây là bịa ra
                 // một con số mà màn hình sẽ hiển thị như một báo giá miễn phí.
-                tong == null ? null : new Money(tong, currency).round(rs.getInt("fraction_digits")),
-                ngay(rs.getDate("valid_until")),
+                total == null ? null : new Money(total, currency).round(rs.getInt("fraction_digits")),
+                toLocalDate(rs.getDate("valid_until")),
                 rs.getObject("created_at", OffsetDateTime.class));
     }
 
-    private List<QuoteLineRow> dongGia(UUID quoteId, String currency, int fractionDigits) {
+    private List<QuoteLineRow> priceLines(UUID quoteId, String currency, int fractionDigits) {
         return jdbc.query("""
                 SELECT seq, label_key, quantity, unit_amount, amount
                 FROM quote_line WHERE quote_id = ? ORDER BY seq
@@ -361,7 +361,7 @@ public class QuoteRepository {
     private static String buildFilterClause(AdminQuoteQuery query, List<Object> params) {
         StringBuilder sb = new StringBuilder();
 
-        if (query.status() != null && !AdminQuoteQuery.TAT_CA.equals(query.status())) {
+        if (query.status() != null && !AdminQuoteQuery.ALL.equals(query.status())) {
             sb.append(" AND q.status = ?");
             params.add(query.status());
         }
@@ -375,31 +375,31 @@ public class QuoteRepository {
             sb.append(" AND (q.reference ILIKE '%' || ? || '%'"
                     + " OR q.contact_name ILIKE '%' || ? || '%'"
                     + " OR q.contact_email ILIKE '%' || ? || '%')");
-            String tu = query.q().trim();
-            params.add(tu);
-            params.add(tu);
-            params.add(tu);
+            String keyword = query.q().trim();
+            params.add(keyword);
+            params.add(keyword);
+            params.add(keyword);
         }
         return sb.isEmpty() ? "" : sb.append('\n').toString();
     }
 
-    private static LocalDate ngay(Date d) {
+    private static LocalDate toLocalDate(Date d) {
         return d == null ? null : d.toLocalDate();
     }
 
     /** {@code Q-DK-2026-8F3K2P} — tiền tố Q để không lẫn với mã đơn ở tổng đài. */
-    private String sinhMa(String market) {
-        for (int lan = 0; lan < 5; lan++) {
-            StringBuilder duoi = new StringBuilder(6);
+    private String generateReference(String market) {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            StringBuilder suffix = new StringBuilder(6);
             for (int i = 0; i < 6; i++) {
-                duoi.append(CHU_CAI[NGAU_NHIEN.nextInt(CHU_CAI.length)]);
+                suffix.append(REFERENCE_CHARS[RANDOM.nextInt(REFERENCE_CHARS.length)]);
             }
-            String ma = "Q-" + market + "-" + LocalDate.now().getYear() + "-" + duoi;
+            String reference = "Q-" + market + "-" + LocalDate.now().getYear() + "-" + suffix;
 
-            Integer trung = jdbc.queryForObject(
-                    "SELECT count(*) FROM quote WHERE reference = ?", Integer.class, ma);
-            if (trung != null && trung == 0) {
-                return ma;
+            Integer duplicateCount = jdbc.queryForObject(
+                    "SELECT count(*) FROM quote WHERE reference = ?", Integer.class, reference);
+            if (duplicateCount != null && duplicateCount == 0) {
+                return reference;
             }
         }
         throw new IllegalStateException("không sinh được mã báo giá không trùng sau 5 lần");

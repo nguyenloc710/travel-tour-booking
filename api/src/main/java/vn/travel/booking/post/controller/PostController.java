@@ -1,16 +1,15 @@
 package vn.travel.booking.post.controller;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.validation.annotation.Validated;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import vn.travel.booking.common.mapper.RefMapper;
 import vn.travel.booking.common.util.RequestScope;
-import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RestController;
+import vn.travel.booking.post.mapper.PostMapper;
 import vn.travel.booking.post.service.PostService;
 import vn.travel.booking.common.dto.PagedResult;
 import vn.travel.booking.web.generated.model.PostDetail;
@@ -25,9 +24,11 @@ import java.util.List;
 public class PostController {
 
     private final PostService posts;
+    private final PostMapper postMapper;
 
-    public PostController(PostService posts) {
+    public PostController(PostService posts, PostMapper postMapper) {
         this.posts = posts;
+        this.postMapper = postMapper;
     }
 
     @RequestMapping(
@@ -45,16 +46,12 @@ public class PostController {
 
         String locale = RequestScope.locale(acceptLanguage);
 
-        PagedResult<vn.travel.booking.post.dto.PostSummary> trang = posts.list(
+        PagedResult<vn.travel.booking.post.dto.PostSummary> pagedResult = posts.list(
                 RequestScope.market(market), locale, tag,
                 page == null ? 0 : page,
                 size == null ? 12 : size);
 
-        PostPage than = new PostPage(
-                trang.items().stream().map(PostController::sangTomTat).toList(),
-                trang.page(), trang.size(), trang.totalItems(), trang.totalPages());
-
-        return phanHoi(locale).body(than);
+        return response(locale).body(postMapper.toPage(pagedResult));
     }
 
     @RequestMapping(
@@ -72,22 +69,10 @@ public class PostController {
         vn.travel.booking.post.dto.PostDetail b =
                 posts.get(RequestScope.market(market), locale, slug);
 
-        PostDetail than = new PostDetail(b.slug(), b.title(), b.excerpt(), b.body(),
-                b.tags().stream().map(RefMapper::sangRef).toList())
-                .heroImage(b.heroImage())
-                .publishedAt(b.publishedAt());
-
-        return phanHoi(locale).body(than);
+        return response(locale).body(postMapper.toDetail(b));
     }
 
-    private static PostSummary sangTomTat(vn.travel.booking.post.dto.PostSummary b) {
-        return new PostSummary(b.slug(), b.title(), b.excerpt(),
-                b.tags().stream().map(RefMapper::sangRef).toList())
-                .heroImage(b.heroImage())
-                .publishedAt(b.publishedAt());
-    }
-
-    private static ResponseEntity.BodyBuilder phanHoi(String locale) {
+    private static ResponseEntity.BodyBuilder response(String locale) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_LANGUAGE, locale)
                 .header(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE)

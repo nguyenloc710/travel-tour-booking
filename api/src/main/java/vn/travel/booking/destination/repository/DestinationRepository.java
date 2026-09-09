@@ -91,27 +91,27 @@ public class DestinationRepository {
             """;
 
     private final JdbcTemplate jdbc;
-    private final DiaChiKho diaChiKho;
+    private final DiaChiKho storageUrl;
 
-    public DestinationRepository(JdbcTemplate jdbc, DiaChiKho diaChiKho) {
+    public DestinationRepository(JdbcTemplate jdbc, DiaChiKho storageUrl) {
         this.jdbc = jdbc;
-        this.diaChiKho = diaChiKho;
+        this.storageUrl = storageUrl;
     }
     public List<DestinationSummary> findDestinations(String market, String locale, String regionSlug) {
         // Năm tham số của NGUON, đúng thứ tự dấu ? xuất hiện: market và locale của
         // truy vấn đếm, rồi locale của ba phép JOIN dịch — điểm đến, miền, ảnh.
         List<Object> params = new ArrayList<>(List.of(market, locale, locale, locale, locale));
-        String loc = "";
+        String regionFilter = "";
 
         if (regionSlug != null && !regionSlug.isBlank()) {
-            loc = " AND rt.slug = ?";
+            regionFilter = " AND rt.slug = ?";
             params.add(regionSlug);
         }
 
         // Sắp theo miền rồi tới thứ tự trong miền: danh sách đọc được như một
         // hành trình từ Bắc vào Nam, không phải một mớ theo bảng chữ cái.
         return jdbc.query(
-                NGUON + loc + " ORDER BY r.sort_order, d.sort_order, dt.slug",
+                NGUON + regionFilter + " ORDER BY r.sort_order, d.sort_order, dt.slug",
                 (rs, i) -> mapRow(rs),
                 params.toArray());
     }
@@ -141,7 +141,7 @@ public class DestinationRepository {
             return null;
         }
         return new GalleryImage(
-                diaChiKho.diaChiCua(path),
+                storageUrl.urlOf(path),
                 rs.getString("anh_alt"),
                 rs.getInt("anh_width"),
                 rs.getInt("anh_height"));

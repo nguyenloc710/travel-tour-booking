@@ -48,11 +48,11 @@ public class PostRepository {
     public PagedResult<PostSummary> findPosts(String locale, List<String> tagSlugs, int page, int size) {
         List<Object> params = new ArrayList<>();
         params.add(locale);
-        String loc = "";
+        String filter = "";
 
         if (tagSlugs != null && !tagSlugs.isEmpty()) {
-            String dauHoi = String.join(",", java.util.Collections.nCopies(tagSlugs.size(), "?"));
-            loc = """
+            String placeholders = String.join(",", java.util.Collections.nCopies(tagSlugs.size(), "?"));
+            filter = """
                      AND EXISTS (SELECT 1 FROM post_tag ptg
                                    JOIN tag_translation tt
                                      ON tt.tag_id = ptg.tag_id
@@ -60,26 +60,26 @@ public class PostRepository {
                                     AND NOT tt.soft_delete
                                   WHERE ptg.post_id = p.id
                                     AND tt.slug IN (%s))
-                    """.formatted(dauHoi);
+                    """.formatted(placeholders);
             params.add(locale);
             params.addAll(tagSlugs);
         }
 
-        Long tong = jdbc.queryForObject("SELECT count(*) " + NGUON + loc, Long.class, params.toArray());
-        long totalItems = tong == null ? 0L : tong;
+        Long total = jdbc.queryForObject("SELECT count(*) " + NGUON + filter, Long.class, params.toArray());
+        long totalItems = total == null ? 0L : total;
 
         int offset = page * size;
         if (totalItems == 0 || offset >= totalItems) {
             return new PagedResult<>(List.of(), page, size, totalItems);
         }
 
-        List<Object> thamSoTrang = new ArrayList<>(params);
-        thamSoTrang.add(size);
-        thamSoTrang.add(offset);
+        List<Object> pagingParams = new ArrayList<>(params);
+        pagingParams.add(size);
+        pagingParams.add(offset);
 
         List<Object[]> row = jdbc.query("""
                 SELECT p.id, pt.slug, pt.title, pt.excerpt, p.hero_image, p.published_at
-                """ + NGUON + loc + """
+                """ + NGUON + filter + """
                  ORDER BY p.published_at DESC, pt.slug
                  LIMIT ? OFFSET ?
                 """,
@@ -90,15 +90,15 @@ public class PostRepository {
                         rs.getString("excerpt"),
                         rs.getString("hero_image"),
                         rs.getObject("published_at", OffsetDateTime.class)},
-                thamSoTrang.toArray());
+                pagingParams.toArray());
 
-        Map<UUID, List<NamedRef>> tag = readTag(locale, row.stream().map(d -> (UUID) d[0]).toList());
+        Map<UUID, List<NamedRef>> tag = readTag(locale, row.stream().map(r -> (UUID) r[0]).toList());
 
         List<PostSummary> items = row.stream()
-                .map(d -> new PostSummary(
-                        (String) d[1], (String) d[2], (String) d[3], (String) d[4],
-                        (OffsetDateTime) d[5],
-                        tag.getOrDefault((UUID) d[0], List.of())))
+                .map(r -> new PostSummary(
+                        (String) r[1], (String) r[2], (String) r[3], (String) r[4],
+                        (OffsetDateTime) r[5],
+                        tag.getOrDefault((UUID) r[0], List.of())))
                 .toList();
 
         return new PagedResult<>(items, page, size, totalItems);
@@ -121,13 +121,13 @@ public class PostRepository {
             return Optional.empty();
         }
 
-        Object[] d = row.get(0);
-        UUID id = (UUID) d[0];
+        Object[] r = row.get(0);
+        UUID id = (UUID) r[0];
 
         return Optional.of(new PostDetail(
-                (String) d[1], (String) d[2], (String) d[3],
-                castList(d[4]),
-                (String) d[5], (OffsetDateTime) d[6],
+                (String) r[1], (String) r[2], (String) r[3],
+                castList(r[4]),
+                (String) r[5], (OffsetDateTime) r[6],
                 readTag(locale, List.of(id)).getOrDefault(id, List.of())));
     }
 
@@ -140,13 +140,13 @@ public class PostRepository {
         if (postIds.isEmpty()) {
             return Map.of();
         }
-        String dauHoi = String.join(",", java.util.Collections.nCopies(postIds.size(), "?"));
+        String placeholders = String.join(",", java.util.Collections.nCopies(postIds.size(), "?"));
 
         List<Object> params = new ArrayList<>();
         params.add(locale);
         params.addAll(postIds);
 
-        Map<UUID, List<NamedRef>> ket_qua = new LinkedHashMap<>();
+        Map<UUID, List<NamedRef>> result = new LinkedHashMap<>();
         jdbc.query("""
                 SELECT ptg.post_id, tt.slug, tt.name
                 FROM post_tag ptg
@@ -155,14 +155,14 @@ public class PostRepository {
                   ON tt.tag_id = t.id AND tt.locale = ? AND NOT tt.soft_delete
                 WHERE ptg.post_id IN (%s)
                 ORDER BY t.sort_order, tt.name
-                """.formatted(dauHoi),
+                """.formatted(placeholders),
                 rs -> {
-                    ket_qua.computeIfAbsent(rs.getObject("post_id", UUID.class), k -> new ArrayList<>())
+                    result.computeIfAbsent(rs.getObject("post_id", UUID.class), k -> new ArrayList<>())
                             .add(new NamedRef(rs.getString("slug"), rs.getString("name")));
                 },
                 params.toArray());
 
-        return ket_qua;
+        return result;
     }
 
     private static List<String> array(ResultSet rs, String column) throws SQLException {
@@ -171,7 +171,7 @@ public class PostRepository {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<String> castList(Object gia_tri) {
-        return (List<String>) gia_tri;
+    private static List<String> castList(Object value) {
+        return (List<String>) value;
     }
 }

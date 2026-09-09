@@ -35,18 +35,18 @@ public class MarketRepository {
      * cho client gửi tiền tệ là mở đường nhập giá DKK vào thị trường {@code VN},
      * và không ràng buộc CSDL nào bắt được chuyện đó.
      */
-    public Optional<CauHinh> config(String market) {
+    public Optional<MarketConfig> config(String market) {
         try {
             return Optional.ofNullable(jdbc.queryForObject(
                     "SELECT currency, fraction_digits FROM market WHERE code = ? AND is_active",
-                    (rs, i) -> new CauHinh(rs.getString("currency"), rs.getInt("fraction_digits")),
+                    (rs, i) -> new MarketConfig(rs.getString("currency"), rs.getInt("fraction_digits")),
                     market));
-        } catch (EmptyResultDataAccessException khong_co) {
+        } catch (EmptyResultDataAccessException ex) {
             return Optional.empty();
         }
     }
 
     /** VND có 0 chữ số thập phân, DKK có 2 — không hardcode ở đâu khác. */
-    public record CauHinh(String currency, int fractionDigits) {
+    public record MarketConfig(String currency, int fractionDigits) {
     }
 }

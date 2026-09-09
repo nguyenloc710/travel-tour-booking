@@ -18,21 +18,21 @@ import java.util.Optional;
 @Service
 public class SlugRedirectService {
 
-    private final SlugRedirectRepository slugCu;
+    private final SlugRedirectRepository slugRedirectRepository;
 
-    public SlugRedirectService(SlugRedirectRepository slugCu) {
-        this.slugCu = slugCu;
+    public SlugRedirectService(SlugRedirectRepository slugRedirectRepository) {
+        this.slugRedirectRepository = slugRedirectRepository;
     }
 
     @Transactional(readOnly = true)
-    public String giai(String market, String locale, String type, String slug) {
-        Optional<String> moi = switch (type) {
-            case "PRODUCT" -> slugCu.product(market, locale, slug);
-            case "DESTINATION" -> slugCu.destination(market, locale, slug);
+    public String resolve(String market, String locale, String type, String slug) {
+        Optional<String> newSlug = switch (type) {
+            case "PRODUCT" -> slugRedirectRepository.product(market, locale, slug);
+            case "DESTINATION" -> slugRedirectRepository.destination(market, locale, slug);
             default -> throw new IllegalArgumentException("loại lạ: " + type);
         };
 
-        return moi.orElseThrow(() -> new NotFoundException(
+        return newSlug.orElseThrow(() -> new NotFoundException(
                 "slug cũ " + type + "/" + slug + " ở " + market + "/" + locale));
     }
 }

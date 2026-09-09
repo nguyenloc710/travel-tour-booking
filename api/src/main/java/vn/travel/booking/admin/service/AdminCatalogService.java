@@ -27,11 +27,11 @@ public class AdminCatalogService {
 
     @Transactional(readOnly = true)
     public PagedResult<AdminProductRow> list(AdminProductQuery query) {
-        return catalog.findProducts(locale.localeNguon(), query);
+        return catalog.findProducts(locale.sourceLocale(), query);
     }
 
     @Transactional(readOnly = true)
     public List<DestinationOption> destination() {
-        return catalog.findDestinations(locale.localeNguon());
+        return catalog.findDestinations(locale.sourceLocale());
     }
 }

@@ -22,15 +22,15 @@ public final class CabinUpgrades {
      * theo. Dùng một mức chênh cố định nghĩa là bán sai giá vào mùa cao điểm.
      */
     public static Money diffAgainstLowestTier(Map<String, Money> priceByTier, String selectedTier) {
-        Money daChon = priceByTier.get(selectedTier);
-        if (daChon == null) {
+        Money selectedPrice = priceByTier.get(selectedTier);
+        if (selectedPrice == null) {
             throw new IllegalArgumentException("Không có hạng cabin: " + selectedTier);
         }
-        Money thapNhat = priceByTier.values().stream()
+        Money lowestPrice = priceByTier.values().stream()
                 .min(Comparator.comparing(Money::amount))
                 .orElseThrow();
 
-        return new Money(daChon.amount().subtract(thapNhat.amount()).max(BigDecimal.ZERO),
-                daChon.currency());
+        return new Money(selectedPrice.amount().subtract(lowestPrice.amount()).max(BigDecimal.ZERO),
+                selectedPrice.currency());
     }
 }

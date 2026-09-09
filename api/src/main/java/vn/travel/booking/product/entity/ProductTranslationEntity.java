@@ -23,7 +23,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "product_translation")
-@IdClass(ProductTranslationEntity.Khoa.class)
+@IdClass(ProductTranslationEntity.CompositeId.class)
 public class ProductTranslationEntity extends BaseEntity {
 
     @Id
@@ -156,8 +156,8 @@ public class ProductTranslationEntity extends BaseEntity {
     }
 
     /** Khoá chính kép. */
-    public record Khoa(UUID productId, String locale) implements Serializable {
-        public Khoa() {
+    public record CompositeId(UUID productId, String locale) implements Serializable {
+        public CompositeId() {
             this(null, null);
         }
     }

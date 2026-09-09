@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProductTranslationRepository
-        extends JpaRepository<ProductTranslationEntity, ProductTranslationEntity.Khoa> {
+        extends JpaRepository<ProductTranslationEntity, ProductTranslationEntity.CompositeId> {
 
     /** Điều kiện xoá mềm viết tường minh trong tên phương thức — ADR-003. */
     List<ProductTranslationEntity> findByProductIdAndSoftDeleteFalse(UUID productId);

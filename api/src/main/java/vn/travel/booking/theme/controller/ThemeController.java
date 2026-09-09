@@ -10,6 +10,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import vn.travel.booking.theme.mapper.ThemeMapper;
 import vn.travel.booking.theme.service.ThemeService;
 import vn.travel.booking.web.generated.model.Theme;
 
@@ -21,9 +22,11 @@ import java.util.List;
 public class ThemeController {
 
     private final ThemeService listThemes;
+    private final ThemeMapper themeMapper;
 
-    public ThemeController(ThemeService listThemes) {
+    public ThemeController(ThemeService listThemes, ThemeMapper themeMapper) {
         this.listThemes = listThemes;
+        this.themeMapper = themeMapper;
     }
 
     @RequestMapping(
@@ -38,7 +41,7 @@ public class ThemeController {
         String locale = RequestScope.locale(acceptLanguage);
 
         List<Theme> than = listThemes.execute(RequestScope.market(market), locale).stream()
-                .map(t -> new Theme(t.slug(), t.name(), t.productCount()))
+                .map(themeMapper::toView)
                 .toList();
 
         return ResponseEntity.ok()

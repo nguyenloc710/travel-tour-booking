@@ -18,62 +18,62 @@ import static vn.travel.booking.departure.dto.BaseDepartureStatus.SOLD_OUT;
  */
 class DepartureStatusesTest {
 
-    private static final int NGUONG_IT_CHO = 3;   // docs/14 mục 2.4
+    private static final int FEW_SEATS_THRESHOLD = 3;   // docs/14 mục 2.4
 
     @Test
     @DisplayName("Còn nhiều chỗ, chưa đủ khách đảm bảo → OPEN")
     void openWhenSeatsLeftAndBelowThreshold() {
-        assertEquals(DepartureStatus.OPEN, giai(OPEN, 4, 10, 12));
+        assertEquals(DepartureStatus.OPEN, resolve(OPEN, 4, 10, 12));
     }
 
     @Test
     @DisplayName("PENDING thắng mọi thứ — chưa mở bán thì số chỗ không có nghĩa")
     void pendingBeatsEverything() {
-        assertEquals(DepartureStatus.PENDING, giai(PENDING, 20, 10, 12));
+        assertEquals(DepartureStatus.PENDING, resolve(PENDING, 20, 10, 12));
     }
 
     @Test
     @DisplayName("Nhân viên đóng bán tay thì SOLD_OUT, dù còn chỗ")
     void staffClosedSaleIsSoldOut() {
-        assertEquals(DepartureStatus.SOLD_OUT, giai(SOLD_OUT, 2, 18, 12));
+        assertEquals(DepartureStatus.SOLD_OUT, resolve(SOLD_OUT, 2, 18, 12));
     }
 
     @Test
     @DisplayName("Hết chỗ khả dụng thì SOLD_OUT, dù cơ sở dữ liệu ghi OPEN")
     void noAvailableSeatsIsSoldOut() {
-        assertEquals(DepartureStatus.SOLD_OUT, giai(OPEN, 20, 0, 12));
+        assertEquals(DepartureStatus.SOLD_OUT, resolve(OPEN, 20, 0, 12));
     }
 
     @Test
     @DisplayName("GUARANTEED xét TRƯỚC FEW_SEATS — vừa đủ khách vừa còn ít chỗ thì hiện đảm bảo khởi hành")
     void guaranteedTakesPrecedenceOverFewSeats() {
         // 14 khách đã đặt, còn đúng 2 chỗ: cả hai điều kiện cùng đúng.
-        assertEquals(DepartureStatus.GUARANTEED, giai(OPEN, 14, 2, 12),
+        assertEquals(DepartureStatus.GUARANTEED, resolve(OPEN, 14, 2, 12),
                 "Đảo hai bước này không làm gãy gì, chỉ làm mất doanh thu âm thầm");
     }
 
     @Test
     @DisplayName("Đủ khách đảm bảo, còn nhiều chỗ → vẫn GUARANTEED")
     void guaranteedWithManySeatsLeft() {
-        assertEquals(DepartureStatus.GUARANTEED, giai(OPEN, 12, 8, 12));
+        assertEquals(DepartureStatus.GUARANTEED, resolve(OPEN, 12, 8, 12));
     }
 
     @Test
     @DisplayName("Chưa đủ khách đảm bảo, còn ít chỗ → FEW_SEATS")
     void fewSeatsBelowThreshold() {
-        assertEquals(DepartureStatus.FEW_SEATS, giai(OPEN, 8, 3, 12));
+        assertEquals(DepartureStatus.FEW_SEATS, resolve(OPEN, 8, 3, 12));
     }
 
     @Test
     @DisplayName("Nhân viên ghi đè FEW_SEATS được, dù còn nhiều chỗ")
     void staffCanOverrideToFewSeats() {
-        assertEquals(DepartureStatus.FEW_SEATS, giai(FEW_SEATS, 5, 15, 12));
+        assertEquals(DepartureStatus.FEW_SEATS, resolve(FEW_SEATS, 5, 15, 12));
     }
 
     @Test
     @DisplayName("Nhân viên KHÔNG ghi đè được GUARANTEED xuống FEW_SEATS")
     void staffCannotDowngradeGuaranteed() {
-        assertEquals(DepartureStatus.GUARANTEED, giai(FEW_SEATS, 14, 6, 12),
+        assertEquals(DepartureStatus.GUARANTEED, resolve(FEW_SEATS, 14, 6, 12),
                 "Đã đủ khách để chắc chắn đi thì không ai đóng nhẹ nó lại");
     }
 
@@ -81,8 +81,8 @@ class DepartureStatusesTest {
     @DisplayName("Loại sản phẩm không có ngưỡng đảm bảo thì bỏ qua bước GUARANTEED")
     void productTypeWithoutThresholdSkipsGuaranteed() {
         // Du thuyền: product_cruise không có cột guaranteed_threshold.
-        assertEquals(DepartureStatus.OPEN, giai(OPEN, 30, 10, null));
-        assertEquals(DepartureStatus.FEW_SEATS, giai(OPEN, 30, 2, null));
+        assertEquals(DepartureStatus.OPEN, resolve(OPEN, 30, 10, null));
+        assertEquals(DepartureStatus.FEW_SEATS, resolve(OPEN, 30, 2, null));
     }
 
     @Test
@@ -95,7 +95,7 @@ class DepartureStatusesTest {
                 "Đổi ngưỡng của một thị trường không được kéo theo sửa lõi nghiệp vụ");
     }
 
-    private static DepartureStatus giai(BaseDepartureStatus co_ban, int booked, int remaining, Integer threshold) {
-        return DepartureStatuses.resolve(co_ban, booked, remaining, threshold, NGUONG_IT_CHO);
+    private static DepartureStatus resolve(BaseDepartureStatus baseStatus, int booked, int remaining, Integer threshold) {
+        return DepartureStatuses.resolve(baseStatus, booked, remaining, threshold, FEW_SEATS_THRESHOLD);
     }
 }

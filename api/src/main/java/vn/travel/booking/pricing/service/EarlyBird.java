@@ -27,8 +27,8 @@ public final class EarlyBird {
      * riêng vì nó là chỗ dễ lệch một ngày nhất (docs/14 mục 9.1).
      */
     public static Money discountPerPerson(LocalDate bookedAt, LocalDate departureDate,
-                                        List<EarlyBirdTier> bac, String currency) {
-        return bac.stream()
+                                        List<EarlyBirdTier> tiers, String currency) {
+        return tiers.stream()
                 .sorted(Comparator.comparingInt(EarlyBirdTier::monthsBefore).reversed())
                 .filter(b -> !departureDate.isBefore(bookedAt.plusMonths(b.monthsBefore())))
                 .findFirst()

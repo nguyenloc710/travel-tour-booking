@@ -18,6 +18,7 @@ import vn.travel.booking.market.repository.MarketRepository;
 import vn.travel.booking.product.dto.ProductTypeBlocks;
 import vn.travel.booking.product.entity.ProductEntity;
 import vn.travel.booking.product.entity.ProductMarketEntity;
+import vn.travel.booking.product.mapper.ProductEntityMapper;
 import vn.travel.booking.product.repository.ProductMarketRepository;
 import vn.travel.booking.product.repository.ProductTypeBlockStore;
 import vn.travel.booking.product.repository.ProductWriteRepository;
@@ -42,6 +43,7 @@ public class AdminProductService {
     private final LocaleRepository locale;
     private final MarketRepository market;
     private final JdbcTemplate jdbc;
+    private final ProductEntityMapper productEntityMapper;
 
     public AdminProductService(ProductWriteRepository product,
                                ProductTypeBlockStore blockStore,
@@ -49,7 +51,8 @@ public class AdminProductService {
                                AdminProductTranslationRepository translationService,
                                LocaleRepository locale,
                                MarketRepository market,
-                               JdbcTemplate jdbc) {
+                               JdbcTemplate jdbc,
+                               ProductEntityMapper productEntityMapper) {
         this.product = product;
         this.blockStore = blockStore;
         this.productMarketRepository = productMarketRepository;
@@ -57,6 +60,7 @@ public class AdminProductService {
         this.locale = locale;
         this.market = market;
         this.jdbc = jdbc;
+        this.productEntityMapper = productEntityMapper;
     }
 
     // ------------------------------------------------------------ tạo
@@ -72,7 +76,7 @@ public class AdminProductService {
      * có mặc định.
      */
     @Transactional
-    public ProductDetailView tao(ProductCreateInput input) {
+    public ProductDetailView create(ProductCreateInput input) {
         String type = input.productType();
         validateTypeBlocks(type, input.blocks());
         validateDayCount(type, input.durationDays());
@@ -84,7 +88,7 @@ public class AdminProductService {
         product.save(e);
 
         blockStore.save(id, type, input.blocks());
-        translationService.save(id, locale.localeNguon(), input.source());
+        translationService.save(id, locale.sourceLocale(), input.source());
 
         // flush() ngay để mọi ràng buộc TỨC THÌ — NOT NULL, CHECK, khoá ngoại
         // kép (product_id, product_type) — nổ ngay tại đây thay vì lẫn vào một
@@ -102,13 +106,11 @@ public class AdminProductService {
         ProductEntity e = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
-        List<MarketState> marketStates = productMarketRepository.findByProductIdOrderByMarketAsc(id).stream()
-                .map(m -> new MarketState(m.getMarket(), m.isPublished()))
-                .toList();
+        List<MarketState> marketStates = productEntityMapper.toMarketStateList(
+                productMarketRepository.findByProductIdOrderByMarketAsc(id));
 
-        List<TranslationState> translations = translationService.findAll(id).stream()
-                .map(AdminProductService::toState)
-                .toList();
+        List<TranslationState> translations = productEntityMapper.toStateList(
+                translationService.findAll(id));
 
         return new ProductDetailView(
                 e.getId(), e.getProductType(), e.getPrimaryDestinationId(), e.getDurationDays(),
@@ -127,11 +129,11 @@ public class AdminProductService {
      * {@code heroImage} bằng một trường vắng mặt là lỗi im lặng.
      */
     @Transactional
-    public ProductDetailView sua(UUID id, ProductPatchInput input) {
+    public ProductDetailView update(UUID id, ProductPatchInput input) {
         ProductEntity e = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
-        if (!input.blocks().trong()) {
+        if (!input.blocks().isEmpty()) {
             validateTypeBlocks(e.getProductType(), input.blocks());
             blockStore.save(id, e.getProductType(), input.blocks());
         }
@@ -171,7 +173,7 @@ public class AdminProductService {
         // (docs/23 mục 4) thì bản NOT IN mặc định coi nó là CHƯA xong và chặn
         // xoá, bản IN mặc định coi nó là xong và cho xoá. Chặn nhầm là phiền;
         // cho xoá nhầm là mất dữ liệu của khách đang chờ đi.
-        Integer donChuaKetThuc = jdbc.queryForObject("""
+        Integer activeBookingsCount = jdbc.queryForObject("""
                 SELECT count(*) FROM booking b
                 JOIN departure d ON d.id = b.departure_id
                 WHERE d.product_id = ?
@@ -179,8 +181,8 @@ public class AdminProductService {
                   AND b.status NOT IN ('COMPLETED', 'CANCELLED', 'REFUNDED', 'EXPIRED')
                 """, Integer.class, id);
 
-        if (donChuaKetThuc != null && donChuaKetThuc > 0) {
-            throw new AdminErrors.ProductHasActiveBookings(donChuaKetThuc);
+        if (activeBookingsCount != null && activeBookingsCount > 0) {
+            throw new AdminErrors.ProductHasActiveBookings(activeBookingsCount);
         }
 
         // Tắt bán trước, rồi mới xoá mềm: giữa hai câu lệnh vẫn còn một khoảnh
@@ -237,7 +239,7 @@ public class AdminProductService {
         // Chạm product để lần đổi này có người đứng tên — xem javadoc trên.
         product.saveAndFlush(sp);
 
-        return new MarketState(pm.getMarket(), pm.isPublished());
+        return productEntityMapper.toMarketState(pm);
     }
 
     // ------------------------------------------------------------ kiểm
@@ -257,7 +259,7 @@ public class AdminProductService {
      * phòng, nên phụ thu phòng đơn không có nghĩa.
      */
     private void validateSingleRoomPrice(UUID id, String marketCode) {
-        List<String> thieu = jdbc.queryForList("""
+        List<String> missingDates = jdbc.queryForList("""
                 SELECT d.depart_date::text
                 FROM departure d
                 JOIN product p ON p.id = d.product_id
@@ -269,9 +271,9 @@ public class AdminProductService {
                 ORDER BY d.depart_date
                 """, String.class, id, marketCode);
 
-        if (!thieu.isEmpty()) {
+        if (!missingDates.isEmpty()) {
             throw SinglePriceMissingException.forProduct(
-                    marketCode, thieu.size(), thieu.getFirst());
+                    marketCode, missingDates.size(), missingDates.getFirst());
         }
     }
 
@@ -297,14 +299,14 @@ public class AdminProductService {
      * chiều phải kiểm ở đây.
      */
     private static void validateDayCount(String type, Short dayCount) {
-        boolean laDayTour = "DAY_TOUR".equals(type);
-        if (laDayTour == (dayCount != null)) {
+        boolean isDayTour = "DAY_TOUR".equals(type);
+        if (isDayTour == (dayCount != null)) {
             throw new AdminErrors.DurationDaysRuleViolated(type);
         }
     }
 
     private static void writeCommonFields(ProductEntity e, UUID destination, Short dayCount, String image,
-                                     String anhBanDo, String khung, Boolean moi, UUID tuVanVien) {
+                                          String mapImage, String layout, Boolean isNew, UUID consultantId) {
         if (destination != null) {
             e.setPrimaryDestinationId(destination);
         }
@@ -314,22 +316,17 @@ public class AdminProductService {
         if (image != null) {
             e.setHeroImage(image);
         }
-        if (anhBanDo != null) {
-            e.setMapImage(anhBanDo);
+        if (mapImage != null) {
+            e.setMapImage(mapImage);
         }
-        if (khung != null) {
-            e.setLayout(khung);
+        if (layout != null) {
+            e.setLayout(layout);
         }
-        if (moi != null) {
-            e.setNew(moi);
+        if (isNew != null) {
+            e.setNew(isNew);
         }
-        if (tuVanVien != null) {
-            e.setConsultantId(tuVanVien);
+        if (consultantId != null) {
+            e.setConsultantId(consultantId);
         }
-    }
-
-    private static TranslationState toState(ProductTranslationView v) {
-        return new TranslationState(v.locale(), v.status(), v.isSource(),
-                Boolean.TRUE.equals(v.outdated()));
     }
 }

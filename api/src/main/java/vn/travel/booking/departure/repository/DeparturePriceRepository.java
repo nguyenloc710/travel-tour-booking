@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface DeparturePriceRepository
-        extends JpaRepository<DeparturePriceEntity, DeparturePriceEntity.Khoa> {
+        extends JpaRepository<DeparturePriceEntity, DeparturePriceEntity.CompositeId> {
 
     List<DeparturePriceEntity> findByDepartureId(UUID departureId);
 

@@ -91,9 +91,9 @@ class QuoteStatusesTest {
         @Test
         @DisplayName("Không quay ngược về DRAFT từ bất cứ đâu")
         void cannotReturnToDraft() {
-            for (QuoteStatus tu : QuoteStatus.values()) {
-                assertFalse(QuoteStatuses.canTransitionTo(tu, QuoteStatus.DRAFT),
-                        tu + " không được quay về DRAFT");
+            for (QuoteStatus from : QuoteStatus.values()) {
+                assertFalse(QuoteStatuses.canTransitionTo(from, QuoteStatus.DRAFT),
+                        from + " không được quay về DRAFT");
             }
         }
     }
@@ -107,9 +107,9 @@ class QuoteStatusesTest {
         void onlyDraftCanEditPriceTiers() {
             assertTrue(QuoteStatuses.canEditPriceTiers(QuoteStatus.DRAFT));
 
-            for (QuoteStatus khac : EnumSet.complementOf(EnumSet.of(QuoteStatus.DRAFT))) {
-                assertFalse(QuoteStatuses.canEditPriceTiers(khac),
-                        khac + " không được sửa bảng giá — khách đang cầm bản đã gửi");
+            for (QuoteStatus other : EnumSet.complementOf(EnumSet.of(QuoteStatus.DRAFT))) {
+                assertFalse(QuoteStatuses.canEditPriceTiers(other),
+                        other + " không được sửa bảng giá — khách đang cầm bản đã gửi");
             }
         }
     }

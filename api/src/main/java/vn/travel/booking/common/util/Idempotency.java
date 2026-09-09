@@ -28,7 +28,7 @@ import java.util.function.Supplier;
 public class Idempotency {
 
     /** 24 giờ — docs/13 mục 7. */
-    private static final Duration HAN = Duration.ofHours(24);
+    private static final Duration RETENTION_PERIOD = Duration.ofHours(24);
 
     /**
      * Bộ tuần tự hoá <b>riêng</b> của lớp này, không dùng chung với tầng web.
@@ -46,14 +46,14 @@ public class Idempotency {
             .serializationInclusion(JsonInclude.Include.NON_NULL)
             .build();
 
-    private final IdempotencyRepository kho;
+    private final IdempotencyRepository repository;
 
-    Idempotency(IdempotencyRepository kho) {
-        this.kho = kho;
+    Idempotency(IdempotencyRepository repository) {
+        this.repository = repository;
     }
 
     /**
-     * Chạy {@code viec} một lần duy nhất cho mỗi khoá.
+     * Chạy {@code action} một lần duy nhất cho mỗi khoá.
      *
      * <p>Ba đường:
      *
@@ -67,51 +67,51 @@ public class Idempotency {
      * <p>Chỉ nhớ kết quả <b>thành công</b>: một lần thử thất bại vì hết chỗ không
      * được khoá vĩnh viễn câu trả lời đó — chỗ có thể được trả về kho ngay sau đó.
      */
-    public <T> ResponseEntity<T> run(UUID khoa, String market, String endpoint, Object than,
-                               Class<T> kieu, Supplier<ResponseEntity<T>> viec) {
-        String vanTay = vanTay(than);
+    public <T> ResponseEntity<T> run(UUID key, String market, String endpoint, Object body,
+                               Class<T> responseType, Supplier<ResponseEntity<T>> action) {
+        String fingerprint = fingerprint(body);
 
-        var daCo = kho.find(khoa);
-        if (daCo.isPresent()) {
-            if (!daCo.get().requestHash().equals(vanTay)) {
+        var existing = repository.find(key);
+        if (existing.isPresent()) {
+            if (!existing.get().requestHash().equals(fingerprint)) {
     throw new IdempotencyConflictException(
-                        "khoá " + khoa + " đã dùng cho một yêu cầu khác");
+                        "khoá " + key + " đã dùng cho một yêu cầu khác");
             }
-            return ResponseEntity.status(daCo.get().statusCode())
-                    .body(mapRow(daCo.get().responseJson(), kieu));
+            return ResponseEntity.status(existing.get().statusCode())
+                    .body(mapRow(existing.get().responseJson(), responseType));
         }
 
-        ResponseEntity<T> ketQua = viec.get();
+        ResponseEntity<T> result = action.get();
 
-        if (ketQua.getStatusCode().is2xxSuccessful()) {
-            kho.save(khoa, market, endpoint, vanTay,
-                    ketQua.getStatusCode().value(), viet(ketQua.getBody()), HAN);
+        if (result.getStatusCode().is2xxSuccessful()) {
+            repository.save(key, market, endpoint, fingerprint,
+                    result.getStatusCode().value(), toJson(result.getBody()), RETENTION_PERIOD);
         }
-        return ketQua;
+        return result;
     }
 
     /** SHA-256 của thân yêu cầu đã chuẩn hoá qua Jackson. */
-    private String vanTay(Object than) {
+    private String fingerprint(Object body) {
         try {
             MessageDigest hash = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(
-                    hash.digest(viet(than).getBytes(StandardCharsets.UTF_8)));
+                    hash.digest(toJson(body).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
     throw new IllegalStateException("Máy chạy Java mà không có SHA-256", ex);
         }
     }
 
-    private String viet(Object gia_tri) {
+    private String toJson(Object value) {
         try {
-            return JSON.writeValueAsString(gia_tri);
+            return JSON.writeValueAsString(value);
         } catch (Exception ex) {
     throw new IllegalStateException("Không tuần tự hoá được thân yêu cầu", ex);
         }
     }
 
-    private <T> T mapRow(String chuoi, Class<T> kieu) {
+    private <T> T mapRow(String json, Class<T> targetType) {
         try {
-            return JSON.readValue(chuoi, kieu);
+            return JSON.readValue(json, targetType);
         } catch (Exception ex) {
     throw new IllegalStateException("Không đọc lại được kết quả đã lưu", ex);
         }

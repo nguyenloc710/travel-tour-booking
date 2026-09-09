@@ -49,7 +49,7 @@ public class AdminUserController {
             produces = {"application/json"}
     )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<AdminStaffUser>> danhSachNguoiDung() {
+    public ResponseEntity<List<AdminStaffUser>> listUsers() {
         return noCache().body(users.list().stream().map(mapper::toView).toList());
     }
 
@@ -60,11 +60,11 @@ public class AdminUserController {
             consumes = {"application/json"}
     )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminStaffUser> suaNguoiDung(
+    public ResponseEntity<AdminStaffUser> updateUser(
             @PathVariable("id") UUID id,
             @Valid @RequestBody AdminStaffUserPatch input
     ) {
-        return noCache().body(mapper.toView(users.sua(
+        return noCache().body(mapper.toView(users.update(
                 id, input.getDisplayName(), input.getIsActive(),
                 SecurityUtils.currentStaff().id())));
     }
@@ -76,11 +76,11 @@ public class AdminUserController {
             consumes = {"application/json"}
     )
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdminStaffUser> datVaiTro(
+    public ResponseEntity<AdminStaffUser> setRoles(
             @PathVariable("id") UUID id,
             @Valid @RequestBody AdminRoleAssignment input
     ) {
-        return noCache().body(mapper.toView(users.datVaiTro(
+        return noCache().body(mapper.toView(users.setRoles(
                 id, input.getRoles().stream()
                         .map(AdminRoleAssignment.RolesEnum::getValue).toList())));
     }

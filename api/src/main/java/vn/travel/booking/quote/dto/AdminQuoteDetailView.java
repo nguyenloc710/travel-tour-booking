@@ -14,7 +14,7 @@ import java.util.List;
  * @param lines          rỗng khi chưa ai dựng bảng giá
  */
 public record AdminQuoteDetailView(
-        AdminQuoteRow tomTat,
+        AdminQuoteRow summary,
         String contactPhone,
         String message,
         int leadTimeDays,

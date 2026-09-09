@@ -42,7 +42,7 @@ public class AdminUserRepository {
                        COALESCE(
                          (SELECT array_agg(r.role_code ORDER BY r.role_code)
                             FROM staff_user_role r WHERE r.staff_user_id = u.id),
-                         ARRAY[]::varchar[]) AS vai_tro
+                         ARRAY[]::varchar[]) AS roles
                 FROM staff_user u
                 WHERE NOT u.soft_delete
                 ORDER BY u.is_active DESC, u.display_name
@@ -55,7 +55,7 @@ public class AdminUserRepository {
                        COALESCE(
                          (SELECT array_agg(r.role_code ORDER BY r.role_code)
                             FROM staff_user_role r WHERE r.staff_user_id = u.id),
-                         ARRAY[]::varchar[]) AS vai_tro
+                         ARRAY[]::varchar[]) AS roles
                 FROM staff_user u
                 WHERE u.id = ? AND NOT u.soft_delete
                 """, AdminUserRepository::mapRow, id)
@@ -80,7 +80,7 @@ public class AdminUserRepository {
      * {@code INSERT} — đổi lại là một nhánh "vai trò đã có thì bỏ qua" mà không
      * ai test.
      */
-    public void datVaiTro(UUID id, List<String> roles) {
+    public void setRoles(UUID id, List<String> roles) {
         jdbc.update("DELETE FROM staff_user_role WHERE staff_user_id = ?", id);
         for (String role : roles) {
             jdbc.update("""
@@ -108,7 +108,7 @@ public class AdminUserRepository {
     }
 
     private static StaffUserView mapRow(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
-        java.sql.Array array = rs.getArray("vai_tro");
+        java.sql.Array array = rs.getArray("roles");
         List<String> roles = array == null ? List.of() : List.of((String[]) array.getArray());
 
         return new StaffUserView(

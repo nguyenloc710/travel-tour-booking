@@ -27,7 +27,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "product_market")
-@IdClass(ProductMarketEntity.Khoa.class)
+@IdClass(ProductMarketEntity.CompositeId.class)
 public class ProductMarketEntity {
 
     @Id
@@ -83,8 +83,8 @@ public class ProductMarketEntity {
     }
 
     /** Khoá chính kép. */
-    public record Khoa(UUID productId, String market) implements Serializable {
-        public Khoa() {
+    public record CompositeId(UUID productId, String market) implements Serializable {
+        public CompositeId() {
             this(null, null);
         }
     }

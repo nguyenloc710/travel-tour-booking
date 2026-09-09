@@ -60,7 +60,7 @@ public class AdminBookingController {
             produces = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminBookingPage> danhSachDon(
+    public ResponseEntity<AdminBookingPage> listBookings(
             @Valid @RequestParam(value = "scope", required = false, defaultValue = "NEEDS_ACTION") AdminBookingScope scope,
             @Valid @RequestParam(value = "status", required = false) @Nullable BookingStatus status,
             @Valid @RequestParam(value = "market", required = false) @Nullable String market,
@@ -86,7 +86,7 @@ public class AdminBookingController {
             produces = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminBookingDetail> chiTietDon(
+    public ResponseEntity<AdminBookingDetail> getBookingDetail(
             @Size(max = 20) @PathVariable("reference") String reference
     ) {
         return noCache().body(mapper.toDetail(bookings.detail(reference)));
@@ -107,7 +107,7 @@ public class AdminBookingController {
             consumes = {"application/json"}
     )
     @PreAuthorize("hasAnyRole('CONSULTANT','ADMIN')")
-    public ResponseEntity<AdminBookingDetail> doiTrangThaiDon(
+    public ResponseEntity<AdminBookingDetail> changeBookingStatus(
             @Size(max = 20) @PathVariable("reference") String reference,
             @Valid @RequestBody AdminBookingStatusChange input
     ) {

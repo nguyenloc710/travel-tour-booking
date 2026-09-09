@@ -43,7 +43,7 @@ public record ProductTypeBlocks(
     }
 
     /** Rỗng hoàn toàn — dùng cho {@code PATCH} không đụng tới phần riêng của loại. */
-    public boolean trong() {
+    public boolean isEmpty() {
         return blockCount() == 0;
     }
 

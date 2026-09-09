@@ -51,7 +51,7 @@ class RegionEndpointIT {
     }
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -254,7 +254,7 @@ class RegionEndpointIT {
     private RestClient client() {
         // defaultStatusHandler nuốt lỗi để test đọc được cả phản hồi 4xx.
         return RestClient.builder()
-                .baseUrl("http://localhost:" + cong)
+                .baseUrl("http://localhost:" + port)
                 .defaultStatusHandler(status -> true, (req, res) -> { })
                 .build();
     }

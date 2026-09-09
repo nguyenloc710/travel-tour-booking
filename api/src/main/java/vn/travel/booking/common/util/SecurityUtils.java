@@ -19,8 +19,8 @@ public final class SecurityUtils {
     }
 
     public static StaffPrincipal currentStaff() {
-        Authentication xacThuc = SecurityContextHolder.getContext().getAuthentication();
-        if (xacThuc != null && xacThuc.getPrincipal() instanceof StaffPrincipal staff) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof StaffPrincipal staff) {
             return staff;
         }
         // Không xảy ra được với đường dẫn /admin/** vì chuỗi lọc đã chặn trước,

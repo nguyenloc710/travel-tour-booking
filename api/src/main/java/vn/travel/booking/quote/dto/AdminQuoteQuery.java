@@ -14,5 +14,5 @@ package vn.travel.booking.quote.dto;
 public record AdminQuoteQuery(String status, String market, String q, int page, int size) {
 
     /** Giá trị {@code status} nghĩa là "đừng lọc" — không bao giờ nằm trong CSDL. */
-    public static final String TAT_CA = "ALL";
+    public static final String ALL = "ALL";
 }

@@ -88,7 +88,7 @@ class AdminCatalogIT {
     private static final String P4 = "bb000000-0000-4000-8000-000000000004";
 
     @LocalServerPort
-    int cong;
+    int port;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -184,20 +184,20 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Danh sách quản trị thấy cả thứ mà bề mặt công khai giấu đi")
     void adminListShowsWhatPublicSurfaceHides() {
-        AdminProductPage trang = login("editor@travel.test")
+        AdminProductPage page = login("editor@travel.test")
                 .get("/api/v1/admin/products", AdminProductPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(4L, trang.getTotalItems());
+        assertNotNull(page);
+        assertEquals(4L, page.getTotalItems());
 
         // P4: bản nguồn còn DRAFT. Bề mặt công khai đòi status = 'PUBLISHED' nên
         // nó không tồn tại ở đó; ở đây nó phải thấy, vì đó chính là việc đang dở.
-        AdminProductSummary p4 = find(trang, "Kladde");
+        AdminProductSummary p4 = find(page, "Kladde");
         assertEquals(TranslationStatus.DRAFT, p4.getSourceStatus());
 
         // P3: chưa gán thị trường nào. Bề mặt công khai đòi pm.is_published nên
         // nó cũng không tồn tại ở đó — mà chưa thấy thì không ai gán được cho nó.
-        AdminProductSummary p3 = find(trang, "Mekong flodtur");
+        AdminProductSummary p3 = find(page, "Mekong flodtur");
         assertTrue(p3.getMarkets().isEmpty());
 
         // Mọi bản dịch, không phải một: màn hình dịch song song cần cả hai.
@@ -210,12 +210,12 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Lọc khoảng trống: MISSING ra sản phẩm chưa có bản dịch nào")
     void gapFilterMissingShowsUntranslatedProducts() {
-        AdminProductPage trang = login("editor@travel.test")
+        AdminProductPage page = login("editor@travel.test")
                 .get("/api/v1/admin/products?gap=MISSING", AdminProductPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(2L, trang.getTotalItems());
-        List<String> name = trang.getItems().stream().map(AdminProductSummary::getSourceTitle).toList();
+        assertNotNull(page);
+        assertEquals(2L, page.getTotalItems());
+        List<String> name = page.getItems().stream().map(AdminProductSummary::getSourceTitle).toList();
         assertTrue(name.contains("Halong krydstogt"));
         assertTrue(name.contains("Kladde"));
     }
@@ -223,12 +223,12 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Lọc khoảng trống: OUTDATED ra sản phẩm có bản dịch nhưng nguồn sửa sau")
     void gapFilterOutdatedShowsStaleTranslations() {
-        AdminProductPage trang = login("editor@travel.test")
+        AdminProductPage page = login("editor@travel.test")
                 .get("/api/v1/admin/products?gap=OUTDATED", AdminProductPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(1L, trang.getTotalItems());
-        assertEquals("Mekong flodtur", trang.getItems().get(0).getSourceTitle());
+        assertNotNull(page);
+        assertEquals(1L, page.getTotalItems());
+        assertEquals("Mekong flodtur", page.getItems().get(0).getSourceTitle());
     }
 
     @Test
@@ -240,18 +240,18 @@ class AdminCatalogIT {
         // Dấu cách viết THẲNG, không viết %20: RestClient coi chuỗi truyền vào
         // uri() là mẫu URI và mã hoá lại lần nữa, nên "%20" tới máy chủ thành
         // "%2520" và không khớp gì cả.
-        AdminProductPage trang = login("editor@travel.test")
+        AdminProductPage page = login("editor@travel.test")
                 .get("/api/v1/admin/products?q=bac vao", AdminProductPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(1L, trang.getTotalItems());
-        assertEquals("Nord til syd", trang.getItems().get(0).getSourceTitle());
+        assertNotNull(page);
+        assertEquals(1L, page.getTotalItems());
+        assertEquals("Nord til syd", page.getItems().get(0).getSourceTitle());
     }
 
     @Test
     @DisplayName("Lọc theo loại sản phẩm và theo thị trường đã gán")
     void filterByProductTypeAndAssignedMarket() {
-        Phien session = login("editor@travel.test");
+        Session session = login("editor@travel.test");
 
         AdminProductPage byType = session
                 .get("/api/v1/admin/products?productType=CRUISE", AdminProductPage.class).getBody();
@@ -273,13 +273,13 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Phân trang phía máy chủ")
     void serverSidePagination() {
-        AdminProductPage trang = login("editor@travel.test")
+        AdminProductPage page = login("editor@travel.test")
                 .get("/api/v1/admin/products?size=2", AdminProductPage.class).getBody();
 
-        assertNotNull(trang);
-        assertEquals(2, trang.getItems().size());
-        assertEquals(4L, trang.getTotalItems());
-        assertEquals(2, trang.getTotalPages());
+        assertNotNull(page);
+        assertEquals(2, page.getItems().size());
+        assertEquals(4L, page.getTotalItems());
+        assertEquals(2, page.getTotalPages());
     }
 
     @Test
@@ -378,7 +378,7 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Chưa đăng nhập thì không vào được bề mặt quản trị")
     void notLoggedInCannotAccessAdmin() {
-        ResponseEntity<ErrorResponse> response = new Phien()
+        ResponseEntity<ErrorResponse> response = new Session()
                 .get("/api/v1/admin/products", ErrorResponse.class);
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
@@ -387,7 +387,7 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Tư vấn viên đọc được danh sách và hàng đợi — ma trận quyền docs/22 mục 2.1")
     void consultantCanReadListAndQueue() {
-        Phien session = login("tuvan@travel.test");
+        Session session = login("tuvan@travel.test");
 
         assertEquals(HttpStatus.OK,
                 session.get("/api/v1/admin/products", AdminProductPage.class).getStatusCode());
@@ -398,22 +398,21 @@ class AdminCatalogIT {
     @Test
     @DisplayName("Mọi phản hồi quản trị là no-store")
     void everyAdminResponseIsNoStore() {
-        Phien session = login("editor@travel.test");
+        Session session = login("editor@travel.test");
 
         for (String path : List.of("/api/v1/admin/products",
                 "/api/v1/admin/translations/queue",
                 "/api/v1/admin/translations/coverage")) {
-            String cache = session.get(path, String.class)
-                    .getHeaders().getFirst(HttpHeaders.CACHE_CONTROL);
-            assertTrue(cache != null && cache.contains("no-store"),
-                    path + " phải là no-store — nội dung chưa xuất bản không được nằm trong cache nào");
+            String cache = session.get(path, Object.class).getHeaders().getCacheControl();
+            assertNotNull(cache, path);
+            assertTrue(cache.contains("no-store"), path + " phải no-store");
         }
     }
 
     // ------------------------------------------------------------ tiện ích
 
-    private static AdminProductSummary find(AdminProductPage trang, String sourceTitle) {
-        return trang.getItems().stream()
+    private static AdminProductSummary find(AdminProductPage page, String sourceTitle) {
+        return page.getItems().stream()
                 .filter(x -> sourceTitle.equals(x.getSourceTitle()))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("không thấy " + sourceTitle));
@@ -430,14 +429,14 @@ class AdminCatalogIT {
                 """, id, roles);
     }
 
-    private Phien login(String email) {
-        Phien session = new Phien();
+    private Session login(String email) {
+        Session session = new Session();
         assertEquals(HttpStatus.NO_CONTENT, session.login(email, PASSWORD).getStatusCode());
         return session;
     }
 
     /** Giữ cookie phiên giữa các lời gọi — đúng như trình duyệt làm. */
-    private final class Phien {
+    private final class Session {
 
         private final List<String> cookies = new ArrayList<>();
 
@@ -453,7 +452,7 @@ class AdminCatalogIT {
 
         <T> ResponseEntity<T> call(HttpMethod httpMethod, String path, String body, Class<T> type) {
             RestClient.RequestBodySpec request = RestClient.builder()
-                    .baseUrl("http://localhost:" + cong)
+                    .baseUrl("http://localhost:" + port)
                     .defaultStatusHandler(status -> true, (req, res) -> { })
                     .build()
                     .method(httpMethod)
@@ -469,19 +468,19 @@ class AdminCatalogIT {
             }
 
             ResponseEntity<T> response = request.retrieve().toEntity(type);
-            nhoCookie(response);
+            rememberCookies(response);
             return response;
         }
 
-        private void nhoCookie(ResponseEntity<?> response) {
-            List<String> moi = response.getHeaders().get(HttpHeaders.SET_COOKIE);
-            if (moi == null) {
+        private void rememberCookies(ResponseEntity<?> response) {
+            List<String> newCookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+            if (newCookies == null) {
                 return;
             }
-            for (String c : moi) {
+            for (String c : newCookies) {
                 String summary = c.split(";", 2)[0];
                 String name = summary.split("=", 2)[0];
-                cookies.removeIf(cu -> cu.startsWith(name + "="));
+                cookies.removeIf(existing -> existing.startsWith(name + "="));
                 cookies.add(summary);
             }
         }

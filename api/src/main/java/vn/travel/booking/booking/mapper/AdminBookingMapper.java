@@ -71,11 +71,11 @@ public interface AdminBookingMapper {
      * nó nằm đúng một chỗ ({@code CLAUDE.md} quy tắc 6).
      */
     default vn.travel.booking.web.generated.model.Money toMoney(Money money) {
-        return RefMapper.sangTien(money);
+        return RefMapper.toMoney(money);
     }
 
     default vn.travel.booking.web.generated.model.PriceBreakdown toBreakdown(
             vn.travel.booking.pricing.dto.PriceBreakdown breakdown) {
-        return PricingMapper.sangBang(breakdown);
+        return PricingMapper.INSTANCE.toPriceBreakdown(breakdown);
     }
 }

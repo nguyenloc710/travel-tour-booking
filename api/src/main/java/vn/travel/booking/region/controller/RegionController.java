@@ -10,6 +10,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import vn.travel.booking.region.mapper.RegionMapper;
 import vn.travel.booking.region.service.RegionService;
 import vn.travel.booking.web.generated.model.Region;
 
@@ -27,9 +28,11 @@ import java.util.List;
 public class RegionController {
 
     private final RegionService listRegions;
+    private final RegionMapper regionMapper;
 
-    public RegionController(RegionService listRegions) {
+    public RegionController(RegionService listRegions, RegionMapper regionMapper) {
         this.listRegions = listRegions;
+        this.regionMapper = regionMapper;
     }
 
     @RequestMapping(
@@ -43,8 +46,8 @@ public class RegionController {
     ) {
         String locale = RequestScope.locale(acceptLanguage);
 
-        List<Region> ket_qua = listRegions.execute(RequestScope.market(market), locale).stream()
-                .map(r -> new Region(r.slug(), r.name(), r.productCount()))
+        List<Region> regions = listRegions.execute(RequestScope.market(market), locale).stream()
+                .map(regionMapper::toView)
                 .toList();
 
         return ResponseEntity.ok()
@@ -53,6 +56,6 @@ public class RegionController {
                 .header(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE)
                 // Danh mục tĩnh: 5 phút. Ngày khởi hành thì no-store — docs/13 mục 8.
                 .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
-                .body(ket_qua);
+                .body(regions);
     }
 }

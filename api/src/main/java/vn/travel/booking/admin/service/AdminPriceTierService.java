@@ -6,9 +6,9 @@ import vn.travel.booking.admin.dto.PriceTierInput;
 import vn.travel.booking.admin.dto.PriceTierView;
 import vn.travel.booking.common.exception.AdminErrors;
 import vn.travel.booking.common.exception.NotFoundException;
-import vn.travel.booking.common.money.Money;
 import vn.travel.booking.market.repository.MarketRepository;
 import vn.travel.booking.pricing.entity.PriceTierEntity;
+import vn.travel.booking.pricing.mapper.PriceTierEntityMapper;
 import vn.travel.booking.pricing.repository.PriceTierWriteRepository;
 import vn.travel.booking.product.entity.ProductEntity;
 import vn.travel.booking.product.repository.ProductWriteRepository;
@@ -27,57 +27,58 @@ import java.util.UUID;
 @Service
 public class AdminPriceTierService {
 
-    private final PriceTierWriteRepository bacGia;
+    private final PriceTierWriteRepository priceTierRepository;
     private final ProductWriteRepository product;
     private final MarketRepository market;
+    private final PriceTierEntityMapper priceTierEntityMapper;
 
-    public AdminPriceTierService(PriceTierWriteRepository bacGia,
+    public AdminPriceTierService(PriceTierWriteRepository priceTierRepository,
                                  ProductWriteRepository product,
-                                 MarketRepository market) {
-        this.bacGia = bacGia;
+                                 MarketRepository market,
+                                 PriceTierEntityMapper priceTierEntityMapper) {
+        this.priceTierRepository = priceTierRepository;
         this.product = product;
         this.market = market;
+        this.priceTierEntityMapper = priceTierEntityMapper;
     }
 
     @Transactional(readOnly = true)
     public List<PriceTierView> list(UUID productId, String marketCode) {
-        return bacGia.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, marketCode)
-                .stream()
-                .map(AdminPriceTierService::sangView)
-                .toList();
+        return priceTierEntityMapper.toViewList(
+                priceTierRepository.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, marketCode));
     }
 
     @Transactional
-    public List<PriceTierView> save(UUID productId, String marketCode, List<PriceTierInput> thang) {
-        ProductEntity sp = product.findByIdAndSoftDeleteFalse(productId)
+    public List<PriceTierView> save(UUID productId, String marketCode, List<PriceTierInput> tiers) {
+        ProductEntity prod = product.findByIdAndSoftDeleteFalse(productId)
                 .orElseThrow(() -> new NotFoundException("product id=" + productId));
 
-        if (!"PRIVATE_TOUR".equals(sp.getProductType())) {
+        if (!"PRIVATE_TOUR".equals(prod.getProductType())) {
             throw new AdminErrors.ProductTypeBlockMismatch(
-                    sp.getProductType(), "privateTour", 0);
+                    prod.getProductType(), "privateTour", 0);
         }
 
-        MarketRepository.CauHinh config = market.config(marketCode)
+        MarketRepository.MarketConfig config = market.config(marketCode)
                 .orElseThrow(() -> new NotFoundException("market=" + marketCode));
 
-        List<PriceTierInput> daSap = thang.stream()
+        List<PriceTierInput> sortedTiers = tiers.stream()
                 .sorted(Comparator.comparing(PriceTierInput::minPax))
                 .toList();
-        validateContiguous(daSap);
+        validateContiguous(sortedTiers);
 
         // Xoá MỀM bậc cũ, không xoá cứng: price_tier thuộc nhóm A của docs/11
         // mục 11.2, và một báo giá đã gửi cho khách tham chiếu tới bậc giá lúc
         // đó. Xoá cứng là làm báo giá cũ mất chỗ dựa.
-        bacGia.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, marketCode)
-                .forEach(cu -> cu.setSoftDelete(true));
-        bacGia.flush();
+        priceTierRepository.findByProductIdAndMarketAndSoftDeleteFalseOrderByMinPaxAsc(productId, marketCode)
+                .forEach(oldTier -> oldTier.setSoftDelete(true));
+        priceTierRepository.flush();
 
-        List<PriceTierEntity> moi = new ArrayList<>();
-        for (PriceTierInput bac : daSap) {
-            moi.add(new PriceTierEntity(UUID.randomUUID(), productId, marketCode,
-                    bac.minPax(), bac.maxPax(), bac.pricePerPerson(), config.currency()));
+        List<PriceTierEntity> newEntities = new ArrayList<>();
+        for (PriceTierInput tier : sortedTiers) {
+            newEntities.add(new PriceTierEntity(UUID.randomUUID(), productId, marketCode,
+                    tier.minPax(), tier.maxPax(), tier.pricePerPerson(), config.currency()));
         }
-        bacGia.saveAllAndFlush(moi);
+        priceTierRepository.saveAllAndFlush(newEntities);
 
         return list(productId, marketCode);
     }
@@ -92,31 +93,26 @@ public class AdminPriceTierService {
      * <p>CSDL không diễn đạt được luật này bằng một {@code CHECK} — nó nói về
      * quan hệ giữa các dòng trong cùng một nhóm — nên nó phải sống ở đây.
      */
-    private static void validateContiguous(List<PriceTierInput> daSap) {
-        for (int i = 0; i < daSap.size(); i++) {
-            PriceTierInput bac = daSap.get(i);
-            boolean bacCuoi = i == daSap.size() - 1;
+    private static void validateContiguous(List<PriceTierInput> sortedTiers) {
+        for (int i = 0; i < sortedTiers.size(); i++) {
+            PriceTierInput tier = sortedTiers.get(i);
+            boolean isLastTier = i == sortedTiers.size() - 1;
 
-            if (bac.maxPax() == null && !bacCuoi) {
+            if (tier.maxPax() == null && !isLastTier) {
                 throw new AdminErrors.PriceTierNotContiguous(
-                        "chỉ bậc cuối được bỏ trống maxPax", bac.minPax());
+                        "chỉ bậc cuối được bỏ trống maxPax", tier.minPax());
             }
-            if (bac.maxPax() != null && bac.maxPax() < bac.minPax()) {
+            if (tier.maxPax() != null && tier.maxPax() < tier.minPax()) {
                 throw new AdminErrors.PriceTierNotContiguous(
-                        "maxPax nhỏ hơn minPax", bac.minPax());
+                        "maxPax nhỏ hơn minPax", tier.minPax());
             }
-            if (!bacCuoi) {
-                PriceTierInput ke = daSap.get(i + 1);
-                if (ke.minPax() != bac.maxPax() + 1) {
+            if (!isLastTier) {
+                PriceTierInput nextTier = sortedTiers.get(i + 1);
+                if (nextTier.minPax() != tier.maxPax() + 1) {
                     throw new AdminErrors.PriceTierNotContiguous(
-                            "bậc sau phải bắt đầu ngay sau bậc trước", ke.minPax());
+                            "bậc sau phải bắt đầu ngay sau bậc trước", nextTier.minPax());
                 }
             }
         }
-    }
-
-    private static PriceTierView sangView(PriceTierEntity e) {
-        return new PriceTierView(e.getId(), e.getMarket(), e.getMinPax(), e.getMaxPax(),
-                new Money(e.getPricePerPerson(), e.getCurrency()));
     }
 }

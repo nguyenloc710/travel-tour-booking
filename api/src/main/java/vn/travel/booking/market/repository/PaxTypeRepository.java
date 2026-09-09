@@ -31,23 +31,23 @@ public class PaxTypeRepository {
 
     /** Mã loại khách sang id, trong phạm vi một thị trường. Sắp theo thứ tự hiển thị. */
     public Map<String, UUID> byCode(String market) {
-        Map<String, UUID> ket_qua = new LinkedHashMap<>();
+        Map<String, UUID> result = new LinkedHashMap<>();
         jdbc.query("""
                 SELECT code, id FROM pax_type
                 WHERE market = ? AND NOT soft_delete
                 ORDER BY sort_order
                 """,
                 rs -> {
-                    ket_qua.put(rs.getString("code"), rs.getObject("id", UUID.class));
+                    result.put(rs.getString("code"), rs.getObject("id", UUID.class));
                 },
                 market);
-        return ket_qua;
+        return result;
     }
 
     /** Id sang mã — để trả về bảng giá bằng mã người đọc được, không phải UUID. */
     public Map<UUID, String> byId(String market) {
-        Map<UUID, String> ket_qua = new LinkedHashMap<>();
-        byCode(market).forEach((ma, id) -> ket_qua.put(id, ma));
-        return ket_qua;
+        Map<UUID, String> result = new LinkedHashMap<>();
+        byCode(market).forEach((code, id) -> result.put(id, code));
+        return result;
     }
 }

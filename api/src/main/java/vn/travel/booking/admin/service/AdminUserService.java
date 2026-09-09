@@ -41,7 +41,7 @@ public class AdminUserService {
      * lý do M14 không có nút Xoá, kể cả xoá mềm.
      */
     @Transactional
-    public StaffUserView sua(UUID id, String displayName, Boolean isActive, UUID staffUserId) {
+    public StaffUserView update(UUID id, String displayName, Boolean isActive, UUID staffUserId) {
         StaffUserView current = require(id);
 
         // Tắt người cuối cùng còn mang vai trò ADMIN và đang bật thì không còn
@@ -67,15 +67,15 @@ public class AdminUserService {
      * đúng như tắt tài khoản của họ. Hai đường vào, một luật.
      */
     @Transactional
-    public StaffUserView datVaiTro(UUID id, List<String> roles) {
+    public StaffUserView setRoles(UUID id, List<String> roles) {
         StaffUserView current = require(id);
 
-        boolean dangGoAdmin = current.roles().contains(ADMIN) && !roles.contains(ADMIN);
-        if (dangGoAdmin && current.isActive() && user.countOtherAdmins(id) == 0) {
+        boolean removingAdmin = current.roles().contains(ADMIN) && !roles.contains(ADMIN);
+        if (removingAdmin && current.isActive() && user.countOtherAdmins(id) == 0) {
             throw new AdminErrors.LastAdmin("không gỡ được vai trò của ADMIN cuối cùng");
         }
 
-        user.datVaiTro(id, roles.stream().distinct().toList());
+        user.setRoles(id, roles.stream().distinct().toList());
         return require(id);
     }
 

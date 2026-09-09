@@ -40,24 +40,24 @@ import java.util.UUID;
 public class BookingService {
 
     /** Hạn giữ chỗ — docs/14 mục 2.4. Là cấu hình, nên nằm ở tầng này chứ không ở lõi. */
-    private static final Duration HAN_GIU_CHO = Duration.ofMinutes(20);
+    private static final Duration SEAT_HOLD_DURATION = Duration.ofMinutes(20);
 
     /** Loại không có tồn kho chung thì không giữ chỗ — docs/14 mục 6. */
-    private static final Set<String> KHONG_CO_TON_KHO = Set.of("INDIVIDUAL_PACKAGE", "PRIVATE_TOUR");
+    private static final Set<String> NON_INVENTORY_PRODUCT_TYPES = Set.of("INDIVIDUAL_PACKAGE", "PRIVATE_TOUR");
 
     /** Không đặt trực tiếp được: CTA là "Yêu cầu báo giá" — docs/23 mục 1. */
-    private static final Set<String> KHONG_DAT_TRUC_TIEP = Set.of("PRIVATE_TOUR");
+    private static final Set<String> NON_DIRECT_BOOKING_TYPES = Set.of("PRIVATE_TOUR");
 
     private final BookingPricingRepository pricingRepository;
     private final SeatHoldRepository seatHoldRepository;
-    private final BookingRepository donPort;
+    private final BookingRepository bookingRepository;
     private final MarketService markets;
 
     public BookingService(BookingPricingRepository pricingRepository, SeatHoldRepository seatHoldRepository,
-                           BookingRepository donPort, MarketService markets) {
+                           BookingRepository bookingRepository, MarketService markets) {
         this.pricingRepository = pricingRepository;
         this.seatHoldRepository = seatHoldRepository;
-        this.donPort = donPort;
+        this.bookingRepository = bookingRepository;
         this.markets = markets;
     }
 
@@ -68,30 +68,30 @@ public class BookingService {
      * nó phải gọi lại được vô số lần mà không tạo ra gì (docs/13 mục 9.2).
      */
     @Transactional(readOnly = true)
-    public PriceBreakdown xemTruocGia(String market, PricingQuery truyVan) {
+    public PriceBreakdown previewPrice(String market, PricingQuery query) {
         markets.requireActive(market);
-        return tinh(nap(market, truyVan), truyVan);
+        return calculatePrice(loadDeparturePricing(market, query), query);
     }
 
     // ------------------------------------------------------------ giữ chỗ
 
     @Transactional
-    public SeatHoldView giuCho(String market, UUID departureId, int seats, String sessionRef) {
+    public SeatHoldView holdSeat(String market, UUID departureId, int seats, String sessionRef) {
         markets.requireActive(market);
 
         DeparturePricing d = pricingRepository.load(market, departureId, null)
                 .orElseThrow(() -> new NotFoundException("departure id=" + departureId));
 
-        if (KHONG_CO_TON_KHO.contains(d.productType())) {
+        if (NON_INVENTORY_PRODUCT_TYPES.contains(d.productType())) {
             throw new BookingErrors.ProductNotBookable(
                     "loại " + d.productType() + " không có tồn kho chung nên không giữ chỗ");
         }
 
-        return seatHoldRepository.hold(departureId, seats, sessionRef, HAN_GIU_CHO);
+        return seatHoldRepository.hold(departureId, seats, sessionRef, SEAT_HOLD_DURATION);
     }
 
     @Transactional
-    public void boGiuCho(String market, UUID seatHoldId) {
+    public void releaseSeatHold(String market, UUID seatHoldId) {
         markets.requireActive(market);
         seatHoldRepository.release(seatHoldId);
     }
@@ -99,45 +99,45 @@ public class BookingService {
     // ------------------------------------------------------------ đặt tour
 
     @Transactional
-    public BookingView datTour(String market, String locale, BookingCommand command) {
+    public BookingView bookTour(String market, String locale, BookingCommand command) {
         markets.requireActive(market);
 
-        DeparturePricing d = nap(market, new PricingQuery(
+        DeparturePricing d = loadDeparturePricing(market, new PricingQuery(
                 command.departureId(), command.pax(), command.singleTravellers(), command.departureOriginId()));
 
-        if (KHONG_DAT_TRUC_TIEP.contains(d.productType())) {
+        if (NON_DIRECT_BOOKING_TYPES.contains(d.productType())) {
             throw new BookingErrors.ProductNotBookable(
                     "loại " + d.productType() + " chỉ nhận yêu cầu báo giá");
         }
 
-        boolean canGiuCho = !KHONG_CO_TON_KHO.contains(d.productType());
-        if (canGiuCho && command.seatHoldId() == null) {
+        boolean requiresHold = !NON_INVENTORY_PRODUCT_TYPES.contains(d.productType());
+        if (requiresHold && command.seatHoldId() == null) {
             // Không có giữ chỗ nghĩa là chỗ chưa bao giờ được khoá, và hai khách
             // cùng bấm đặt sẽ cùng thành công. Chặn ở đây thay vì hy vọng frontend nhớ.
             throw new BookingErrors.SeatHoldExpired("loại có tồn kho phải kèm seatHoldId");
         }
 
-        PriceBreakdown table = tinh(d, new PricingQuery(
+        PriceBreakdown table = calculatePrice(d, new PricingQuery(
                 command.departureId(), command.pax(), command.singleTravellers(), command.departureOriginId()));
 
-        return donPort.create(new BookingDraft(
+        return bookingRepository.create(new BookingDraft(
                 market, locale, d.productId(), d.departureId(), command.seatHoldId(),
                 d.productTitle(), command.pax(), command.passengers(),
                 command.contactEmail(), command.contactPhone(), table));
     }
 
     @Transactional(readOnly = true)
-    public BookingView traDon(String market, String reference, String email) {
+    public BookingView getBooking(String market, String reference, String email) {
         markets.requireActive(market);
-        return donPort.findByReferenceAndEmail(market, reference, email)
+        return bookingRepository.findByReferenceAndEmail(market, reference, email)
                 .orElseThrow(() -> new NotFoundException("booking reference=" + reference));
     }
 
     // ------------------------------------------------------------ nội bộ
 
-    private DeparturePricing nap(String market, PricingQuery truyVan) {
-        return pricingRepository.load(market, truyVan.departureId(), truyVan.departureOriginId())
-                .orElseThrow(() -> new NotFoundException("departure id=" + truyVan.departureId()));
+    private DeparturePricing loadDeparturePricing(String market, PricingQuery query) {
+        return pricingRepository.load(market, query.departureId(), query.departureOriginId())
+                .orElseThrow(() -> new NotFoundException("departure id=" + query.departureId()));
     }
 
     /**
@@ -148,10 +148,10 @@ public class BookingService {
      * không bị bỏ quên — engine đã có chỗ cho cả bốn, chỉ chưa có bảng để đọc.
      * Ghi ở docs/12 mục 10.
      */
-    private PriceBreakdown tinh(DeparturePricing d, PricingQuery truyVan) {
+    private PriceBreakdown calculatePrice(DeparturePricing d, PricingQuery query) {
         List<PaxLine> row = new ArrayList<>();
 
-        for (Map.Entry<String, Integer> e : truyVan.pax().entrySet()) {
+        for (Map.Entry<String, Integer> e : query.pax().entrySet()) {
             if (e.getValue() == null || e.getValue() <= 0) {
                 continue;
             }
@@ -165,17 +165,17 @@ public class BookingService {
             throw new NotFoundException("đơn không có khách nào");
         }
 
-        PricingInput dauVao = PricingInput.cua(row, d.fractionDigits(), d.depositRate())
-                .phiXuLy(d.processingFee());
+        PricingInput pricingInput = PricingInput.of(row, d.fractionDigits(), d.depositRate())
+                .processingFee(d.processingFee());
 
-        if (truyVan.singleTravellers() > 0) {
-            dauVao.phongDon(truyVan.singleTravellers(), phuThuPhongDon(d));
+        if (query.singleTravellers() > 0) {
+            pricingInput.singleSupplement(query.singleTravellers(), calculateSingleSupplement(d));
         }
         if (d.originSurcharge() != null) {
-            dauVao.phuThuDiemKhoiHanh(d.originSurcharge());
+            pricingInput.departureOriginSurcharge(d.originSurcharge());
         }
 
-        return PricingEngine.tinh(dauVao);
+        return PricingEngine.calculate(pricingInput);
     }
 
     /**
@@ -193,7 +193,7 @@ public class BookingService {
      * đoán về phía mất tiền. Đường bật bán đã chặn từ đầu (quy tắc kiểm 23), nên
      * nhánh này đáng lẽ không bao giờ chạy — nó là lưới thứ hai.
      */
-    private static Money phuThuPhongDon(DeparturePricing d) {
+    private static Money calculateSingleSupplement(DeparturePricing d) {
         return d.singleOccupancy().entrySet().stream()
                 .filter(e -> d.doubleOccupancy().containsKey(e.getKey()))
                 .map(e -> new Money(
