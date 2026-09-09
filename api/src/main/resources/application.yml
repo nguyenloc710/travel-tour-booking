@@ -36,6 +36,20 @@ travel:
     # kèm credentials, và đặc tả cấm `*` đi cùng credentials — xem SecurityConfig.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
 
+  bootstrap-admin:
+    # Tài khoản ADMIN đầu tiên, tạo lúc khởi động nếu CSDL chưa từng có ADMIN
+    # nào — BootstrapAdminRunner. Cần vì hợp đồng API không có đường tạo người
+    # dùng: CSDL trống nghĩa là không ai đăng nhập được, kể cả để tạo người khác.
+    #
+    # Để TRỐNG ở dev và test — `seed-dev.sql` đã có sẵn tài khoản. Chỉ đặt ở bản
+    # chạy thật, và đặt qua biến môi trường, không viết thẳng vào file này.
+    #
+    # Đổi hai giá trị này rồi khởi động lại KHÔNG đổi được mật khẩu của tài
+    # khoản đã tạo. Đó là chủ ý — xem chú thích lớp BootstrapAdminRunner.
+    email: ${BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    display-name: ${BOOTSTRAP_ADMIN_NAME:Quản trị viên}
+
   storage:
     # Địa chỉ CÔNG KHAI của kho ảnh — cái đi vào thân phản hồi cho trình duyệt.
     # `media_asset.path` lưu đường dẫn tương đối, giá trị này là phần đầu ghép

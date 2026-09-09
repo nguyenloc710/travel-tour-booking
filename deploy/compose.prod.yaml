@@ -48,6 +48,13 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?thieu DB_PASSWORD}
       PORT: 8080
 
+      # Tài khoản ADMIN đầu tiên. Hợp đồng API không có đường tạo người dùng,
+      # nên không có hai biến này thì CSDL mới migrate xong là một hệ thống
+      # không ai vào được. Chỉ tạo khi CSDL chưa TỪNG có ADMIN nào; sửa mật khẩu
+      # ở đây rồi `up -d` lại KHÔNG đổi được mật khẩu đã đặt.
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?thieu BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?thieu BOOTSTRAP_ADMIN_PASSWORD}
+
       # Địa chỉ site như TRÌNH DUYỆT KHÁCH nhìn thấy. Trình duyệt gọi thẳng API
       # (`bookingApi()` chạy phía client), nên gốc này phải được CORS cho phép.
       # KHÔNG dùng `*`: phiên xác thực bằng cookie, và đặc tả cấm `*` đi cùng

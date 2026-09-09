@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 07/09/2026
+Cập nhật: 09/09/2026
 Nguồn sự thật về: các môi trường chạy được, ba pipeline và điều kiện kích hoạt,
                   biến môi trường và bí mật, cách đóng gói và triển khai, thứ tự
                   chạy migration lúc triển khai, cách lùi một lần phát hành.
@@ -18,10 +18,11 @@ và khi có sự cố thì lùi lại bằng cách nào.**
 > kiểm, ba `Dockerfile`, ba file compose trong `deploy/`, `deploy/Caddyfile` và
 > `trien-khai.yml`.
 >
-> Cái **chưa xảy ra** là bất cứ lần chạy nào: chưa ảnh nào được build thật, chưa
-> có lượt `trien-khai.yml` nào, chưa có bí mật nào được điền, chưa có tên miền
-> nào trỏ về đâu. Mục 6 vì thế vẫn là lý thuyết — kịch bản lùi chưa từng chạy,
-> và chính mục 6 nói: một kịch bản chưa chạy bao giờ thì lúc cần cũng hỏng.
+> `trien-khai.yml` **đã chạy thật** và đã đưa được ba ảnh lên VPS. Cái **chưa
+> xảy ra** là một lượt triển khai đi tới cuối: `api` chưa khởi động thành công
+> lần nào, vì ba điều kiện của CSDL dùng chung ở mục 5.0.2. Chưa có tên miền nào
+> trỏ về đâu. Mục 6 vẫn là lý thuyết — kịch bản lùi chưa từng chạy, và chính mục
+> 6 nói: một kịch bản chưa chạy bao giờ thì lúc cần cũng hỏng.
 
 ---
 
@@ -32,7 +33,7 @@ và khi có sự cố thì lùi lại bằng cách nào.**
 | `dev` | Máy lập trình viên | `compose.yaml` → Postgres 16 cục bộ | Lập trình viên | ✔ chạy được |
 | `test` | Runner GitHub Actions | Testcontainers dựng rồi xoá theo từng lượt chạy | CI | ✔ chạy được |
 | `staging` | Chưa có | Chưa có | Chưa có | ✗ **Q-9** |
-| `prod` | VPS | Postgres 16 trên cùng máy chủ | Khách và nhân viên | ✗ chưa dựng |
+| `prod` | VPS | Container `shared-postgres` **của dự án khác** — mục 5.0.2 | Khách và nhân viên | ✗ chưa dựng |
 
 Ba điều cố ý:
 
@@ -244,10 +245,10 @@ instance, không giải bài toán migration. Hai thứ khác nhau, đừng lẫ
 
 ## 5. Đóng gói và triển khai
 
-> **Đã có mã, chưa build lần nào.** Sáu file dưới đây tồn tại và đọc được, nhưng
-> **chưa ảnh nào được build thật**: VM của Docker trên máy đang làm không ra
-> được registry, nên lượt build đầu tiên sẽ xảy ra trên runner. Coi ba
-> `Dockerfile` là bản nháp có căn cứ, không phải bản đã chứng minh.
+> **Đã build và đã triển khai thật; `api` chưa lên được.** Tính tới 09/09/2026,
+> ba ảnh đã build trên runner, đẩy lên GHCR và pull được về VPS — phần đó của
+> tám file dưới đây đã chứng minh. Cái chưa xong là `api` khởi động thành công:
+> nó đổ ở CSDL, ba lần, ba nguyên nhân khác nhau. Cả ba nay nằm ở mục 5.0.2.
 
 | File | Vai trò |
 |---|---|
@@ -258,6 +259,7 @@ instance, không giải bài toán migration. Hai thứ khác nhau, đừng lẫ
 | `deploy/compose.ip.yaml` | Phủ cho chế độ **chưa có tên miền**: mở cổng thẳng, không HTTPS |
 | `deploy/compose.tenmien.yaml` | Phủ cho chế độ **đã có tên miền**: thêm Caddy, chỉ mở 80 và 443 |
 | `deploy/Caddyfile` | HTTPS và bốn tên miền. Chỉ dùng ở chế độ thứ hai |
+| `.github/workflows/trien-khai.yml` | Pipeline: build → đẩy → SSH → up |
 
 ### 5.0. Hai hình dạng chạy, một dòng quyết định
 
@@ -302,10 +304,109 @@ loại lỗi chỉ lộ ra sau khi đã hỏng:
   `docker compose up -d --remove-orphans` coi container đó là orphan và **xoá
   nó** — mất một dịch vụ đang chạy, do một lệnh triển khai của dự án khác.
 
-Postgres và Redis của các dự án kia bind vào `127.0.0.1`, và Postgres của dự án
-này không publish cổng nào, nên hai CSDL không đụng nhau dù cùng cổng 5432 bên
-trong container.
-| `.github/workflows/trien-khai.yml` | Pipeline: build → đẩy → SSH → up |
+Redis và các Postgres khác của những dự án kia bind vào `127.0.0.1`, còn dự án
+này không publish cổng CSDL nào ra ngoài — mọi kết nối đi qua mạng nội bộ của
+Docker, xem mục kế tiếp.
+
+### 5.0.2. CSDL của `prod` là Postgres dùng chung — ba việc phải làm trước
+
+`prod` **không dùng Postgres do `compose.prod.yaml` dựng lên**. Nó nối vào một
+container đã có sẵn trên VPS:
+
+| | Giá trị hiện tại | Lấy bằng |
+|---|---|---|
+| Container | `shared-postgres`, PostgreSQL 16.14 | `docker ps --format '{{.Names}}'` |
+| Mạng docker | `shared-net` | `docker inspect shared-postgres --format '{{json .NetworkSettings.Networks}}'` |
+| Database | `travel`, encoding `UTF8` | `psql -U postgres -c '\l travel'` |
+
+Container đó **thuộc dự án khác**. Dự án này là khách: không dựng nó, không cấu
+hình nó, không được xoá nó. Ba việc dưới đây là hệ quả trực tiếp, và cả ba đều
+đã làm đổ một lượt triển khai thật trước khi được viết ra đây.
+
+**1. `api` phải được nối vào mạng của container đó.**
+
+DNS nội bộ của Docker chỉ phân giải tên trong **những mạng mà container được nối
+vào**. Compose project `travel-booking` mặc định chỉ có mạng `default` của riêng
+nó, nên cái tên `shared-postgres` đơn giản là không tồn tại đối với `api`.
+
+`compose.prod.yaml` khai mạng đó `external: true` — nối vào, không tạo ra, và
+`docker compose down` ở đây không đụng tới nó. Hai biến trong `.env`:
+
+```
+DB_HOST=shared-postgres     ← TÊN CONTAINER, không phải IP: IP đổi mỗi lần dựng lại
+DB_NETWORK=shared-net
+```
+
+Thiếu thì: `java.net.UnknownHostException: shared-postgres`, ngay lúc Flyway mở
+kết nối. Câu đó nằm ở dòng `Caused by` **cuối cùng** của một stack trace dài;
+phía trên nó là ba tầng Spring và một `SQL State: 08001` không hé lộ gì về DNS.
+
+**2. Database phải THUỘC VỀ user `travel`, không chỉ được cấp quyền.**
+
+Từ PostgreSQL 15, quyền `CREATE` trên schema `public` bị thu hồi khỏi role
+`PUBLIC`. Schema `public` thuộc `pg_database_owner`, nên **chỉ chủ sở hữu
+database** mới tạo được bảng trong đó. Mọi hướng dẫn viết trước PG15 đều sai ở
+đúng điểm này, và chúng vẫn là phần lớn những gì tìm thấy trên mạng.
+
+Cấp `CONNECT` và `CREATE` ở mức database là **chưa đủ**: `CREATE` ở mức database
+là quyền tạo *schema mới*, không phải quyền tạo *bảng trong* `public`. Một
+database có `travel=CTc/postgres` trông như đã đủ quyền, mà vẫn hỏng.
+
+```sql
+ALTER DATABASE travel OWNER TO travel;
+```
+
+Thiếu thì: `SQL State: 42501 — ERROR: permission denied for schema public`, chết
+đúng lúc Flyway tạo bảng `flyway_schema_history`, tức là **trước khi** migration
+đầu tiên kịp chạy một dòng nào.
+
+**3. Hai collation ICU phải tồn tại — kiểm TRƯỚC lần migrate đầu tiên.**
+
+`V1__khoi_tao.sql` tạo hai index dùng `COLLATE "da-DK-x-icu"` và
+`"vi-VN-x-icu"` (`12` mục 1). Hai collation đó có mặt hay không phụ thuộc vào
+việc container kia có được biên dịch kèm ICU — bản `alpine` cắt bớt ICU, và hình
+dạng của container dùng chung không do dự án này quyết định.
+
+```sql
+SELECT collname FROM pg_collation
+ WHERE collname IN ('da-DK-x-icu','vi-VN-x-icu');   -- phải ra đúng 2 dòng
+```
+
+**Kiểm trước, đừng kiểm sau.** `V1` chạy hơn năm trăm dòng rồi mới tới hai index
+đó. Chết ở giữa thì `V1` nằm lại trong `flyway_schema_history` ở trạng thái
+failed, và lần khởi động sau **không tự sửa được** — phải dọn tay rồi mới thử
+lại. Đây là khoảng cách giữa một câu `SELECT` mười giây và nửa giờ dọn dẹp.
+
+Không đủ hai dòng thì thử tạo tay:
+
+```sql
+CREATE COLLATION "da-DK-x-icu" (provider = icu, locale = 'da-DK');
+CREATE COLLATION "vi-VN-x-icu" (provider = icu, locale = 'vi-VN');
+```
+
+Báo `ICU is not supported in this build` thì hết đường ở mức cấu hình, và quyết
+định phải lên mức khác: đổi ảnh của container dùng chung — đụng vào dự án kia —
+hay dựng Postgres riêng cho `travel`. Chưa gặp, chưa chốt; gặp thì đây là quyết
+định của kiến trúc sư, không phải của người triển khai.
+
+Ngoài ba việc trên, `V1` còn cần `unaccent` và `pg_trgm`. Cả hai là extension
+*trusted* từ PG13 nên chủ database tự tạo được sau khi việc 2 xong; tạo sẵn bằng
+`postgres` cũng không hại gì, lệnh trong `V1` có `IF NOT EXISTS`.
+
+Cả ba việc, chạy một lượt trên máy chủ:
+
+```bash
+docker exec shared-postgres psql -U postgres \
+  -c "ALTER DATABASE travel OWNER TO travel;"
+docker exec shared-postgres psql -U postgres -d travel \
+  -c "CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+docker exec shared-postgres psql -U postgres -d travel \
+  -c "SELECT collname FROM pg_collation WHERE collname IN ('da-DK-x-icu','vi-VN-x-icu');"
+```
+
+**Một hệ quả rơi sang mục khác:** CSDL của `prod` nằm trong container của dự án
+khác, nên lịch sao lưu và bài thử phục hồi (`35`) không nằm trọn trong tay dự án
+này. Ô sao lưu chưa tích ở mục 5.2 vì thế khó hơn vẻ ngoài của nó.
 
 ### 5.1. Đường đi
 
@@ -374,6 +475,7 @@ Bốn ô đầu nay **đã có chỗ để làm** — cột bên phải nói ch�
 |---|---|---|
 | [ ] | `DB_PASSWORD` thật, không phải `travel` | `.env` trên máy chủ, `openssl rand -base64 32` |
 | [ ] | `MINIO_ROOT_PASSWORD` thật | cùng file |
+| [ ] | `BOOTSTRAP_ADMIN_EMAIL` và `BOOTSTRAP_ADMIN_PASSWORD` | `.env` trên máy chủ. **Không có nó thì không ai đăng nhập được vào trang quản trị** — hợp đồng API không có đường tạo người dùng, `22` mục 9.1 |
 | [ ] | `logging.level.vn.travel.booking` hạ xuống `INFO` | `LOGGING_LEVEL_VN_TRAVEL_BOOKING` — đã đặt sẵn trong `compose.prod.yaml` |
 | [ ] | `NEXT_PUBLIC_SITE_URL` trỏ địa chỉ thật | GitHub Variable `PUBLIC_SITE_URL` — **lúc build**, xem mục 5.3 |
 | [ ] | Cookie phiên đặt `Secure` | `SERVER_SERVLET_SESSION_COOKIE_SECURE` + `SERVER_FORWARD_HEADERS_STRATEGY`, cả hai đã đặt sẵn trong `compose.prod.yaml`. Không phải sửa code |

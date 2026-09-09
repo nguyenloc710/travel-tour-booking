@@ -2,9 +2,10 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 02/09/2026
+Cập nhật: 09/09/2026
 Nguồn sự thật về: danh mục màn hình quản trị, bốn vai trò và ma trận quyền, ba
-                  màn hình dịch thuật, checklist mở bán một sản phẩm.
+                  màn hình dịch thuật, checklist mở bán một sản phẩm, cách tài
+                  khoản nhân viên được tạo.
 Không nói về: máy trạng thái đơn đặt và luồng huỷ hoàn (23), quy tắc tính giá và
               tồn kho (14), lược đồ (12), endpoint (13), quy trình dịch nhìn từ
               nghiệp vụ (02 mục 8), token và component (21).
@@ -261,6 +262,45 @@ bao giờ nhìn thấy.
 Không dùng token lưu trong `localStorage`: kịch bản tấn công qua chèn mã đọc được
 `localStorage`, không đọc được cookie `HttpOnly`. Chi tiết ở `31`.
 
+### 9.1. Tài khoản nhân viên được tạo ở đâu
+
+**Hợp đồng API không có đường tạo người dùng.** M14 có đúng ba đường — xem danh
+sách, bật/tắt một tài khoản, thay tập vai trò — và **không có `POST
+/admin/users`**. Hai hệ quả, cả hai đều phải biết trước khi vận hành:
+
+- Một CSDL vừa migrate xong có `staff_user` **rỗng**. Không tài khoản nào thì
+  không ai đăng nhập được, kể cả để tạo người khác — hệ thống tự khoá mình ngoài
+  cửa. Ở dev chỗ này bị che bởi `seed-dev.sql`, nên nó chỉ lộ ra lúc triển khai
+  thật.
+- Thêm nhân viên thứ hai, và **đổi mật khẩu của bất kỳ ai**, hiện là việc làm
+  bằng SQL trực tiếp trên CSDL. Không màn hình nào làm được.
+
+Cái thứ nhất đã có lời giải; cái thứ hai thì chưa — mục 11.
+
+**Tài khoản `ADMIN` đầu tiên** do `BootstrapAdminRunner` tạo lúc ứng dụng khởi
+động, sau khi Flyway chạy xong, từ hai biến môi trường:
+
+```
+BOOTSTRAP_ADMIN_EMAIL
+BOOTSTRAP_ADMIN_PASSWORD      ← tối thiểu 12 ký tự
+```
+
+Bốn quy tắc của nó, mỗi quy tắc chặn một cách hỏng khác nhau:
+
+| Quy tắc | Chặn được gì |
+|---|---|
+| Chỉ tạo khi CSDL **chưa từng** có `ADMIN` — tính cả người đã tắt và đã xoá mềm | Tắt một quản trị viên rồi khởi động lại container là nó sống dậy. Điều kiện tính theo `is_active` biến biến môi trường thành cửa hậu |
+| Hạ chữ thường địa chỉ trước khi ghi | `StaffUserDetailsService` tra cứu bằng dạng đã hạ, nên một địa chỉ có chữ hoa sẽ tạo được tài khoản mà **không đăng nhập được vào nó** |
+| Địa chỉ đã có chủ thì dừng, không nâng quyền | Cấp `ADMIN` cho một tài khoản mà runner không tạo ra |
+| Cấu hình thiếu hoặc mật khẩu ngắn thì ghi `WARN` rồi bỏ qua, **không** làm ứng dụng chết | Một biến gõ sai làm sập cả site |
+
+**Sửa biến môi trường rồi khởi động lại không đổi được mật khẩu** — đó là hệ quả
+trực tiếp của quy tắc thứ nhất, và là chủ ý. Xoay mật khẩu vẫn phải đi qua SQL
+cho tới khi có endpoint đổi mật khẩu.
+
+Mật khẩu **không bao giờ vào log**, kể cả ở mức `DEBUG`: log rời khỏi máy chủ,
+mật khẩu thì không. Dòng `INFO` lúc tạo chỉ ghi địa chỉ email.
+
 ---
 
 ## 10. Cấm
@@ -283,6 +323,7 @@ Không dùng token lưu trong `localStorage`: kịch bản tấn công qua chèn
 |---|---|---|
 | ~~`12` chưa định nghĩa bảng `role` và `staff_user_role`~~ | — | **Xong** 01/09/2026: `12` mục 3.1 và migration `V2` |
 | **Hàng đợi mục 4.1 chưa phủ được điểm đến và buổi thuyết trình** — bảng dịch của chúng không có `status` lẫn `translated_at`, nên `OUTDATED` không tính ra được | Bậc ưu tiên 3 của mục 4.1.1 | `12` mục 10 |
+| **Hợp đồng không có đường tạo người dùng lẫn đổi mật khẩu** — thêm nhân viên và xoay mật khẩu đều phải làm bằng SQL trên CSDL. Chưa rõ đây là cắt phạm vi có chủ ý hay bỏ sót; `01` mục 3.2 không nhắc tới | M14 vào được nhưng không đủ để vận hành sau ngày đầu | Mục 9.1 — cần quyết định trước cổng G5 |
 | Có ghi nhật ký thao tác cho thay đổi **nội dung** không, hay chỉ cho đơn đặt | Truy vết sửa nội dung; năm cột kiểm toán chỉ giữ lần sửa **cuối** | Quyết định kiến trúc → cân nhắc ADR |
 | Xác thực hai lớp cho `ADMIN` | Mục 9 | `31` mục 6.3 — **đã có đề xuất**, chờ chốt |
 | Thời gian hết phiên | Mục 9 | `31` mục 6.3 — **đã có đề xuất**, chờ chốt |
