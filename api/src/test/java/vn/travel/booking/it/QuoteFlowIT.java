@@ -206,7 +206,7 @@ class QuoteFlowIT {
         ResponseEntity<ErrorResponse> response = sendQuoteRequestExpectingError("da", requestBody(
                 "privat-rundrejse", 2, LocalDate.now().plusDays(LEAD_TIME_DAYS - 1)));
 
-        assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, response.getStatusCode());
+        assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         ErrorResponse error = response.getBody();
         assertEquals("LEAD_TIME_NOT_MET", error.getCode());
         // docs/14 mục 2.3: lỗi không đạt hạn báo trước PHẢI trả về đúng con số cấu hình
