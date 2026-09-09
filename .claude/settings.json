@@ -23,7 +23,11 @@
     ],
     "deny": [
       "Read(./.env)",
-      "Read(./.env.*)",
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Read(./**/.env.prod)",
+      "Read(./**/.env.production)",
+      "Read(./**/.env.*.local)",
       "Read(./**/application-prod.yml)"
     ]
   },

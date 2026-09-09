@@ -50,3 +50,11 @@ node_modules/
 # Gradle
 .gradle/
 build/
+
+# Bí mật máy chủ. `.env` thật KHÔNG BAO GIỜ vào git — docs/34 mục 7.
+# `.dockerignore` đã chặn `**/.env*`, nhưng cái đó chỉ ngăn file vào ảnh Docker,
+# không ngăn nó vào git. File mẫu vẫn phải commit, nên chừa `*.example` ra.
+.env
+.env.*
+!.env.example
+!.env.*.example
