@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.GalleryImage;
 import vn.travel.booking.web.generated.model.GroupTourDetail;
@@ -497,7 +498,7 @@ class ProductEndpointIT {
 
         ResponseEntity<ErrorResponse> vi = callDetail("dk", "vi", "aalborg-krydstogt", ErrorResponse.class);
         assertEquals(HttpStatus.NOT_FOUND, vi.getStatusCode());
-        assertEquals("NOT_FOUND", vi.getBody().getCode());
+        assertEquals(ErrorCode.NOT_FOUND, vi.getBody().getCode());
     }
 
     @Test
@@ -517,7 +518,7 @@ class ProductEndpointIT {
         ResponseEntity<ErrorResponse> response = call("/api/v1/dk/products", "de", ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("UNSUPPORTED_LOCALE", response.getBody().getCode());
+        assertEquals(ErrorCode.UNSUPPORTED_LOCALE, response.getBody().getCode());
     }
 
     @Test
@@ -530,7 +531,7 @@ class ProductEndpointIT {
 
         ResponseEntity<ErrorResponse> response = call("/api/v1/vn/products", "vi", ErrorResponse.class);
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("NOT_FOUND", response.getBody().getCode());
+        assertEquals(ErrorCode.NOT_FOUND, response.getBody().getCode());
     }
 
     @Test
@@ -538,7 +539,7 @@ class ProductEndpointIT {
     void invalidParamReturns400ValidationFailed() {
         ResponseEntity<ErrorResponse> qua = call("/api/v1/dk/products?size=999", "da", ErrorResponse.class);
         assertEquals(HttpStatus.BAD_REQUEST, qua.getStatusCode());
-        assertEquals("VALIDATION_FAILED", qua.getBody().getCode());
+        assertEquals(ErrorCode.VALIDATION_FAILED, qua.getBody().getCode());
 
         ResponseEntity<ErrorResponse> type = call(
                 "/api/v1/dk/products?productType=KHONG_CO_LOAI_NAY", "da", ErrorResponse.class);

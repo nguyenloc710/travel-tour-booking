@@ -7,14 +7,20 @@ import vn.travel.booking.product.dto.HotelStay;
 import vn.travel.booking.product.dto.ItineraryDay;
 import vn.travel.booking.product.dto.NamedRef;
 import vn.travel.booking.product.repository.ProductContentRepository;
+import vn.travel.booking.product.dto.ProductStopView;
 import vn.travel.booking.product.dto.ProductType;
 import vn.travel.booking.product.dto.VisibleProduct;
 import vn.travel.booking.departure.dto.BaseDepartureStatus;
 import vn.travel.booking.departure.service.DepartureStatuses;
+import vn.travel.booking.common.config.DiaChiKho;
 import vn.travel.booking.common.money.Money;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,9 +35,11 @@ import java.util.UUID;
 public class ProductContentRepository {
 
     private final JdbcTemplate jdbc;
+    private final DiaChiKho storageUrl;
 
-    public ProductContentRepository(JdbcTemplate jdbc) {
+    public ProductContentRepository(JdbcTemplate jdbc, DiaChiKho storageUrl) {
         this.jdbc = jdbc;
+        this.storageUrl = storageUrl;
     }
     public Optional<VisibleProduct> findVisibleProduct(String market, String locale, String slug) {
         return jdbc.query("""
@@ -97,6 +105,103 @@ public class ProductContentRepository {
                                                rs.getString("destination_name")),
                         rs.getString("hotel_name")),
                 locale, locale, productId);
+    }
+
+    /**
+     * Các chặng dừng của lộ trình, dựng từ lịch trình.
+     *
+     * <p>Hai truy vấn chứ không một: chặng và tệp là quan hệ một–nhiều, và gộp
+     * chúng vào một câu thì mỗi chặng lặp lại một lần cho mỗi tấm ảnh — rồi phải
+     * gỡ trùng ở Java. Gom nhóm làm ở Java vì <b>thứ tự</b> đã do SQL quyết
+     * (docs/10 mục 6 nói về sắp xếp, không nói về gom nhóm).
+     */
+    public List<ProductStopView> findStops(UUID productId, String locale) {
+        record Chang(UUID destinationId, String slug, String name, int dayNumber) {
+        }
+
+        List<Chang> ngay = jdbc.query("""
+                SELECT d.destination_id, d.day_number, dt.slug, dt.name
+                FROM itinerary_day d
+                JOIN destination dest
+                  ON dest.id = d.destination_id AND NOT dest.soft_delete
+                JOIN destination_translation dt
+                  ON dt.destination_id = dest.id AND dt.locale = ? AND NOT dt.soft_delete
+                WHERE d.product_id = ? AND NOT d.soft_delete
+                ORDER BY d.day_number
+                """,
+                (rs, i) -> new Chang((UUID) rs.getObject("destination_id"),
+                        rs.getString("slug"), rs.getString("name"), rs.getInt("day_number")),
+                locale, productId);
+
+        if (ngay.isEmpty()) {
+            return List.of();
+        }
+
+        // Tệp của mọi điểm đến trong lộ trình, một truy vấn — không N+1.
+        //
+        // INNER JOIN bảng dịch của tệp CHÍNH LÀ luật không fallback: tệp chưa có
+        // `alt` ở locale này tự rơi khỏi kết quả. Một tấm ảnh không có `alt` là
+        // một tấm ảnh vô hình với đúng nhóm người phụ thuộc vào nó nhất
+        // (docs/24 mục 6).
+        Map<UUID, List<ProductStopView.MediaItemView>> tep = new HashMap<>();
+        List<UUID> ids = ngay.stream().map(Chang::destinationId).distinct().toList();
+        String choHoi = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+
+        Object[] thamSo = new Object[ids.size() + 1];
+        thamSo[0] = locale;
+        for (int i = 0; i < ids.size(); i++) {
+            thamSo[i + 1] = ids.get(i);
+        }
+
+        jdbc.query("""
+                SELECT dm.destination_id,
+                       a.kind, a.path, a.width, a.height, a.content_type, a.duration_seconds,
+                       bia.path AS poster_path,
+                       t.alt
+                FROM destination_media dm
+                JOIN media_asset a
+                  ON a.id = dm.asset_id AND NOT a.soft_delete
+                JOIN media_asset_translation t
+                  ON t.asset_id = a.id AND t.locale = ? AND NOT t.soft_delete
+                LEFT JOIN media_asset bia
+                  ON bia.id = a.poster_asset_id AND NOT bia.soft_delete
+                WHERE dm.destination_id IN (""" + choHoi + """
+                )
+                ORDER BY dm.destination_id, dm.sort_order
+                """,
+                rs -> {
+                    tep.computeIfAbsent((UUID) rs.getObject("destination_id"), k -> new ArrayList<>())
+                            .add(new ProductStopView.MediaItemView(
+                                    rs.getString("kind"),
+                                    storageUrl.urlOf(rs.getString("path")),
+                                    rs.getString("alt"),
+                                    rs.getInt("width"),
+                                    rs.getInt("height"),
+                                    rs.getString("content_type"),
+                                    (Integer) rs.getObject("duration_seconds"),
+                                    storageUrl.urlOf(rs.getString("poster_path"))));
+                },
+                thamSo);
+
+        // Giữ thứ tự XUẤT HIỆN trong lịch trình, không sắp lại theo tên: lộ trình
+        // là một chuỗi, và khách đọc nó theo chiều đi.
+        Map<UUID, List<Integer>> ngayTheoChang = new LinkedHashMap<>();
+        Map<UUID, Chang> dauTien = new LinkedHashMap<>();
+        for (Chang c : ngay) {
+            ngayTheoChang.computeIfAbsent(c.destinationId(), k -> new ArrayList<>()).add(c.dayNumber());
+            dauTien.putIfAbsent(c.destinationId(), c);
+        }
+
+        return ngayTheoChang.entrySet().stream()
+                .map(e -> {
+                    Chang c = dauTien.get(e.getKey());
+                    return new ProductStopView(
+                            new NamedRef(c.slug(), c.name()),
+                            e.getValue().size(),
+                            e.getValue(),
+                            tep.getOrDefault(e.getKey(), List.of()));
+                })
+                .toList();
     }
 
     /**

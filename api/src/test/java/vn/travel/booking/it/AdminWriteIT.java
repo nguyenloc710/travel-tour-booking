@@ -26,7 +26,10 @@ import vn.travel.booking.web.generated.model.AdminPriceTier;
 import vn.travel.booking.web.generated.model.AdminProductDetail;
 import vn.travel.booking.web.generated.model.AdminProductMarketState;
 import vn.travel.booking.web.generated.model.AdminProductPage;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
+import vn.travel.booking.web.generated.model.FieldError;
+import vn.travel.booking.web.generated.model.FieldRule;
 import vn.travel.booking.web.generated.model.ProductPage;
 
 import java.math.BigDecimal;
@@ -215,7 +218,7 @@ class AdminWriteIT {
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
-        assertEquals("PRODUCT_TYPE_BLOCK_MISMATCH", error.getBody().getCode());
+        assertEquals(ErrorCode.PRODUCT_TYPE_BLOCK_MISMATCH, error.getBody().getCode());
         // Tham số là thứ biến "sai dữ liệu" thành "sửa được ngay".
         assertEquals("groupTour", error.getBody().getParams().get("expectedBlock"));
     }
@@ -233,7 +236,111 @@ class AdminWriteIT {
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
-        assertEquals("PRODUCT_TYPE_BLOCK_MISMATCH", error.getBody().getCode());
+        assertEquals(ErrorCode.PRODUCT_TYPE_BLOCK_MISMATCH, error.getBody().getCode());
+    }
+
+    @Test
+    @DisplayName("Luật một trường trả về đường dẫn và tham số của chính luật đó")
+    void validationFailedNamesEveryBadField() {
+        // Hai lỗi cùng lúc, ở hai tầng lồng nhau khác nhau: một trong bản dịch
+        // nguồn, một trong khối riêng của loại. Trả một lỗi rồi dừng là bắt người
+        // nhập sửa từng cái một và gửi lại từng lần.
+        ResponseEntity<ErrorResponse> error = login("admin@travel.test").call(
+                HttpMethod.POST, "/api/v1/admin/products",
+                """
+                {"productType":"GROUP_TOUR","primaryDestinationId":"%s","durationDays":14,
+                 "heroImage":"/img/x.jpg",
+                 "source":{"slug":"halong","title":"Halong","shortDescription":"Kort.",
+                           "longDescription":["Kun et afsnit."],
+                           "whyChooseThis":["A","B","C"],
+                           "heroImageAlt":"Rismarker","status":"DRAFT"},
+                 "groupTour":{"minPax":123,"maxPax":20,"guaranteedThreshold":8,
+                              "tourLeaderLanguage":"da","fitnessLevel":1}}
+                """.formatted(DESTINATION_ID),
+                ErrorResponse.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals(ErrorCode.VALIDATION_FAILED, error.getBody().getCode());
+
+        List<FieldError> fields = error.getBody().getFields();
+        assertEquals(2, fields.size(), "cả hai trường sai đều phải có mặt");
+
+        FieldError doan = fields.stream()
+                .filter(f -> "source.longDescription".equals(f.getPath()))
+                .findFirst().orElseThrow();
+        assertEquals(FieldRule.SIZE, doan.getCode());
+        // Con số nằm trong tham số, không nằm trong một câu tiếng người: frontend
+        // dựng câu, và đổi ràng buộc ở openapi.yaml thì nó tự đúng theo.
+        assertEquals(2, doan.getParams().get("min"));
+        // `max` của @Size khi không đặt là Integer.MAX_VALUE — trả nó ra là đẩy
+        // 2147483647 tới tận màn hình người nhập.
+        assertNull(doan.getParams().get("max"));
+
+        FieldError khach = fields.stream()
+                .filter(f -> "groupTour.minPax".equals(f.getPath()))
+                .findFirst().orElseThrow();
+        assertEquals(FieldRule.MAX, khach.getCode());
+        assertEquals(25, khach.getParams().get("max"));
+    }
+
+    @Test
+    @DisplayName("Luật liên trường cũng chỉ được vào ô nhập, không thành 500")
+    void crossFieldRulesPointAtOneInput() {
+        // guaranteedThreshold > minPax là ràng buộc ck_pgt_guar của V1. Trước khi
+        // có hàm kiểm ở service, nó nổi lên thành 500 kèm traceId — người nhập
+        // liệu đọc được đúng con số đó và không gì khác.
+        ResponseEntity<ErrorResponse> error = login("admin@travel.test").call(
+                HttpMethod.POST, "/api/v1/admin/products",
+                """
+                {"productType":"GROUP_TOUR","primaryDestinationId":"%s","durationDays":14,
+                 "heroImage":"/img/x.jpg","source":%s,
+                 "groupTour":{"minPax":10,"maxPax":20,"guaranteedThreshold":13,
+                              "tourLeaderLanguage":"da","fitnessLevel":1}}
+                """.formatted(DESTINATION_ID, source("halong-guar", "Halong")),
+                ErrorResponse.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        // Cùng mã và cùng hình dạng với luật một trường: biểu mẫu không phải biết
+        // lỗi đến từ Bean Validation hay từ một hàm kiểm trong service.
+        assertEquals(ErrorCode.VALIDATION_FAILED, error.getBody().getCode());
+
+        FieldError nguong = error.getBody().getFields().getFirst();
+        assertEquals("groupTour.guaranteedThreshold", nguong.getPath());
+        assertEquals(FieldRule.MAX, nguong.getCode());
+        // Giới hạn là minPax VỪA NHẬP, không phải hằng số trong lược đồ.
+        assertEquals(10, nguong.getParams().get("max"));
+    }
+
+    @Test
+    @DisplayName("Ràng buộc trên tham số truy vấn cũng nói rõ tham số nào")
+    void queryParameterConstraintNamesTheParameter() {
+        ResponseEntity<ErrorResponse> error = login("admin@travel.test").call(
+                HttpMethod.GET, "/api/v1/admin/products?size=999", null, ErrorResponse.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals(ErrorCode.VALIDATION_FAILED, error.getBody().getCode());
+
+        FieldError size = error.getBody().getFields().getFirst();
+        // Tên phương thức Java bị cắt khỏi đường dẫn: Hibernate Validator ghi
+        // "listAdminProducts.size", mà frontend không biết và không nên biết.
+        assertEquals("size", size.getPath());
+        assertEquals(FieldRule.MAX, size.getCode());
+        assertEquals(100, size.getParams().get("max"));
+    }
+
+    @Test
+    @DisplayName("Lỗi không định vị được tới trường thì không kèm fields rỗng")
+    void errorsWithoutAFieldCarryNoFieldList() {
+        // Kiểm trên CHUỖI JSON thô, không qua ErrorResponse: lớp sinh ra khởi tạo
+        // `fields` bằng danh sách rỗng, nên sau khi giải mã thì "vắng mặt" và
+        // "rỗng" trông giống hệt nhau — đúng cái mà bài này cần phân biệt.
+        ResponseEntity<String> error = login("admin@travel.test").call(
+                HttpMethod.GET, "/api/v1/admin/products/" + UUID.randomUUID(), null,
+                String.class);
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+        assertFalse(error.getBody().contains("fields"), "trường rỗng bỏ hẳn khỏi JSON — docs/13 mục 4");
+        assertFalse(error.getBody().contains("params"), error.getBody());
     }
 
     @Test
@@ -248,7 +355,7 @@ class AdminWriteIT {
                  "dayTour":{"durationHours":6,"cutoffHours":24}}
                 """.formatted(DESTINATION_ID, source("dagstur", "Dagstur")),
                 ErrorResponse.class);
-        assertEquals("DURATION_DAYS_RULE_VIOLATED", extra.getBody().getCode());
+        assertEquals(ErrorCode.DURATION_DAYS_RULE_VIOLATED, extra.getBody().getCode());
 
         ResponseEntity<ErrorResponse> missing = admin.call(HttpMethod.POST, "/api/v1/admin/products",
                 """
@@ -258,7 +365,7 @@ class AdminWriteIT {
                               "tourLeaderLanguage":"da","fitnessLevel":2}}
                 """.formatted(DESTINATION_ID, source("rundrejse", "Rundrejse")),
                 ErrorResponse.class);
-        assertEquals("DURATION_DAYS_RULE_VIOLATED", missing.getBody().getCode());
+        assertEquals(ErrorCode.DURATION_DAYS_RULE_VIOLATED, missing.getBody().getCode());
     }
 
     // ------------------------------------------------------------ CSRF
@@ -392,7 +499,7 @@ class AdminWriteIT {
                 "/api/v1/admin/products/" + product.getId(), null, ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
-        assertEquals("PRODUCT_HAS_ACTIVE_BOOKINGS", error.getBody().getCode());
+        assertEquals(ErrorCode.PRODUCT_HAS_ACTIVE_BOOKINGS, error.getBody().getCode());
     }
 
     // ------------------------------------------------------------ ngày khởi hành
@@ -416,7 +523,7 @@ class AdminWriteIT {
                 "/api/v1/admin/departures/" + departure.getId(), "{\"capacity\":5}", ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
-        assertEquals("CAPACITY_BELOW_BOOKED", error.getBody().getCode());
+        assertEquals(ErrorCode.CAPACITY_BELOW_BOOKED, error.getBody().getCode());
         assertEquals(8, error.getBody().getParams().get("seatsBooked"));
     }
 
@@ -436,7 +543,7 @@ class AdminWriteIT {
                 """, ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
-        assertEquals("CABIN_CATEGORY_NOT_ALLOWED", error.getBody().getCode());
+        assertEquals(ErrorCode.CABIN_CATEGORY_NOT_ALLOWED, error.getBody().getCode());
     }
 
     // ------------------------------------------------------------ nhân bản lịch
@@ -556,7 +663,7 @@ class AdminWriteIT {
                 """, ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
-        assertEquals("UNKNOWN_PAX_TYPE", error.getBody().getCode());
+        assertEquals(ErrorCode.UNKNOWN_PAX_TYPE, error.getBody().getCode());
         assertEquals("CHILD_5_11", error.getBody().getParams().get("paxTypeCode"));
         assertEquals("VN", error.getBody().getParams().get("market"));
     }
@@ -596,7 +703,7 @@ class AdminWriteIT {
 
         assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
         assertNotNull(error.getBody());
-        assertEquals("SINGLE_PRICE_MISSING", error.getBody().getCode());
+        assertEquals(ErrorCode.SINGLE_PRICE_MISSING, error.getBody().getCode());
 
         // `savePrices` thay TOÀN BỘ bảng giá — xoá rồi ghi lại. Luật phải chặn TRƯỚC
         // khi xoá, nếu không thì một lần bấm nhầm là mất sạch giá của ngày đó và
@@ -632,7 +739,7 @@ class AdminWriteIT {
 
         assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
         assertNotNull(error.getBody());
-        assertEquals("SINGLE_PRICE_MISSING", error.getBody().getCode());
+        assertEquals(ErrorCode.SINGLE_PRICE_MISSING, error.getBody().getCode());
         assertEquals("ADULT", error.getBody().getParams().get("paxTypeCode"));
     }
 
@@ -684,7 +791,7 @@ class AdminWriteIT {
 
         assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
         assertNotNull(error.getBody());
-        assertEquals("SINGLE_PRICE_MISSING", error.getBody().getCode());
+        assertEquals(ErrorCode.SINGLE_PRICE_MISSING, error.getBody().getCode());
         assertEquals(1, error.getBody().getParams().get("departureCount"));
         assertEquals("2027-03-14", error.getBody().getParams().get("firstDepartureDate"));
 
@@ -775,7 +882,7 @@ class AdminWriteIT {
                  {"minPax":6,"pricePerPerson":"25000.00"}]
                 """, ErrorResponse.class);
         assertEquals(HttpStatus.BAD_REQUEST, gapError.getStatusCode());
-        assertEquals("PRICE_TIER_NOT_CONTIGUOUS", gapError.getBody().getCode());
+        assertEquals(ErrorCode.PRICE_TIER_NOT_CONTIGUOUS, gapError.getBody().getCode());
 
         List<AdminPriceTier> tiers = List.of(admin.call(HttpMethod.PUT,
                 "/api/v1/admin/products/" + product.getId() + "/price-tiers?market=DK",
@@ -804,7 +911,7 @@ class AdminWriteIT {
                 """, ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
-        assertEquals("PRODUCT_TYPE_BLOCK_MISMATCH", error.getBody().getCode());
+        assertEquals(ErrorCode.PRODUCT_TYPE_BLOCK_MISMATCH, error.getBody().getCode());
     }
 
     // ------------------------------------------------------------ sửa

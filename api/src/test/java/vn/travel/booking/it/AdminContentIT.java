@@ -27,6 +27,7 @@ import vn.travel.booking.web.generated.model.AdminLecturePage;
 import vn.travel.booking.web.generated.model.AdminPostDetail;
 import vn.travel.booking.web.generated.model.AdminPostPage;
 import vn.travel.booking.web.generated.model.AdminStaffUser;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.PostPage;
 
@@ -209,7 +210,7 @@ class AdminContentIT {
                     "{\"slug\":\"hanoi-moi\",\"name\":\"Hanoi\"}", ErrorResponse.class);
 
             assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-            assertEquals("FORBIDDEN", response.getBody().getCode());
+            assertEquals(ErrorCode.FORBIDDEN, response.getBody().getCode());
         }
 
         @Test
@@ -265,7 +266,7 @@ class AdminContentIT {
                     null, ErrorResponse.class);
 
             assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-            assertEquals("DESTINATION_IN_USE", response.getBody().getCode());
+            assertEquals(ErrorCode.DESTINATION_IN_USE, response.getBody().getCode());
             assertEquals(1, ((Number) response.getBody().getParams().get("productCount")).intValue());
         }
 
@@ -438,7 +439,7 @@ class AdminContentIT {
                     "{\"seats\":40}", ErrorResponse.class);
 
             assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-            assertEquals("CAPACITY_BELOW_BOOKED", response.getBody().getCode());
+            assertEquals(ErrorCode.CAPACITY_BELOW_BOOKED, response.getBody().getCode());
             assertEquals(41, ((Number) response.getBody().getParams().get("seatsBooked")).intValue());
         }
 
@@ -553,7 +554,7 @@ class AdminContentIT {
                     "{\"roles\":[\"EDITOR\"]}", ErrorResponse.class);
 
             assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-            assertEquals("LAST_ADMIN", response.getBody().getCode());
+            assertEquals(ErrorCode.LAST_ADMIN, response.getBody().getCode());
         }
 
         @Test
@@ -570,7 +571,7 @@ class AdminContentIT {
                     "{\"isActive\":false}", ErrorResponse.class);
 
             assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-            assertEquals("LAST_ADMIN", response.getBody().getCode());
+            assertEquals(ErrorCode.LAST_ADMIN, response.getBody().getCode());
         }
 
         @Test

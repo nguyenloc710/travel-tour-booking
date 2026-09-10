@@ -35,6 +35,15 @@ public interface ProductWebMapper {
 
     List<ItineraryDay> toItineraryDayList(List<vn.travel.booking.product.dto.ItineraryDay> list);
 
+    vn.travel.booking.web.generated.model.ProductStop toStop(
+            vn.travel.booking.product.dto.ProductStopView v);
+
+    List<vn.travel.booking.web.generated.model.ProductStop> toStopList(
+            List<vn.travel.booking.product.dto.ProductStopView> list);
+
+    vn.travel.booking.web.generated.model.MediaItem toMediaItem(
+            vn.travel.booking.product.dto.ProductStopView.MediaItemView v);
+
     @Mapping(target = "destination", source = "destination")
     HotelStay toHotelStay(vn.travel.booking.product.dto.HotelStay h);
 

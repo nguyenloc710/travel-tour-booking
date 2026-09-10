@@ -29,7 +29,7 @@ export default function SuaSuKien({ params }: { params: Promise<{ id: string }> 
     let conHieuLuc = true;
     void (async () => {
       try {
-        const kq = await adminApi().chiTietSuKien({ id });
+        const kq = await adminApi().getAdminLecture({ id });
         if (conHieuLuc) setSk(kq);
       } catch (ex) {
         if (conHieuLuc && !laChuaDangNhap(ex)) {
@@ -115,7 +115,7 @@ function KhoiChung({ sk, napLai }: { sk: AdminLectureDetail; napLai: () => Promi
     setLoi('');
     setXong(false);
     try {
-      await adminApi().suaSuKien({
+      await adminApi().updateLecture({
         id: sk.id,
         adminLecturePatch: {
           eventDate: new Date(ngayTo),
@@ -237,7 +237,7 @@ function BanDich({
     setLoi('');
     setXong(false);
     try {
-      await adminApi().luuBanDichSuKien({
+      await adminApi().saveLectureTranslation({
         id: sk.id,
         locale,
         adminLectureTranslationInput: { title: tieuDe, description: moTa },

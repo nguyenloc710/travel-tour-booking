@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Đã duyệt
-Cập nhật: 31/08/2026
+Cập nhật: 10/09/2026
 Phiên bản: 1.0
 Chủ sở hữu: Kiến trúc sư
 Người duyệt: Chủ sản phẩm + Kiến trúc sư
@@ -190,6 +190,7 @@ python scripts/docs_check.py docs/02-thi-truong-va-da-ngon-ngu.md   # một file
 | 7 | `Cập nhật` cũ hơn 90 ngày | Cảnh báo | Đến hạn rà, chưa chắc đã sai |
 | 8 | File có trong bản đồ `00` mà chưa tồn tại | Ghi chú | Là việc chưa làm, không phải lỗi |
 | 9 | Mã `YC`/`QT`/`RB` không có test tương ứng | Cảnh báo → **Lỗi từ G4** | Yêu cầu không có test là yêu cầu không ai kiểm |
+| 10 | Danh mục mã lỗi ở `13` mục 5.1 khớp enum `ErrorCode` của `contracts/openapi.yaml` | **Lỗi** | Hai bên nói cùng một danh mục cho hai loại người đọc: enum bắt máy xử lý đủ, bảng nói cho người *khi nào* mã đó xảy ra. Lệch nhau thì một trong hai đang nói dối |
 
 Bộ kiểm này chạy ở ba chỗ: tay, hook sau mỗi lần sửa file trong `docs/`, và CI.
 

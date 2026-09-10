@@ -450,7 +450,7 @@ public class AdminController {
             @Valid @RequestBody AdminMarketAssignment input
     ) {
 
-        MarketState assigned = product.ganThiTruong(id, market, input.getPublished());
+        MarketState assigned = product.setProductMarket(id, market, input.getPublished());
         return noCache().body(productMapper.toMarketState(assigned));
     }
 

@@ -87,6 +87,12 @@ giao thức, không theo nhà cung cấp. Ngày muốn đổi:
 Vì thế client phải là thư viện S3 tổng quát, **không** phải SDK riêng của MinIO.
 Dùng SDK riêng là tự đóng cửa thoát này mà không mua được gì.
 
+> **ADR-013 đã đổi đúng hai câu trên.** Dự án dùng `io.minio:minio`, SDK riêng
+> của MinIO, vì quy mô một máy chủ và chưa có nhu cầu chuyển kho. Cửa thoát được
+> giữ bằng cách khác: mọi lời gọi kho nằm trong đúng một lớp. Lý do đầy đủ và
+> cái đánh đổi ở ADR-013; mọi quyết định khác của ADR này — MinIO tự dựng,
+> presigned URL, không proxy byte, hai địa chỉ tách biệt — **giữ nguyên**.
+
 ## 5. Cái này không quyết
 
 - Định dạng phục vụ (WebP/AVIF) và tầng đổi kích thước ảnh — `24` mục 7.1 hỏi,

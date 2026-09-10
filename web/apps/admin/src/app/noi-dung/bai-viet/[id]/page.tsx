@@ -32,8 +32,8 @@ export default function SuaBaiViet({ params }: { params: Promise<{ id: string }>
     void (async () => {
       try {
         const [chiTiet, dsThe] = await Promise.all([
-          adminApi().chiTietBaiViet({ id }),
-          adminApi().danhSachThe(),
+          adminApi().getAdminPost({ id }),
+          adminApi().listTags(),
         ]);
         if (conHieuLuc) {
           setBai(chiTiet);
@@ -115,7 +115,7 @@ function KhoiChung({ bai, napLai }: { bai: AdminPostDetail; napLai: () => Promis
     setLoi('');
     setXong(false);
     try {
-      await adminApi().suaBaiViet({
+      await adminApi().updatePost({
         id: bai.id,
         adminPostPatch: { ...(anh.trim() === '' ? {} : { heroImage: anh.trim() }) },
       });
@@ -180,7 +180,7 @@ function KhoiThe({
     setLoi('');
     setXong(false);
     try {
-      await adminApi().datTheChoBaiViet({
+      await adminApi().setPostTags({
         id: bai.id,
         adminPostTagAssignment: { tagIds: chon },
       });
@@ -258,7 +258,7 @@ function BanDich({
     setLoi('');
     setXong(false);
     try {
-      await adminApi().luuBanDichBaiViet({
+      await adminApi().savePostTranslation({
         id: bai.id,
         locale,
         adminPostTranslationInput: {
@@ -382,7 +382,7 @@ function XoaBai({ bai }: { bai: AdminPostDetail }) {
     setDangXoa(true);
     setLoi('');
     try {
-      await adminApi().xoaBaiViet({ id: bai.id });
+      await adminApi().deletePost({ id: bai.id });
       router.push('/noi-dung?loai=bai-viet');
     } catch (ex) {
       setLoi(await loiTiengViet(ex));

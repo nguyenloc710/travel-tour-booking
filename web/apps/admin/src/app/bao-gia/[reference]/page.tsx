@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { use, useEffect, useState } from 'react';
-import { ResponseError, type AdminQuoteDetail, type QuoteLineInput } from '@travel/api-client';
+import type { AdminQuoteDetail, QuoteLineInput } from '@travel/api-client';
 import { formatMoney } from '@travel/ui';
-import { adminApi, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
+import { adminApi, errorInfo, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
 import {
   KHOA_DONG_GIA,
   KHOA_DONG_GIA_MAC_DINH,
@@ -40,7 +40,7 @@ export default function ChiTietBaoGia({ params }: { params: Promise<{ reference:
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ket_qua = await adminApi().chiTietBaoGia({ reference });
+        const ket_qua = await adminApi().getQuote({ reference });
         if (conHieuLuc) {
           setBaoGia(ket_qua);
         }
@@ -289,7 +289,7 @@ function BangGia({
         return;
       }
 
-      const moi = await adminApi().dungBangGiaBaoGia({
+      const moi = await adminApi().saveQuoteLines({
         reference: baoGia.reference,
         adminQuoteLinesInput: {
           // Tiền tệ theo THỊ TRƯỜNG của báo giá, không phải một ô cho người
@@ -465,7 +465,7 @@ function ThaoTac({
     setDangGui(true);
     setLoi('');
     try {
-      const moi = await adminApi().doiTrangThaiBaoGia({
+      const moi = await adminApi().changeQuoteStatus({
         reference: baoGia.reference,
         adminQuoteStatusChange: { toStatus: sang as never },
       });
@@ -541,19 +541,13 @@ function ThaoTac({
  * mở.
  */
 async function loiDoiTrangThai(ex: unknown): Promise<string> {
-  if (ex instanceof ResponseError && ex.response.status === 409) {
-    try {
-      const than = await ex.response.clone().json();
-      if (than.code === 'QUOTE_EXPIRED') {
-        return 'Báo giá đã quá hạn nên không ghi nhận khách đồng ý được. Báo giá không tự gia hạn — khách muốn tiếp thì gửi yêu cầu mới.';
-      }
-      if (than.code === 'QUOTE_NOT_ACCEPTABLE') {
-        const tu = than.params?.from ? tenTrangThai(String(than.params.from)) : 'trạng thái hiện tại';
-        return `Báo giá đang ở "${tu}" nên không làm được việc này. Nhiều khả năng người khác vừa đổi — tải lại trang để xem trạng thái mới nhất.`;
-      }
-    } catch {
-      // rơi xuống bảng dịch chung
-    }
+  const than = await errorInfo(ex);
+  if (than?.code === 'QUOTE_EXPIRED') {
+    return 'Báo giá đã quá hạn nên không ghi nhận khách đồng ý được. Báo giá không tự gia hạn — khách muốn tiếp thì gửi yêu cầu mới.';
+  }
+  if (than?.code === 'QUOTE_NOT_ACCEPTABLE') {
+    const tu = than.params.from ? tenTrangThai(String(than.params.from)) : 'trạng thái hiện tại';
+    return `Báo giá đang ở "${tu}" nên không làm được việc này. Nhiều khả năng người khác vừa đổi — tải lại trang để xem trạng thái mới nhất.`;
   }
   return loiTiengViet(ex);
 }

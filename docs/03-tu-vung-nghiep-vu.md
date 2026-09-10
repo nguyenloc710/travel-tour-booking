@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 31/08/2026
+Cập nhật: 09/09/2026
 Nguồn sự thật về: thuật ngữ nghiệp vụ và bản đối chiếu Việt – Đan – định danh code.
 Không nói về: quy tắc tính toán đằng sau mỗi thuật ngữ (14),
               chuỗi giao diện thật (message catalog trong web/).
@@ -167,6 +167,36 @@ chính thức. Chuỗi chính thức nằm trong message catalog của `web/`.
 
 Slug **không dùng ký tự có dấu** ở cả hai ngôn ngữ: `bekraeftelse` chứ không
 `bekræftelse`, `viet-nam-tu-bac-vao-nam` chứ không `việt-nam-từ-bắc-vào-nam`.
+
+### 7.1. Ngôn ngữ của định danh
+
+**Tên lớp và tên hàm viết bằng tiếng Anh** — cả `api/` lẫn `web/`, cả hàm thường
+lẫn component React.
+
+| Chỗ | Ngôn ngữ | Ví dụ |
+|---|---|---|
+| Lớp, interface, enum, record, component | **Tiếng Anh** | `ProductTranslation`, `ProductForm` |
+| Hàm, phương thức, hook | **Tiếng Anh** | `listProducts()`, `translateError()` |
+| `operationId` trong `openapi.yaml` | **Tiếng Anh** | `createProduct`, không `taoSanPham` |
+| Trường, hằng số xuất ra ngoài tệp | **Tiếng Anh** | `durationDays`, `FIELDS_BY_TYPE` |
+| Biến cục bộ trong một hàm | Tiếng Anh, tiếng Việt không phải lỗi | |
+| Chú thích | **Tiếng Việt** | |
+| Chuỗi khách nhìn thấy | `da` và `vi`, trong message catalog | |
+
+`operationId` nằm trong bảng vì nó **không phải chuyện của riêng hợp đồng**: bộ
+sinh mã lấy thẳng nó làm tên phương thức ở cả hai phía, nên một `operationId`
+tiếng Việt đẻ ra một tên hàm tiếng Việt trong Java lẫn TypeScript, và không ai
+sửa được nó ở phía dưới.
+
+Vì sao tên thì Anh mà chú thích thì Việt: định danh là thứ **người ngoài đội cũng
+đọc** — nó hiện trong stack trace, trong JSON, trong URL, trong tên tệp, trong ô
+tìm kiếm của IDE và trong công cụ không gõ được dấu. Chú thích thì chỉ đội ngũ
+đọc, và giải thích "vì sao" bằng tiếng mẹ đẻ luôn rõ hơn.
+
+**Tên tiếng Việt đang có là di sản, đổi dần.** Quy tắc này áp cho code viết từ
+nay; file nào sửa vì lý do khác thì đổi tên trong file đó luôn. Không mở một PR
+chỉ để đổi tên hàng loạt: nó đụng tới gần như mọi tệp, và một xung đột trộn
+nhánh ở giữa đợt đó tốn hơn nhiều so với cái nó sửa.
 
 ---
 

@@ -17,6 +17,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.web.generated.model.Destination;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.ProductPage;
 
@@ -76,7 +77,7 @@ class DestinationEndpointIT {
     @BeforeEach
     void prepareData() {
         jdbc.execute("""
-                DELETE FROM destination_image;
+                DELETE FROM destination_media;
                 DELETE FROM media_asset_translation;
                 DELETE FROM media_asset;
                 DELETE FROM product_market;
@@ -121,7 +122,7 @@ class DestinationEndpointIT {
                   ('d1000000-0000-4000-8000-000000000002','vi','Tấm hai'),
                   ('d1000000-0000-4000-8000-000000000003','da','Kun dansk');
 
-                INSERT INTO destination_image (destination_id, asset_id, sort_order) VALUES
+                INSERT INTO destination_media (destination_id, asset_id, sort_order) VALUES
                   ('b1000000-0000-4000-8000-000000000001','d1000000-0000-4000-8000-000000000002',2),
                   ('b1000000-0000-4000-8000-000000000001','d1000000-0000-4000-8000-000000000001',1),
                   ('b1000000-0000-4000-8000-000000000003','d1000000-0000-4000-8000-000000000003',1);
@@ -292,7 +293,7 @@ class DestinationEndpointIT {
         ResponseEntity<ErrorResponse> vi = call("/api/v1/dk/destinations/sapa", "vi", ErrorResponse.class);
 
         assertEquals(HttpStatus.NOT_FOUND, vi.getStatusCode());
-        assertEquals("NOT_FOUND", vi.getBody().getCode());
+        assertEquals(ErrorCode.NOT_FOUND, vi.getBody().getCode());
     }
 
     @Test

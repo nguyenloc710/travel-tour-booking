@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminDeparture, AdminProductDetail } from '@travel/api-client';
 import { adminApi, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
+import { useFieldErrors } from '@/lib/useFieldErrors';
+
+/** Đường dẫn trường trong thân yêu cầu → `id` ô nhập của biểu mẫu tạo ngày. */
+const INPUT_ID_BY_PATH: Record<string, string> = {
+  market: 'tt',
+  departDate: 'di',
+  days: 'so-ngay-kh',
+  capacity: 'cho',
+};
 import { BangGia } from '@/components/BangGia';
 
 /**
@@ -20,7 +29,7 @@ export function TabNgayKhoiHanh({ sp }: { sp: AdminProductDetail }) {
 
   const nap = useCallback(async () => {
     try {
-      setDs(await adminApi().danhSachNgayKhoiHanhQuanTri({ id: sp.id }));
+      setDs(await adminApi().listAdminDepartures({ id: sp.id }));
     } catch (ex) {
       setLoi(await loiTiengViet(ex));
     }
@@ -36,7 +45,7 @@ export function TabNgayKhoiHanh({ sp }: { sp: AdminProductDetail }) {
     setLoi('');
     setXong('');
     try {
-      const kq = await adminApi().nhanBanLichKhoiHanh({
+      const kq = await adminApi().copyDepartures({
         id: sp.id,
         adminDepartureCopy: { fromMarket: tu as never, toMarket: sang as never },
       });
@@ -159,15 +168,17 @@ function TaoNgay({
   const [departDate, setDepartDate] = useState('');
   const [days, setDays] = useState('14');
   const [capacity, setCapacity] = useState('20');
+  const loiO = useFieldErrors(INPUT_ID_BY_PATH);
   const [dangGui, setDangGui] = useState(false);
 
   async function tao(e: React.FormEvent) {
     e.preventDefault();
     setLoi('');
+    loiO.clear();
     setXong('');
     setDangGui(true);
     try {
-      await adminApi().taoNgayKhoiHanh({
+      await adminApi().createDeparture({
         id: productId,
         adminDepartureCreate: {
           market: market as never,
@@ -181,6 +192,7 @@ function TaoNgay({
       await napLai();
     } catch (ex) {
       setLoi(laKhongDuQuyen(ex) ? 'Chỉ vai trò ADMIN tạo được ngày khởi hành.' : await loiTiengViet(ex));
+      await loiO.show(ex);
     } finally {
       setDangGui(false);
     }
@@ -194,6 +206,7 @@ function TaoNgay({
           <option value="DK">DK</option>
           <option value="VN">VN</option>
         </select>
+        {loiO.errorFor('tt')}
       </div>
       <div>
         <label htmlFor="di">Ngày đi</label>
@@ -205,6 +218,7 @@ function TaoNgay({
           onChange={(e) => setDepartDate(e.target.value)}
           style={{ width: '11rem' }}
         />
+        {loiO.errorFor('di')}
       </div>
       <div>
         <label htmlFor="so-ngay-kh">Số ngày</label>
@@ -218,6 +232,7 @@ function TaoNgay({
           onChange={(e) => setDays(e.target.value)}
           style={{ width: '6rem' }}
         />
+        {loiO.errorFor('so-ngay-kh')}
       </div>
       <div>
         <label htmlFor="cho">Sức chứa</label>
@@ -230,6 +245,7 @@ function TaoNgay({
           onChange={(e) => setCapacity(e.target.value)}
           style={{ width: '6rem' }}
         />
+        {loiO.errorFor('cho')}
       </div>
       <button type="submit" disabled={dangGui}>
         Thêm ngày

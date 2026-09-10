@@ -75,7 +75,7 @@ public class DestinationRepository {
             -- khác chỗ.
             LEFT JOIN LATERAL (
               SELECT a.path, a.width, a.height, t.alt
-              FROM destination_image di
+              FROM destination_media di
               JOIN media_asset a
                 ON a.id = di.asset_id
                AND NOT a.soft_delete

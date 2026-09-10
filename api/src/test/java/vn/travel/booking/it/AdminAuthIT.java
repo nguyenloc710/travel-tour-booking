@@ -21,6 +21,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.web.generated.model.AdminProductTranslation;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.StaffProfile;
 
@@ -185,7 +186,7 @@ class AdminAuthIT {
 
         ResponseEntity<ErrorResponse> sourceTranslation = session.saveExpectingError("da", body("nord-til-syd-2"));
         assertEquals(HttpStatus.FORBIDDEN, sourceTranslation.getStatusCode());
-        assertEquals("FORBIDDEN", sourceTranslation.getBody().getCode());
+        assertEquals(ErrorCode.FORBIDDEN, sourceTranslation.getBody().getCode());
     }
 
     @Test

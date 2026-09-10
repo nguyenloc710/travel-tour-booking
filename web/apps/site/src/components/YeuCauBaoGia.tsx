@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { t, type Locale, type Market } from '@travel/i18n';
-import { bookingApi, requestScope } from '@/lib/api';
+import { bookingApi, requestScope, translateError } from '@/lib/api';
 
 /**
  * Form yêu cầu báo giá cho `PRIVATE_TOUR` — docs/23 mục 7, docs/05 mục 6.
@@ -51,7 +51,7 @@ export function YeuCauBaoGia({
     const loiNhan = String(bieuMau.get('message') ?? '').trim();
 
     try {
-      const bienNhan = await bookingApi().guiYeuCauBaoGia({
+      const bienNhan = await bookingApi().createQuoteRequest({
         ...requestScope(market, locale),
         idempotencyKey: khoaGoiLai,
         quoteRequestInput: {
@@ -68,7 +68,7 @@ export function YeuCauBaoGia({
       });
       setMaBaoGia(bienNhan.reference);
     } catch (ex) {
-      setLoi(await cauLoi(locale, ex));
+      setLoi(await translateError(locale, ex));
     } finally {
       setDangGui(false);
     }
@@ -146,27 +146,4 @@ function somNhat(leadTimeDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + leadTimeDays);
   return d.toISOString().slice(0, 10);
-}
-
-/**
- * Mã lỗi → câu tiếng người. API **không trả câu**, nó trả mã (docs/13 mục 5), và
- * chỗ dịch là đây.
- */
-async function cauLoi(locale: Locale, loi: unknown): Promise<string> {
-  let ma = '';
-  let thamSo: Record<string, string | number> = {};
-
-  if (loi && typeof loi === 'object' && 'response' in loi) {
-    try {
-      const than = await (loi as { response: Response }).response.clone().json();
-      ma = String(than.code ?? '');
-      thamSo = (than.params ?? {}) as Record<string, string | number>;
-    } catch {
-      ma = '';
-    }
-  }
-
-  const khoa = `error.${ma}`;
-  const cau = t(locale, khoa, thamSo);
-  return ma !== '' && cau !== khoa ? cau : t(locale, 'error.generic');
 }

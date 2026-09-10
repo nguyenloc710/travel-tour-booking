@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.booking.service.SeatHoldSweeper;
 import vn.travel.booking.web.generated.model.Booking;
 import vn.travel.booking.web.generated.model.BookingStatus;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.PriceBreakdown;
 import vn.travel.booking.web.generated.model.PriceLine;
@@ -207,7 +208,7 @@ class BookingFlowIT {
                 UUID.randomUUID(), holdBody(3), ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("DEPARTURE_SOLD_OUT", response.getBody().getCode());
+        assertEquals(ErrorCode.DEPARTURE_SOLD_OUT, response.getBody().getCode());
     }
 
     @Test
@@ -218,7 +219,7 @@ class BookingFlowIT {
                 "{\"departureId\":\"%s\",\"seats\":1}".formatted(CONFIRMED_DEPARTURE_ID), ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("DEPARTURE_CLOSED", response.getBody().getCode());
+        assertEquals(ErrorCode.DEPARTURE_CLOSED, response.getBody().getCode());
     }
 
     @Test
@@ -345,7 +346,7 @@ class BookingFlowIT {
                 UUID.randomUUID(), bookingBody(hold.getId()), ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("SEAT_HOLD_EXPIRED", response.getBody().getCode());
+        assertEquals(ErrorCode.SEAT_HOLD_EXPIRED, response.getBody().getCode());
         assertEquals(18, count("SELECT seats_booked FROM departure WHERE id = CAST('"
                         + DEPARTURE_ID + "' AS uuid)"),
                 "Đơn không thành thì seats_booked không được đổi");
@@ -394,7 +395,7 @@ class BookingFlowIT {
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, conflictResponse.getStatusCode());
-        assertEquals("IDEMPOTENCY_KEY_REUSED", conflictResponse.getBody().getCode(),
+        assertEquals(ErrorCode.IDEMPOTENCY_KEY_REUSED, conflictResponse.getBody().getCode(),
                 "Trả kết quả cũ ở đây là im lặng nuốt mất một đơn thật");
     }
 

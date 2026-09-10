@@ -50,7 +50,7 @@ function NoiDung() {
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ket_qua = await adminApi().danhSachSanPhamQuanTri({
+        const ket_qua = await adminApi().listAdminProducts({
           productType: (productType || undefined) as never,
           market: (market || undefined) as never,
           gap: (gap || undefined) as never,

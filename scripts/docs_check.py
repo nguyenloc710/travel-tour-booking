@@ -268,6 +268,78 @@ def kiem_ban_do(kq: Ket_qua, dang_ky: dict[str, str], hien_co: dict[str, Path]) 
             kq.loi(duong_dan_tuong_doi(p), 1, "chưa đăng ký vào bản đồ docs/00 — 42 mục 9")
 
 
+# ------------------------------------------------- mã lỗi: docs/13 ↔ hợp đồng
+
+HOP_DONG = GOC / "contracts" / "openapi.yaml"
+DOC_MA_LOI = "docs/13-hop-dong-api.md"
+
+
+def ma_loi_trong_hop_dong() -> set[str]:
+    """Giá trị của enum ErrorCode trong openapi.yaml.
+
+    Đọc bằng biểu thức chính quy chứ không bằng PyYAML: bộ kiểm này phải chạy
+    được ngay, không cài gì (CLAUDE.md quy tắc 8). Enum là một danh sách phẳng
+    nên cách đọc thô này đủ, và nếu ai đó đổi hình dạng khối thì tập trả về rỗng
+    và phép kiểm bên dưới kêu ngay chứ không im lặng bỏ qua.
+    """
+    if not HOP_DONG.exists():
+        return set()
+    trong_khoi = False
+    ma: set[str] = set()
+    for dong in doc(HOP_DONG).splitlines():
+        if re.match(r"^    ErrorCode:\s*$", dong):
+            trong_khoi = True
+            continue
+        if trong_khoi:
+            # Hết khối khi gặp một khoá khác ở cùng mức thụt lề của schema.
+            if re.match(r"^    \S", dong):
+                break
+            m = re.match(r"^\s+-\s+([A-Z][A-Z0-9_]*)\s*$", dong)
+            if m:
+                ma.add(m.group(1))
+    return ma
+
+
+def ma_loi_trong_tai_lieu(kq: Ket_qua) -> set[str]:
+    """Cột đầu của bảng danh mục ở docs/13 mục 5.1."""
+    p = GOC / DOC_MA_LOI
+    if not p.exists():
+        return set()
+    ma: set[str] = set()
+    trong_muc = False
+    for dong in doc(p).splitlines():
+        if dong.startswith("### 5.1."):
+            trong_muc = True
+            continue
+        if trong_muc:
+            if dong.startswith("### ") or dong.startswith("## "):
+                break
+            m = re.match(r"^\|\s*`([A-Z][A-Z0-9_]*)`\s*\|", dong)
+            if m:
+                ma.add(m.group(1))
+    return ma
+
+
+def kiem_ma_loi(kq: Ket_qua) -> None:
+    """Phép kiểm 10 — danh mục mã lỗi ở docs/13 mục 5.1 phải khớp enum ErrorCode.
+
+    Hai bên nói cùng một danh mục cho hai loại người đọc: enum bắt máy xử lý đủ,
+    bảng ở docs/13 nói cho người *khi nào* mã đó xảy ra. Lệch nhau thì một trong
+    hai đang nói dối, và cái đắt hơn là bảng tài liệu hứa một mã mà API không bao
+    giờ phát ra — frontend viết câu dịch cho nó rồi chờ mãi.
+    """
+    trong_spec = ma_loi_trong_hop_dong()
+    if not trong_spec:
+        kq.loi("contracts/openapi.yaml", 1, "không đọc được enum ErrorCode — đổi hình dạng khối?")
+        return
+
+    trong_docs = ma_loi_trong_tai_lieu(kq)
+    for m in sorted(trong_spec - trong_docs):
+        kq.loi(DOC_MA_LOI, 1, f"mã {m} có trong enum ErrorCode nhưng thiếu ở danh mục mục 5.1")
+    for m in sorted(trong_docs - trong_spec):
+        kq.loi(DOC_MA_LOI, 1, f"danh mục mục 5.1 có mã {m} mà enum ErrorCode không có — API không phát ra nó")
+
+
 # ---------------------------------------------------------------- truy vết
 
 MAU_MA = re.compile(r"\b(YC|QT|RB)-(\d{3})\b")
@@ -374,6 +446,7 @@ def chay(muc_tieu: list[Path], hom_nay: dt.date, im_lang: bool) -> int:
     if toan_bo:
         kiem_nguon_su_that_trung(kq)
         kiem_ban_do(kq, dang_ky, hien_co)
+        kiem_ma_loi(kq)
 
     for muc in (MUC_LOI, MUC_CANH_BAO, MUC_GHI_CHU):
         if im_lang and muc != MUC_LOI:

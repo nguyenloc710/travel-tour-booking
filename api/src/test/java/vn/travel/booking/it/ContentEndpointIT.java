@@ -18,6 +18,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.web.generated.model.Departure;
 import vn.travel.booking.web.generated.model.DepartureStatus;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.HotelStay;
 import vn.travel.booking.web.generated.model.ItineraryDay;
@@ -295,7 +296,7 @@ class ContentEndpointIT {
                 call("/api/v1/dk/products/byophold/itinerary", "da", ErrorResponse.class);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("NOT_FOUND", response.getBody().getCode());
+        assertEquals(ErrorCode.NOT_FOUND, response.getBody().getCode());
     }
 
     // ------------------------------------------------------------ khách sạn

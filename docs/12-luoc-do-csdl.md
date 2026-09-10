@@ -517,16 +517,33 @@ CREATE TABLE product_image (
 
 CREATE INDEX ix_product_image ON product_image (product_id, sort_order);
 
--- Ảnh minh hoạ của một điểm đến — `V8`, cùng khuôn với `product_image`.
-CREATE TABLE destination_image (
+-- Ảnh VÀ VIDEO của một điểm đến — `V8`, đổi tên ở `V9`. Cùng khuôn với
+-- `product_image`.
+CREATE TABLE destination_media (
   destination_id UUID     NOT NULL REFERENCES destination (id) ON DELETE CASCADE,
   asset_id       UUID     NOT NULL REFERENCES media_asset (id),
   sort_order     SMALLINT NOT NULL,
   PRIMARY KEY (destination_id, asset_id)
 );
 
-CREATE INDEX ix_destination_image ON destination_image (destination_id, sort_order);
+CREATE INDEX ix_destination_media ON destination_media (destination_id, sort_order);
 ```
+
+**`V9` thêm loại tệp thứ hai.** `media_asset` mang thêm bốn cột: `kind`
+(`IMAGE` hoặc `VIDEO`), `content_type`, `duration_seconds` và `poster_asset_id`.
+Ràng buộc `ck_media_video` cưỡng chế **cả hai chiều**: video phải có đủ thời
+lượng, kiểu tệp và ảnh bìa; ảnh thì không được có cái nào.
+
+Ảnh bìa **bắt buộc với video** vì thiếu nó thì trình duyệt tải những megabyte
+đầu của video chỉ để vẽ một khung hình tĩnh — trên VPS không CDN đó là băng thông
+trả cho thứ khách chưa bấm xem (`24` mục 7). Luật *"ảnh bìa phải là một `IMAGE`,
+không phải video khác"* thì `CHECK` **không** nói được — nó là điều kiện trên
+dòng khác — nên nó sống ở tầng nghiệp vụ.
+
+Cùng `V9`, `destination_image` đổi tên thành `destination_media`: bảng đó từ nay
+giữ cả hai loại, và một cái tên nói dối là thứ người đọc lược đồ sau này sẽ tin.
+`product_image` **cố tình không đổi** — bộ ảnh sản phẩm chỉ nhận ảnh, và máy chủ
+từ chối video ở đó.
 
 Ba điều cố ý:
 
@@ -538,7 +555,7 @@ Ba điều cố ý:
 3. **`alt` là `NOT NULL`.** Ảnh không có chữ thay thế là ảnh không dùng được cho
    người khiếm thị, và `24` mục 6 coi alt là nội dung phải dịch.
 
-`destination_image` (`V8`) là **cùng một khuôn, không phải khuôn thứ ba**. Hôm
+`destination_media` (`V8`, đổi tên ở `V9`) là **cùng một khuôn, không phải khuôn thứ ba**. Hôm
 nay mỗi điểm đến chỉ cần một tấm, và một cột `image_asset_id` sẽ đủ — nhưng
 thêm khuôn thứ ba cho cùng một loại quan hệ đắt hơn cái tiết kiệm được: người
 đọc lược đồ sau này phải nhớ ba cách thay vì một. Không chọn cột chữ như

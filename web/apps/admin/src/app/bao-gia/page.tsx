@@ -46,7 +46,7 @@ function NoiDung() {
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ket_qua = await adminApi().danhSachBaoGia({
+        const ket_qua = await adminApi().listQuotes({
           status: (status || undefined) as never,
           market: (market || undefined) as never,
           q: q || undefined,

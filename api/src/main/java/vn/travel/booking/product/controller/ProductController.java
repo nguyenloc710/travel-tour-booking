@@ -137,6 +137,29 @@ public class ProductController {
         return response(locale, Duration.ofMinutes(1)).body(body);
     }
 
+    /**
+     * Chặng dừng của lộ trình — cùng cache một phút với lịch trình: nó dựng từ
+     * chính lịch trình đó, nên hai bên hết hạn cùng nhau.
+     */
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/api/v1/{market}/products/{slug}/stops",
+        produces = { "application/json" }
+    )
+    public ResponseEntity<List<vn.travel.booking.web.generated.model.ProductStop>> getProductStops(
+            @PathVariable("market") String market,
+            @NotNull  @RequestHeader(value = "Accept-Language", required = true) String acceptLanguage,
+            @PathVariable("slug") String slug
+    ) {
+
+        String locale = RequestScope.locale(acceptLanguage);
+
+        List<vn.travel.booking.web.generated.model.ProductStop> body = mapper.toStopList(
+                contentService.stops(RequestScope.market(market), locale, slug));
+
+        return response(locale, Duration.ofMinutes(1)).body(body);
+    }
+
     @RequestMapping(
         method = RequestMethod.GET,
         value = "/api/v1/{market}/products/{slug}/itinerary",

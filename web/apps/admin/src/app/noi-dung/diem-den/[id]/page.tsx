@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import type { AdminDestinationDetail } from '@travel/api-client';
 import { adminApi, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
 import { LOCALES, suaLanCuoi, type LocaleMa } from '@/lib/noiDung';
+import { MediaList } from '@/components/MediaList';
+import { MediaUploadUrlRequestFolderEnum } from '@travel/api-client';
 
 /**
  * Sửa một điểm đến (docs/22 M13).
@@ -31,7 +33,7 @@ export default function SuaDiemDen({ params }: { params: Promise<{ id: string }>
     let conHieuLuc = true;
     void (async () => {
       try {
-        const kq = await adminApi().chiTietDiemDenQuanTri({ id });
+        const kq = await adminApi().getAdminDestination({ id });
         if (conHieuLuc) setDd(kq);
       } catch (ex) {
         if (conHieuLuc && !laChuaDangNhap(ex)) {
@@ -102,6 +104,11 @@ export default function SuaDiemDen({ params }: { params: Promise<{ id: string }>
       {LOCALES.map((locale) => (
         <BanDich key={locale} dd={dd} locale={locale} napLai={napLai} />
       ))}
+
+      {/* Ảnh và video của điểm đến — chúng hiện ở khối "bản đồ lộ trình" của MỌI
+          tour đi qua đây (docs/05 mục 6.1). Đó là lý do chúng thuộc điểm đến chứ
+          không thuộc tour: cùng một Sa Pa xuất hiện trong nhiều chuyến. */}
+      <MediaDiemDen id={dd.id} />
     </main>
   );
 }
@@ -123,7 +130,7 @@ function ThuTu({
     setLoi('');
     setXong(false);
     try {
-      await adminApi().suaDiemDen({
+      await adminApi().updateDestination({
         id: dd.id,
         adminDestinationPatch: { sortOrder: Number(thuTu) },
       });
@@ -198,7 +205,7 @@ function BanDich({
     setLoi('');
     setXong(false);
     try {
-      await adminApi().luuBanDichDiemDen({
+      await adminApi().saveDestinationTranslation({
         id: dd.id,
         locale,
         adminDestinationTranslationInput: {
@@ -277,5 +284,34 @@ function BanDich({
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Danh sách ảnh và video của điểm đến.
+ *
+ * Bọc {@code MediaList} trong một component riêng để hai hàm truyền vào nó ổn
+ * định qua các lần dựng lại — {@code useCallback} cần một chỗ để bám, và trang
+ * này còn hai khối khác cũng dựng lại theo trạng thái của mình.
+ */
+function MediaDiemDen({ id }: { id: string }) {
+  const nap = useCallback(
+    async () => (await adminApi().getDestinationMedia({ id })).items,
+    [id],
+  );
+  const luu = useCallback(
+    async (assetIds: string[]) =>
+      (await adminApi().saveDestinationMedia({ id, mediaOrder: { assetIds } })).items,
+    [id],
+  );
+
+  return (
+    <MediaList
+      nap={nap}
+      luu={luu}
+      allowVideo
+      folder={MediaUploadUrlRequestFolderEnum.DiemDen}
+      tieuDe="Ảnh và video của điểm đến"
+    />
   );
 }

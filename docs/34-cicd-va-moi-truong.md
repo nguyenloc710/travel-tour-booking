@@ -107,7 +107,7 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 
 ## 3. Biến môi trường
 
-Ứng dụng đọc chín biến, tất cả đều có giá trị mặc định dùng được cho `dev`:
+Ứng dụng đọc mười bốn biến, tất cả đều có giá trị mặc định dùng được cho `dev`:
 
 | Biến | Mặc định | Bí mật |
 |---|---|---|
@@ -117,6 +117,11 @@ hai phía. Bot commit vào nhánh là cách nhanh nhất để có hai nguồn s
 | `PORT` | `8080` | Không |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:3001` | Không |
 | `STORAGE_PUBLIC_BASE_URL` | `http://localhost:9000/travel-media` | Không |
+| `TRAVEL_STORAGE_ENDPOINT_PUBLIC` | `http://localhost:9000` | Không |
+| `TRAVEL_STORAGE_ENDPOINT_INTERNAL` | `http://localhost:9000` | Không |
+| `TRAVEL_STORAGE_BUCKET` | `travel-media` | Không |
+| `TRAVEL_STORAGE_ACCESS_KEY` | `travel` | **Có** ở `prod` |
+| `TRAVEL_STORAGE_SECRET_KEY` | `travel-dev-secret` | **Có** ở `prod` |
 | `BOOTSTRAP_ADMIN_EMAIL` | rỗng — không tạo gì | Không |
 | `BOOTSTRAP_ADMIN_PASSWORD` | rỗng — không tạo gì | **Có** ở `prod` |
 | `BOOTSTRAP_ADMIN_NAME` | `Quản trị viên` | Không |
@@ -163,7 +168,12 @@ rồi `./gradlew bootRun` là chạy. Bắt phải có file `.env` trước khi 
 | Bí mật | Cất ở đâu | Trạng thái |
 |---|---|---|
 | `DB_PASSWORD` | `.env` trên máy chủ, `chmod 600` | ✔ có chỗ, chờ giá trị thật |
-| `MINIO_ROOT_PASSWORD` | `.env` trên máy chủ | ✔ có chỗ, chờ giá trị thật |
+| `MINIO_ROOT_PASSWORD` | `.env` trên máy chủ | ✔ có chỗ, **đang dùng thật** |
+
+> **`MINIO_ROOT_USER` và `MINIO_ROOT_PASSWORD` từ đợt tải ảnh lên đã có tác
+> dụng thật.** Trước đó chúng nằm trong `.env` mà không service nào đọc, vì bản
+> chạy thật dùng MinIO có sẵn của dự án khác. Nay `api` ký URL tải lên bằng đúng
+> cặp khoá này (ADR-013), nên đổi mật khẩu MinIO là phải đổi ở cả hai chỗ.
 | Khoá đăng nhập registry | **Không tồn tại** — xem dưới | ✔ không cần |
 | `VPS_HOST` · `VPS_USER` · `VPS_PASSWORD` | GitHub Secrets | ✔ pipeline đã đọc, chờ điền |
 | Khoá cổng thanh toán | `30` | ✗ **Q-3** chưa trả lời |

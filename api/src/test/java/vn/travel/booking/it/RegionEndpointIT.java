@@ -16,6 +16,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.web.client.RestClient;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.Region;
 
@@ -163,7 +164,7 @@ class RegionEndpointIT {
         ResponseEntity<ErrorResponse> response = callExpectingError("vn", "vi");
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("NOT_FOUND", response.getBody().getCode());
+        assertEquals(ErrorCode.NOT_FOUND, response.getBody().getCode());
     }
 
     @Test
@@ -172,7 +173,7 @@ class RegionEndpointIT {
         ResponseEntity<ErrorResponse> response = callExpectingError("dk", "de");
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("UNSUPPORTED_LOCALE", response.getBody().getCode());
+        assertEquals(ErrorCode.UNSUPPORTED_LOCALE, response.getBody().getCode());
     }
 
     @Test

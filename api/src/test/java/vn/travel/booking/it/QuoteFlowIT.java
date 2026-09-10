@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import vn.travel.booking.quote.service.QuoteSweeper;
 import vn.travel.booking.web.generated.model.AdminQuoteDetail;
 import vn.travel.booking.web.generated.model.AdminQuotePage;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 import vn.travel.booking.web.generated.model.QuoteReceipt;
 import vn.travel.booking.web.generated.model.QuoteStatus;
@@ -190,7 +191,7 @@ class QuoteFlowIT {
                 "nord-til-syd", 2, LocalDate.now().plusDays(60)));
 
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
-        assertEquals("PRODUCT_NOT_QUOTABLE", response.getBody().getCode());
+        assertEquals(ErrorCode.PRODUCT_NOT_QUOTABLE, response.getBody().getCode());
         assertEquals(0, count("SELECT count(*) FROM quote"));
     }
 
@@ -208,7 +209,7 @@ class QuoteFlowIT {
 
         assertEquals(HttpStatus.UNPROCESSABLE_CONTENT, response.getStatusCode());
         ErrorResponse error = response.getBody();
-        assertEquals("LEAD_TIME_NOT_MET", error.getCode());
+        assertEquals(ErrorCode.LEAD_TIME_NOT_MET, error.getCode());
         // docs/14 mục 2.3: lỗi không đạt hạn báo trước PHẢI trả về đúng con số cấu hình
         // và ngày sớm nhất có thể đi, để giao diện điền thẳng vào ô chọn ngày.
         assertNotNull(error.getParams());
@@ -240,7 +241,7 @@ class QuoteFlowIT {
                 "privat-rundrejse", 2, LocalDate.now().plusDays(60)));
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("NOT_FOUND", response.getBody().getCode());
+        assertEquals(ErrorCode.NOT_FOUND, response.getBody().getCode());
     }
 
     @Test
@@ -348,7 +349,7 @@ class QuoteFlowIT {
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("VALIDATION_FAILED", response.getBody().getCode());
+        assertEquals(ErrorCode.VALIDATION_FAILED, response.getBody().getCode());
     }
 
     @Test
@@ -367,7 +368,7 @@ class QuoteFlowIT {
                 ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("QUOTE_NOT_ACCEPTABLE", response.getBody().getCode());
+        assertEquals(ErrorCode.QUOTE_NOT_ACCEPTABLE, response.getBody().getCode());
         assertEquals("SENT", response.getBody().getParams().get("from"));
     }
 
@@ -384,7 +385,7 @@ class QuoteFlowIT {
                 "{\"toStatus\":\"SENT\"}", ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("QUOTE_NOT_ACCEPTABLE", response.getBody().getCode());
+        assertEquals(ErrorCode.QUOTE_NOT_ACCEPTABLE, response.getBody().getCode());
         assertEquals(QuoteStatus.DRAFT.name(),
                 jdbc.queryForObject("SELECT status FROM quote WHERE reference = ?",
                         String.class, reference));
@@ -438,7 +439,7 @@ class QuoteFlowIT {
                 "{\"toStatus\":\"ACCEPTED\"}", ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("QUOTE_NOT_ACCEPTABLE", response.getBody().getCode());
+        assertEquals(ErrorCode.QUOTE_NOT_ACCEPTABLE, response.getBody().getCode());
         assertEquals("DRAFT", response.getBody().getParams().get("from"));
         assertEquals("ACCEPTED", response.getBody().getParams().get("to"));
     }
@@ -467,7 +468,7 @@ class QuoteFlowIT {
                 "{\"toStatus\":\"ACCEPTED\"}", ErrorResponse.class);
 
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        assertEquals("QUOTE_EXPIRED", response.getBody().getCode());
+        assertEquals(ErrorCode.QUOTE_EXPIRED, response.getBody().getCode());
     }
 
     @Test

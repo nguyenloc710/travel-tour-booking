@@ -9,6 +9,7 @@ import { duongDanDatTour, duongDanListing, productsSegment } from '@/lib/routes'
 import { duongDanTab, tabCoMat, type TabKey } from '@/lib/tabs';
 import { khungCua, type Khung } from '@/lib/templates';
 import { BoAnh } from '@/components/BoAnh';
+import { LoTrinh } from '@/components/LoTrinh';
 import { KeChuyen } from '@/components/KeChuyen';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductFacts } from '@/components/ProductFacts';
@@ -242,18 +243,17 @@ async function TabTongQuan({
 
       {khung === 'ke-chuyen' && <KhoiViSao sanPham={sanPham} locale={locale} />}
 
-      {sanPham.mapImage !== undefined && (
-        <Image
-          className="detail__map"
-          src={sanPham.mapImage}
-          // Bản đồ cũng là ảnh có chữ: font của nó phải dựng được cả `æ ø å`
-          // lẫn dấu tiếng Việt — bản demo đã dính bẫy này một lần.
-          alt={sanPham.heroImageAlt}
-          width={1200}
-          height={800}
-          unoptimized
-        />
-      )}
+      {/* Bản đồ lộ trình cộng danh sách chặng dừng, kèm ảnh và video từng chặng.
+          Khối này thay chỗ cho ảnh bản đồ đứng một mình: `docs/05` mục 6.1 vẽ hai
+          thứ đó cạnh nhau, và danh sách chặng dựng từ chính lịch trình nên không
+          có gì để nhập thêm. Loại không có lịch trình thì `LoTrinh` tự ẩn. */}
+      <LoTrinh
+        slug={slug}
+        locale={locale}
+        market={market}
+        mapImage={sanPham.mapImage}
+        mapAlt={sanPham.heroImageAlt}
+      />
 
       {/* Tour riêng không đặt trực tiếp được, nên form báo giá LÀ điểm cuối của
           trang thay cho nút "Đặt tour" (docs/04). */}

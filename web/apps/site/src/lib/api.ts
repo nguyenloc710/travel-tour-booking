@@ -8,7 +8,7 @@ import {
   RegionsApi,
   ResponseError,
 } from '@travel/api-client';
-import type { Locale, Market } from '@travel/i18n';
+import { t, type Locale, type Market } from '@travel/i18n';
 import { marketSegment } from './market-segment';
 
 // `||` chứ không `??`: biến này bị nướng vào mã lúc build, và một `--build-arg`
@@ -67,6 +67,44 @@ export function bookingApi(): BookingApi {
  */
 export function laKhongTimThay(loi: unknown): boolean {
   return loi instanceof ResponseError && loi.response.status === 404;
+}
+
+/**
+ * Mã lỗi của API → câu tiếng người của locale đang xem (docs/13 mục 5).
+ *
+ * **Một chỗ duy nhất.** Trước đây mỗi biểu mẫu mang một bản sao, và hai bản đã
+ * kịp lệch nhau: bản trong `DatTour` bỏ qua `params`, nên khoá nào có chỗ thay
+ * thế — `{leadTimeDays}`, `{earliestDate}` — sẽ hiện ra nguyên dấu ngoặc nếu nó
+ * rơi vào màn hình đó.
+ *
+ * Mã chưa có khoá dịch thì hiện câu chung, **không hiện mã ra khách**
+ * (`web/CLAUDE.md` mục 4). Đó là chủ ý, không phải thiếu sót: danh mục mã của
+ * `ErrorCode` phục vụ cả bề mặt quản trị, và phần lớn mã ở đó không bao giờ
+ * tới được mắt khách.
+ */
+export async function translateError(locale: Locale, loi: unknown): Promise<string> {
+  let code = '';
+  let params: Record<string, string | number> = {};
+
+  if (loi instanceof ResponseError) {
+    try {
+      const than = await loi.response.clone().json();
+      code = String(than.code ?? '');
+      params = { ...((than.params ?? {}) as Record<string, string | number>) };
+      // `traceId` nằm NGOÀI `params` trong hợp đồng, nhưng câu dịch của
+      // INTERNAL_ERROR cần tới nó: khách đọc mã đó qua điện thoại cho tổng đài,
+      // tổng đài tra log (docs/13 mục 5).
+      if (than.traceId) {
+        params.traceId = String(than.traceId);
+      }
+    } catch {
+      code = '';
+    }
+  }
+
+  const khoa = `error.${code}`;
+  const cau = t(locale, khoa, params);
+  return code !== '' && cau !== khoa ? cau : t(locale, 'error.generic');
 }
 
 /**

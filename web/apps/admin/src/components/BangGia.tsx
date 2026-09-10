@@ -63,7 +63,7 @@ export function BangGia({
         return;
       }
 
-      await adminApi().luuGiaNgayKhoiHanh({ id: ngay.id, adminDeparturePriceInput: gui });
+      await adminApi().saveDeparturePrices({ id: ngay.id, adminDeparturePriceInput: gui });
       await napLai();
       dong();
     } catch (ex) {

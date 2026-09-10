@@ -20,7 +20,7 @@ export default function BangDieuKhien() {
 
   useEffect(() => {
     const api = adminApi();
-    Promise.all([api.hangDoiDich({ limit: 20 }), api.doPhuDich({})])
+    Promise.all([api.listTranslationQueue({ limit: 20 }), api.getTranslationCoverage({})])
       .then(([q, c]) => {
         setHangDoi(q);
         setDoPhu(c);

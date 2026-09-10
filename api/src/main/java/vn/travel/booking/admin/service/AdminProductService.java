@@ -22,9 +22,12 @@ import vn.travel.booking.product.mapper.ProductEntityMapper;
 import vn.travel.booking.product.repository.ProductMarketRepository;
 import vn.travel.booking.product.repository.ProductTypeBlockStore;
 import vn.travel.booking.product.repository.ProductWriteRepository;
+import vn.travel.booking.web.generated.model.FieldRule;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -80,6 +83,7 @@ public class AdminProductService {
         String type = input.productType();
         validateTypeBlocks(type, input.blocks());
         validateDayCount(type, input.durationDays());
+        validateBlockFieldRules(input.blocks());
 
         UUID id = UUID.randomUUID();
         ProductEntity e = new ProductEntity(id, type);
@@ -135,6 +139,7 @@ public class AdminProductService {
 
         if (!input.blocks().isEmpty()) {
             validateTypeBlocks(e.getProductType(), input.blocks());
+            validateBlockFieldRules(input.blocks());
             blockStore.save(id, e.getProductType(), input.blocks());
         }
         if (input.durationDays() != null) {
@@ -214,7 +219,7 @@ public class AdminProductService {
      * <b>lần bật đầu tiên</b>, nên bật–tắt–bật không làm mất ngày mở bán gốc.
      */
     @Transactional
-    public MarketState ganThiTruong(UUID id, String marketCode, boolean onSale) {
+    public MarketState setProductMarket(UUID id, String marketCode, boolean onSale) {
         ProductEntity sp = product.findByIdAndSoftDeleteFalse(id)
                 .orElseThrow(() -> new NotFoundException("product id=" + id));
 
@@ -303,6 +308,55 @@ public class AdminProductService {
         if (isDayTour == (dayCount != null)) {
             throw new AdminErrors.DurationDaysRuleViolated(type);
         }
+    }
+
+    /**
+     * Ba luật <b>liên trường</b> của khối riêng theo loại — thứ mà {@code @Min}
+     * và {@code @Max} trong hợp đồng không nói được, vì chúng so hai trường với
+     * nhau chứ không so một trường với hằng số.
+     *
+     * <p>Mỗi luật ở đây là một ràng buộc {@code CHECK} của V1:
+     * {@code ck_pgt_pax} (phần {@code min_pax <= max_pax}), {@code ck_pgt_guar},
+     * {@code ck_pcb_valid}. Đây là <b>ba cái duy nhất</b> trong 64 ràng buộc
+     * {@code CHECK} của lược đồ vừa với tới được từ API ghi vừa chưa có ai bắt:
+     * phần còn lại hoặc do hợp đồng bắt bằng kiểu và {@code @Min}/{@code @Max},
+     * hoặc đã có mã lỗi riêng, hoặc nói về cột mà client không ghi được.
+     *
+     * <p>Không bắt ở đây thì chúng nổi lên thành {@code 500} kèm {@code traceId}
+     * — người nhập liệu đọc được đúng con số đó và không gì khác.
+     *
+     * <p>Giới hạn gửi kèm là <b>giá trị vừa nhập</b>, không phải hằng số trong
+     * lược đồ: {@code guaranteedThreshold} sai thì {@code max} chính là
+     * {@code minPax} của lần nhập này.
+     */
+    private static void validateBlockFieldRules(ProductTypeBlocks blocks) {
+        List<AdminErrors.FieldRulesViolated.Issue> issues = new ArrayList<>();
+
+        ProductTypeBlocks.GroupTour groupTour = blocks.groupTour();
+        if (groupTour != null) {
+            if (groupTour.minPax() != null && groupTour.maxPax() != null
+                    && groupTour.minPax() > groupTour.maxPax()) {
+                // Chỉ vào maxPax chứ không vào minPax: người nhập vừa gõ số khách
+                // tối đa nhỏ hơn số tối thiểu, và ô cần sửa gần như luôn là ô sau.
+                issues.add(new AdminErrors.FieldRulesViolated.Issue(
+                        "groupTour.maxPax", FieldRule.MIN, Map.of("min", groupTour.minPax())));
+            }
+            if (groupTour.guaranteedThreshold() != null && groupTour.minPax() != null
+                    && groupTour.guaranteedThreshold() > groupTour.minPax()) {
+                issues.add(new AdminErrors.FieldRulesViolated.Issue(
+                        "groupTour.guaranteedThreshold", FieldRule.MAX,
+                        Map.of("max", groupTour.minPax())));
+            }
+        }
+
+        ProductTypeBlocks.Combo combo = blocks.combo();
+        if (combo != null && combo.validFrom() != null && combo.validTo() != null
+                && combo.validTo().isBefore(combo.validFrom())) {
+            issues.add(new AdminErrors.FieldRulesViolated.Issue(
+                    "combo.validTo", FieldRule.MIN, Map.of("min", combo.validFrom().toString())));
+        }
+
+        AdminErrors.FieldRulesViolated.throwIfAny(issues);
     }
 
     private static void writeCommonFields(ProductEntity e, UUID destination, Short dayCount, String image,

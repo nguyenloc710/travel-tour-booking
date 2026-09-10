@@ -45,6 +45,9 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.jackson.jsr310)
 
+    // Kho anh MinIO — ADR-011 chot MinIO, ADR-013 chot dung SDK rieng cua no.
+    implementation(libs.minio)
+
     // Khoá job nền, dùng chính Postgres — docs/14 mục 6.4.
     implementation(libs.shedlock.spring)
     implementation(libs.shedlock.jdbc)

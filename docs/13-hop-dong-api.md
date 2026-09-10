@@ -2,7 +2,7 @@
 
 ```
 Trạng thái: Nháp
-Cập nhật: 04/09/2026
+Cập nhật: 09/09/2026
 Nguồn sự thật về: quy trình spec-first, quy ước URL và header, phân trang,
                   mã lỗi, danh mục endpoint, xác thực, tính bất biến khi gọi lại.
 Không nói về: công thức tính giá (14), lược đồ CSDL (12),
@@ -141,6 +141,27 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 }
 ```
 
+`path` là đường dẫn tới trường **trong thân yêu cầu**, dùng dấu chấm và chỉ số
+mảng: `source.longDescription`, `groupTour.minPax`, `lines[2].amount`. `code`
+lấy từ enum `FieldRule` — `NOT_NULL`, `SIZE`, `MIN`, `MAX`, `PATTERN`, và
+`INVALID` cho ràng buộc chưa có câu riêng. Cũng là danh mục đóng, cùng lý do với
+`ErrorCode` ở mục 5.1.
+
+`fields` **chỉ có ở `VALIDATION_FAILED`**. Không có trường nào để chỉ thì nó
+**vắng mặt hẳn**, không phải `[]` — quy tắc trường rỗng của mục 4.
+
+Ranh giới giữa "`fields`" và "mã lỗi riêng" là **có chỉ được vào một ô nhập hay
+không**, không phải "một trường hay nhiều trường":
+
+| Luật | Đi ra thế nào |
+|---|---|
+| Một trường (`@Size`, `@Min`, `@Pattern`) | `VALIDATION_FAILED` + `fields` |
+| Liên trường nhưng **chỉ được vào một ô** — `guaranteedThreshold` so với `minPax`, `validTo` so với `validFrom` | `VALIDATION_FAILED` + `fields`; giới hạn trong `params` là **giá trị vừa nhập**, không phải hằng số trong lược đồ |
+| Không chỉ được vào ô nào — khối riêng của loại thiếu hay thừa, `durationDays` sai với loại | Mã lỗi riêng: `PRODUCT_TYPE_BLOCK_MISMATCH`, `DURATION_DAYS_RULE_VIOLATED` |
+
+Biểu mẫu ở frontend vì thế không phải biết luật đến từ Bean Validation hay từ một
+hàm kiểm trong service — hai đường cho ra cùng một hình dạng.
+
 ### 5.1. Danh mục mã lỗi
 
 | Mã | HTTP | Khi nào |
@@ -170,9 +191,18 @@ Lỗi kiểm tra dữ liệu vào có thêm `fields`:
 | `SINGLE_PRICE_MISSING` | 409 | Ngày khởi hành có lưu trú mà thiếu giá phòng đơn, hoặc giá ấy không cao hơn giá phòng đôi. Chặn ở bảng giá, ở công tắc mở bán, và ở đường tính giá cho khách đi một mình |
 | `DESTINATION_IN_USE` | 409 | Xoá điểm đến còn sản phẩm trỏ tới |
 | `LAST_ADMIN` | 409 | Tắt hoặc gỡ vai trò của `ADMIN` đang bật cuối cùng |
-| `PAYMENT_FAILED` | 402 | Cổng thanh toán từ chối |
-| `RATE_LIMITED` | 429 | Quá nhiều yêu cầu |
+| `IDEMPOTENCY_KEY_REUSED` | 409 | Cùng `Idempotency-Key` nhưng thân yêu cầu khác — mục 7 |
 | `INTERNAL_ERROR` | 500 | Kèm `traceId` |
+
+Danh mục này **đóng**, và nó có một bản chạy được: enum `ErrorCode` trong
+`contracts/openapi.yaml`. Hai bên phải khớp — bảng ở đây nói *khi nào* xảy ra,
+enum kia bắt cả backend lẫn frontend phải xử lý *đủ*. Backend không viết chuỗi
+mã ra tay nữa; frontend thiếu một mã là lỗi biên dịch.
+
+`PAYMENT_FAILED` (402) và `RATE_LIMITED` (429) **đã bỏ khỏi danh mục**: cổng
+thanh toán và giới hạn tần suất chưa làm ở v1, mà một mã không ai phát ra vẫn
+bắt frontend phải viết câu dịch cho nó. Thêm lại cùng lúc với tính năng — thêm
+vào enum trước.
 
 > **`404` gộp ba tình huống có chủ ý**: không tồn tại, chưa dịch cho locale này,
 > chưa gán vào thị trường này. Phân biệt ba cái ra ngoài là rò rỉ thông tin về
@@ -266,6 +296,7 @@ phục vụ bản tiếng Đan cho khách Việt.
 | `GET /{market}/products` | Bộ lọc ở mục 6 |
 | `GET /{market}/products/{slug}` | Trả **cả bảng con** theo `productType` |
 | `GET /{market}/products/{slug}/itinerary` | 404 với `COMBO`, `DAY_TOUR` |
+| `GET /{market}/products/{slug}/stops` | Chặng dừng của lộ trình, kèm ảnh và video từng chặng. **Dựng từ lịch trình**, cùng cổng 404 |
 | `GET /{market}/products/{slug}/hotels` | 404 với `CRUISE` |
 | `GET /{market}/products/{slug}/ship` | Chỉ `CRUISE` |
 | `GET /{market}/products/{slug}/departures` | `CRUISE` trả **phẳng**, gộp theo ngày là việc của frontend |
@@ -305,6 +336,12 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
 /admin/products/{id}/translations/{locale}
 /admin/products/{id}/markets/{market}    gán thị trường, bật/tắt bán — CHỈ ADMIN
 /admin/products/{id}/price-tiers         thang giá PRIVATE_TOUR, thay toàn bộ
+/admin/products/{id}/itinerary           lịch trình từng ngày. GET trả MỌI locale
+                                         cạnh nhau; PUT thay toàn bộ mảng kèm bản
+                                         ngôn ngữ nguồn. 404 với COMBO và DAY_TOUR
+/admin/products/{id}/itinerary/translations/{locale}   chỉ đụng CHỮ, không đổi
+                                         cấu trúc — người dịch không thêm hay bớt
+                                         được ngày
 /admin/products/{id}/departures          lịch khởi hành của sản phẩm
 /admin/products/{id}/departures/copy     nhân bản LỊCH sang thị trường kia, KHÔNG chép giá
 /admin/departures/{id}
@@ -343,7 +380,40 @@ Nhóm theo tài nguyên, không nhóm theo màn hình:
 /admin/users                         M14 — chỉ ADMIN
 /admin/users/{id}                    bật/tắt tài khoản, đổi tên hiển thị
 /admin/users/{id}/roles              thay TOÀN BỘ tập vai trò
+
+/admin/media/upload-url              XIN url đã ký. Không tạo gì — ký xong mà
+                                     không ai tải lên thì không có gì phải dọn
+/admin/media                         ghi bản ghi SAU khi tệp đã lên kho
+/admin/media/{id}/translations/{locale}   chữ thay ảnh, theo ma trận locale
+/admin/destinations/{id}/media       ảnh VÀ video của điểm đến, PUT thay toàn bộ
+                                     danh sách; vị trí trong mảng là sort_order
+/admin/products/{id}/images          bộ ảnh sản phẩm, cùng khuôn — nhưng CHỈ nhận
+                                     ảnh: bảng nối vẫn tên product_image
 ```
+
+> **Lịch trình thay cả mảng, không sửa từng ngày.** Nó là một mảng có ràng buộc
+> **giữa các phần tử**: số ngày phải bằng `durationDays` (quy tắc 3 của `12` mục
+> 9) và `dayNumber` phải liền mạch từ 1. Hai luật đó chỉ kiểm được khi nhìn cả
+> mảng — sửa từng ngày nghĩa là hệ thống có những khoảnh khắc hợp lệ dở dang mà
+> không ai định nghĩa. Cùng khuôn `PUT` thay toàn bộ với `price-tiers`, `prices`,
+> `tags` và `roles`.
+>
+> Ngày biến mất khỏi mảng bị **xoá mềm**; ngày còn lại **giữ nguyên `id`**. Điều
+> đó không phải chi tiết cài đặt: bản dịch treo vào `id` ấy, nên "xoá hết rồi
+> chèn lại" sẽ xoá sạch công của người dịch ở mỗi lần biên tập viên bấm Lưu.
+
+> **Kho ảnh: hai bước, và backend không nhận byte.** ADR-011 mục 4 — trình duyệt
+> `PUT` thẳng tệp lên kho bằng URL đã ký, rồi mới gọi bước hai. Đẩy tệp qua API
+> nghĩa là một tour 40 ảnh đi qua bộ nhớ của nó hai lần.
+>
+> Bước hai **không tin** những gì client khai: chữ ký chỉ ràng buộc phương thức,
+> đường dẫn và hạn dùng, không ràng buộc rằng có ai tải lên thật. Nên nó hỏi lại
+> kho, và tệp không có ở đó thì `400 VALIDATION_FAILED` chỉ đúng ô `path`.
+>
+> `path` **do máy chủ đặt**, không nhận từ client — tên tệp gửi lên chỉ dùng để
+> lấy phần đuôi. Cho client chọn đường dẫn là cho nó ghi đè ảnh của bản ghi
+> khác, và chuyện đó không cần kẻ tấn công: chỉ cần hai người cùng tải lên một
+> tệp tên `anh.jpg`.
 
 > **Không có `/admin/content/{type}`.** Bản trước của mục này ghi một đường dẫn
 > gộp như vậy, và nó mâu thuẫn với chính câu mở đầu ở trên: `content/{type}`

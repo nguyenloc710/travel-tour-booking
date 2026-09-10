@@ -83,7 +83,7 @@ function NoiDung() {
 
 function DanhSachDiemDen() {
   const { du_lieu, loi } = useNap<AdminDestination[]>(() =>
-    adminApi().danhSachDiemDenQuanTri(),
+    adminApi().listAdminDestinations(),
   );
 
   if (loi) return <p className="loi">{loi}</p>;
@@ -122,7 +122,7 @@ function DanhSachDiemDen() {
 
 function DanhSachBaiViet() {
   const { du_lieu, loi } = useNap<AdminPostPage>(() =>
-    adminApi().danhSachBaiViet({ page: 0, size: 50 }),
+    adminApi().listAdminPosts({ page: 0, size: 50 }),
   );
 
   if (loi) return <p className="loi">{loi}</p>;
@@ -173,7 +173,7 @@ function DanhSachBaiViet() {
 
 function DanhSachSuKien() {
   const { du_lieu, loi } = useNap<AdminLecturePage>(() =>
-    adminApi().danhSachSuKienQuanTri({ page: 0, size: 50 }),
+    adminApi().listAdminLectures({ page: 0, size: 50 }),
   );
 
   if (loi) return <p className="loi">{loi}</p>;

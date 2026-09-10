@@ -1,6 +1,10 @@
 package vn.travel.booking.common.exception;
 
+import vn.travel.booking.web.generated.model.FieldRule;
+
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Chín tình huống của đường <b>ghi</b> quản trị, mỗi cái một mã lỗi ở
@@ -142,6 +146,55 @@ public final class AdminErrors {
         public ProductHasActiveBookings(int bookingCount) {
             super("còn " + bookingCount + " đơn chưa kết thúc",
                     Map.of("activeBookings", bookingCount));
+        }
+    }
+
+    /**
+     * Luật <b>liên trường</b> mà schema của hợp đồng không diễn đạt được, nhưng
+     * vẫn chỉ đích danh được một ô nhập: {@code guaranteedThreshold} so với
+     * {@code minPax}, {@code validTo} so với {@code validFrom}.
+     *
+     * <p><b>Không có mã lỗi riêng cho từng luật.</b> Chúng đi ra dưới dạng
+     * {@code VALIDATION_FAILED} kèm {@code fields}, giống hệt luật một trường —
+     * vì với người nhập liệu chúng là cùng một chuyện: một ô cần sửa và một câu
+     * nói vì sao. Mã riêng chỉ dành cho luật <b>không</b> chỉ được vào ô nào,
+     * ví dụ {@code PRODUCT_TYPE_BLOCK_MISMATCH}.
+     *
+     * <p>Bắt ở tầng nghiệp vụ chứ không để CSDL ném: ràng buộc {@code CHECK}
+     * nổi lên thành {@code 500} kèm {@code traceId}, và biên tập viên không đọc
+     * được gì từ đó.
+     *
+     * <p>Giới hạn đi kèm là <b>giá trị thật lúc đó</b>, không phải hằng số:
+     * {@code {"max": 10}} lấy từ chính {@code minPax} vừa nhập. Frontend dựng
+     * câu từ đó nên không phải biết luật này tồn tại.
+     */
+    public static class FieldRulesViolated extends RuntimeException {
+
+        /** Một ô sai, một luật, và giới hạn đọc được từ dữ liệu vừa nhập. */
+        public record Issue(String path, FieldRule rule, Map<String, Object> params) {
+        }
+
+        private final transient List<Issue> issues;
+
+        public FieldRulesViolated(List<Issue> issues) {
+            super(issues.stream().map(Issue::path).collect(Collectors.joining(", ")));
+            this.issues = List.copyOf(issues);
+        }
+
+        public List<Issue> issues() {
+            return issues;
+        }
+
+        /**
+         * Gom nhiều luật rồi ném <b>một lần</b>.
+         *
+         * <p>Ném ngay ở luật đầu tiên là bắt người nhập sửa từng cái một và gửi
+         * lại từng lần — cùng lý do mà {@code @Valid} trả cả danh sách.
+         */
+        public static void throwIfAny(List<Issue> issues) {
+            if (!issues.isEmpty()) {
+                throw new FieldRulesViolated(issues);
+            }
         }
     }
 }

@@ -13,6 +13,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'yaml';
 
 const GOC = join(dirname(fileURLToPath(import.meta.url)), '..');
 const THU_MUC = join(GOC, 'packages', 'i18n', 'messages');
@@ -80,6 +81,50 @@ for (const locale of locales) {
 function thamSo(chuoi) {
   return [...String(chuoi).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 }
+
+// ------------------------------------------------ mã lỗi ↔ khoá `error.*`
+//
+// Danh mục mã lỗi là enum `ErrorCode` trong hợp đồng (docs/13 mục 5.1). Bảng
+// dịch của website khách phải nói về đúng danh mục đó.
+//
+// Hai chiều KHÔNG đối xứng, và đó là chủ ý:
+//
+//   · khoá `error.X` mà `X` không có trong enum → **LỖI**. Đó là khoá chết:
+//     không mã nào phát ra nó, nên câu dịch ấy không bao giờ hiện. Trước khi có
+//     phép kiểm này, `error.MARKET_NOT_FOUND` đã nằm đó và chưa ai để ý.
+//
+//   · mã trong enum mà không có khoá → **không phải lỗi**. Mã chưa có câu riêng
+//     thì rơi về `error.generic`, đúng như web/CLAUDE.md mục 4 đã chốt: không
+//     hiện mã ra khách. Phần lớn danh mục phục vụ bề mặt quản trị và không bao
+//     giờ tới mắt khách, nên bắt buộc dịch đủ là ép viết câu cho thứ không xảy
+//     ra. Vẫn in ra một dòng để không ai quên một mã KHÁCH gặp thật.
+
+const maHopDong = new Set(
+  parse(readFileSync(join(GOC, '..', 'contracts', 'openapi.yaml'), 'utf8'))
+    ?.components?.schemas?.ErrorCode?.enum ?? [],
+);
+
+if (maHopDong.size === 0) {
+  console.error('Không đọc được enum ErrorCode trong contracts/openapi.yaml.');
+  process.exit(1);
+}
+
+const maCoCau = khoaNguon
+  .filter((k) => k.startsWith('error.') && k !== 'error.generic')
+  .map((k) => k.slice('error.'.length));
+
+const khoaChet = maCoCau.filter((m) => !maHopDong.has(m));
+const chuaCoCau = [...maHopDong].filter((m) => !maCoCau.includes(m)).sort();
+
+console.log(`Mã lỗi: ${maHopDong.size} trong hợp đồng · ${maCoCau.length} có câu riêng`);
+for (const m of khoaChet) {
+  console.log(`  khoá chết         error.${m}  (không có trong enum ErrorCode — không mã nào phát ra)`);
+  soLoi++;
+}
+if (chuaCoCau.length > 0) {
+  console.log(`  ${chuaCoCau.length} mã dùng câu chung: ${chuaCoCau.join(' ')}`);
+}
+console.log('');
 
 if (soLoi > 0) {
   console.error(`${soLoi} lỗi. Thiếu khoá dịch là LỖI, không phải cảnh báo — web/CLAUDE.md mục 2.`);

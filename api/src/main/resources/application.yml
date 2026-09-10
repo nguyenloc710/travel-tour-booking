@@ -61,6 +61,27 @@ travel:
     # hai giá trị trùng nhau, nên lỗi này ẩn hoàn toàn cho tới lúc triển khai.
     public-base-url: ${STORAGE_PUBLIC_BASE_URL:http://localhost:9000/travel-media}
 
+    # HAI địa chỉ, không phải một — docs/15 mục 2, ADR-011 mục 4.
+    #
+    #   endpoint-public   dùng để KÝ url tải lên. Chữ ký SigV4 bao gồm cả host,
+    #                     nên ký bằng địa chỉ nội bộ thì trình duyệt nhận 403 và
+    #                     không nói vì sao.
+    #   endpoint-internal backend tự gọi kho: tra xem tệp đã lên chưa.
+    #
+    # Ở dev hai giá trị TRÙNG NHAU vì API chạy thẳng trên máy. Vẫn khai riêng để
+    # chỗ dễ sai này lộ ra ở dev chứ không đợi tới lúc triển khai.
+    endpoint-public: ${TRAVEL_STORAGE_ENDPOINT_PUBLIC:http://localhost:9000}
+    endpoint-internal: ${TRAVEL_STORAGE_ENDPOINT_INTERNAL:http://localhost:9000}
+
+    # Khớp compose.yaml của dev. Bản chạy thật lấy từ bí mật của docs/34 mục 3.1.
+    bucket: ${TRAVEL_STORAGE_BUCKET:travel-media}
+    access-key: ${TRAVEL_STORAGE_ACCESS_KEY:travel}
+    secret-key: ${TRAVEL_STORAGE_SECRET_KEY:travel-dev-secret}
+
+    # Đủ để chọn tệp, xem trước rồi bấm tải lên; chưa đủ để một URL rò ra ngoài
+    # còn dùng được ngày hôm sau.
+    upload-url-ttl: PT10M
+
 # Swagger UI: http://localhost:8080/swagger-ui.html
 # Spec sinh từ code: http://localhost:8080/v3/api-docs
 #

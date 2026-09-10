@@ -371,6 +371,47 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/{market}/products/{slug}/stops:
+    get:
+      tags: [products]
+      operationId: getProductStops
+      summary: Các chặng dừng của lộ trình, kèm ảnh và video từng chặng
+      description: |
+        Khối "bản đồ lộ trình" ở tab Tổng quan — `docs/05` mục 6.1 vẽ nó là
+        `[bản đồ lộ trình]  Nơi đến | Số đêm | Điểm nhấn`.
+
+        **Dựng từ lịch trình, không phải một danh sách nhập riêng.** Mỗi điểm đến
+        xuất hiện **một lần**, với số đêm bằng số ngày lịch trình ngủ ở đó và danh
+        sách những ngày ấy. Cho biên tập viên nhập lại danh sách chặng là mời hai
+        nguồn sự thật về cùng một lộ trình, và chỗ chúng lệch nhau sẽ là chỗ khách
+        đọc.
+
+        Ảnh và video của mỗi chặng là **của điểm đến**, không của sản phẩm: cùng
+        một Sa Pa xuất hiện trong nhiều tour, và chụp lại ảnh cho từng tour là
+        nhân bản cả tệp lẫn chứng từ giấy phép.
+
+        Endpoint riêng chứ không nhồi vào `/itinerary`: hai khối này ở hai tab
+        khác nhau, và tab Tổng quan không nên tải mô tả của mười lăm ngày để vẽ
+        một danh sách năm dòng. `404` với `COMBO` và `DAY_TOUR`, cùng lý do với
+        `/itinerary`.
+      parameters:
+        - $ref: '#/components/parameters/Market'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Các chặng, theo thứ tự xuất hiện trong lịch trình
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProductStop' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /api/v1/{market}/products/{slug}/itinerary:
     get:
       tags: [products]
@@ -572,7 +613,7 @@ paths:
   /api/v1/admin/session:
     post:
       tags: [admin]
-      operationId: dangNhap
+      operationId: createSession
       summary: Đăng nhập
       description: |
         Trả về cookie phiên `HttpOnly` + `SameSite=Lax` (`docs/13` mục 10).
@@ -595,7 +636,7 @@ paths:
           $ref: '#/components/responses/Error'
     delete:
       tags: [admin]
-      operationId: dangXuat
+      operationId: deleteSession
       summary: Đăng xuất
       responses:
         '204':
@@ -604,7 +645,7 @@ paths:
   /api/v1/admin/me:
     get:
       tags: [admin]
-      operationId: hoSoNhanVien
+      operationId: getStaffProfile
       summary: Người đang đăng nhập và vai trò của họ
       responses:
         '200':
@@ -619,7 +660,7 @@ paths:
   /api/v1/admin/products/{id}/translations:
     get:
       tags: [admin]
-      operationId: danhSachBanDich
+      operationId: listProductTranslations
       summary: Mọi bản dịch của một sản phẩm
       description: |
         Trả **tất cả** locale, kể cả bản chưa xuất bản — màn hình dịch song song
@@ -645,7 +686,7 @@ paths:
   /api/v1/admin/products/{id}/translations/{locale}:
     put:
       tags: [admin]
-      operationId: luuBanDich
+      operationId: saveProductTranslation
       summary: Tạo hoặc sửa một bản dịch
       description: |
         Quyền phụ thuộc **locale đang sửa**, không chỉ phụ thuộc vai trò
@@ -692,7 +733,7 @@ paths:
   /api/v1/admin/products:
     get:
       tags: [admin]
-      operationId: danhSachSanPhamQuanTri
+      operationId: listAdminProducts
       summary: Danh sách sản phẩm, nhìn từ trang quản trị
       description: |
         Khác `GET /api/v1/{market}/products` ở bốn điểm (`docs/22` mục 1), và cả
@@ -749,7 +790,7 @@ paths:
 
     post:
       tags: [admin]
-      operationId: taoSanPham
+      operationId: createProduct
       summary: Tạo sản phẩm — phần chung, phần riêng của loại, và bản dịch nguồn
       description: |
         **Một lời gọi tạo ba thứ trong một transaction**: dòng `product`, dòng
@@ -792,7 +833,7 @@ paths:
   /api/v1/admin/translations/queue:
     get:
       tags: [admin]
-      operationId: hangDoiDich
+      operationId: listTranslationQueue
       summary: Việc dịch đang chờ, sắp theo tác động doanh thu
       description: |
         Bản ghi có bản ngôn ngữ nguồn `PUBLISHED` nhưng bản đích **thiếu** hoặc
@@ -829,7 +870,7 @@ paths:
   /api/v1/admin/translations/coverage:
     get:
       tags: [admin]
-      operationId: doPhuDich
+      operationId: getTranslationCoverage
       summary: Độ phủ dịch theo loại thực thể
       description: |
         Hai con số cho mỗi dòng: **đã dịch** và **còn hạn** (`docs/22` mục 4.3).
@@ -865,7 +906,7 @@ paths:
   /api/v1/admin/destinations:
     get:
       tags: [admin]
-      operationId: danhSachDiemDenQuanTri
+      operationId: listAdminDestinations
       summary: Điểm đến, để chọn khi tạo sản phẩm
       description: |
         Bề mặt công khai trả `slug` vì URL của khách dùng slug (`docs/13` mục 4).
@@ -890,7 +931,7 @@ paths:
   /api/v1/admin/products/{id}:
     get:
       tags: [admin]
-      operationId: chiTietSanPhamQuanTri
+      operationId: getAdminProduct
       summary: Một sản phẩm, đủ mọi bản dịch và mọi thị trường
       parameters:
         - $ref: '#/components/parameters/AdminId'
@@ -909,7 +950,7 @@ paths:
           $ref: '#/components/responses/Error'
     patch:
       tags: [admin]
-      operationId: suaSanPham
+      operationId: updateProduct
       summary: Sửa phần chung và phần riêng của loại
       description: |
         **Không đổi được `productType`.** Mỗi loại một bảng con, đổi loại là mất
@@ -944,7 +985,7 @@ paths:
           $ref: '#/components/responses/Error'
     delete:
       tags: [admin]
-      operationId: xoaSanPham
+      operationId: deleteProduct
       summary: Xoá mềm sản phẩm và cả chùm dữ liệu của nó
       description: |
         **Xoá mềm, không xoá cứng** (`docs/22` mục 7). Xoá nhầm một tour đang bán
@@ -975,7 +1016,7 @@ paths:
   /api/v1/admin/products/{id}/markets/{market}:
     put:
       tags: [admin]
-      operationId: ganThiTruong
+      operationId: setProductMarket
       summary: Gán sản phẩm vào một thị trường, và bật hoặc tắt bán
       description: |
         **Chỉ `ADMIN`** (`docs/22` mục 2.1). Đây là công tắc "bắt đầu bán được"
@@ -1039,7 +1080,7 @@ paths:
   /api/v1/admin/products/{id}/price-tiers:
     put:
       tags: [admin]
-      operationId: luuBacGia
+      operationId: savePriceTiers
       summary: Thay toàn bộ bậc giá của một thị trường
       description: |
         Chỉ `PRIVATE_TOUR` (`docs/14` mục 4). Thay **toàn bộ** bậc giá của thị
@@ -1092,10 +1133,112 @@ paths:
         '404':
           $ref: '#/components/responses/Error'
 
+  /api/v1/admin/products/{id}/itinerary:
+    get:
+      tags: [admin]
+      operationId: getAdminItinerary
+      summary: Lịch trình từng ngày, kèm **mọi** bản dịch
+      description: |
+        Khác `GET /api/v1/{market}/products/{slug}/itinerary` ở đúng chỗ mọi bề
+        mặt quản trị khác: trả **tất cả** locale cạnh nhau, không trả một bản
+        theo `Accept-Language`. Người dịch cần nhìn hai bản một lúc.
+
+        `404` với `COMBO` và `DAY_TOUR` — hai loại đó không có lịch trình theo
+        ngày, cùng lý do và cùng mã với bề mặt công khai.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '200':
+          description: Lịch trình, sắp theo `dayNumber`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminItinerary' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+    put:
+      tags: [admin]
+      operationId: saveItinerary
+      summary: Thay **toàn bộ** lịch trình, kèm bản ngôn ngữ nguồn
+      description: |
+        `PUT` thay sạch, không `POST` từng ngày. Lịch trình là **một mảng có
+        ràng buộc giữa các phần tử** — số ngày phải bằng `durationDays`, và
+        `dayNumber` phải liền mạch từ 1. Luật đó chỉ kiểm được khi nhìn cả mảng,
+        nên nhận cả mảng. Cùng khuôn với `price-tiers`, `prices` và `roles`.
+
+        Ngày biến mất khỏi mảng bị **xoá mềm**, không xoá cứng: index duy nhất
+        `ux_itinerary_day` là index bộ phận đúng để việc bỏ một ngày rồi thêm
+        lại ngày khác cùng số là thao tác biên tập bình thường (`docs/12` mục
+        2.2). Ngày còn trong mảng thì giữ nguyên `id` — bản dịch treo vào id đó.
+
+        Thân yêu cầu mang luôn **bản ngôn ngữ nguồn** (`da`, ADR-004), cùng lý
+        do với `POST /admin/products`: một ngày lịch trình không có tiêu đề thì
+        không phải một ngày lịch trình. Bản `vi` đặt sau bằng endpoint bên dưới.
+
+        Ba luật liên trường, cả ba trả `400 VALIDATION_FAILED` kèm `fields` chỉ
+        đúng ô: số ngày lệch `durationDays`, `dayNumber` trùng hoặc thủng, và
+        `destinationId`/`hotelId` trỏ vào thứ không tồn tại.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminItinerarySave' }
+      responses:
+        '200':
+          description: Lịch trình sau khi lưu
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminItinerary' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/products/{id}/itinerary/translations/{locale}:
+    put:
+      tags: [admin]
+      operationId: saveItineraryTranslation
+      summary: Dịch lịch trình sang một ngôn ngữ
+      description: |
+        Chỉ đụng tới chữ. **Không** tạo, không xoá, không đổi thứ tự ngày —
+        cấu trúc là việc của `PUT /itinerary`, và người dịch không được đổi nó.
+
+        `dayNumber` gửi lên phải khớp **đúng** tập ngày đang có. Thiếu một ngày
+        hay thừa một ngày đều là `400`: dịch nửa chừng rồi lưu sẽ để lại một
+        lịch trình mà locale này thấy thủng ngày, còn locale kia thì không.
+
+        Quyền phụ thuộc locale, cùng ma trận với bản dịch sản phẩm (`docs/22`
+        mục 2.1): `EDITOR` ghi bản `da`, `TRANSLATOR` ghi bản `vi`, `ADMIN` ghi
+        cả hai.
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: locale
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [da, vi]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminItineraryTranslationSave' }
+      responses:
+        '200':
+          description: Lịch trình sau khi lưu bản dịch
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminItinerary' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /api/v1/admin/products/{id}/departures:
     get:
       tags: [admin]
-      operationId: danhSachNgayKhoiHanhQuanTri
+      operationId: listAdminDepartures
       summary: Ngày khởi hành của một sản phẩm, cả hai thị trường
       description: |
         Khác `GET /{market}/products/{slug}/departures` ở hai điểm: không giới hạn
@@ -1125,7 +1268,7 @@ paths:
           $ref: '#/components/responses/Error'
     post:
       tags: [admin]
-      operationId: taoNgayKhoiHanh
+      operationId: createDeparture
       summary: Tạo một ngày khởi hành
       description: |
         `returnDate` **không nhận từ client**: nó là `departDate + days - 1`, và
@@ -1158,7 +1301,7 @@ paths:
   /api/v1/admin/products/{id}/departures/copy:
     post:
       tags: [admin]
-      operationId: nhanBanLichKhoiHanh
+      operationId: copyDepartures
       summary: Nhân bản lịch khởi hành sang thị trường kia
       description: |
         Một sản phẩm bán ở cả hai thị trường có **hai bộ** `departure` (ADR-006).
@@ -1200,7 +1343,7 @@ paths:
   /api/v1/admin/departures/{id}:
     patch:
       tags: [admin]
-      operationId: suaNgayKhoiHanh
+      operationId: updateDeparture
       summary: Sửa hoặc đóng bán một ngày khởi hành
       description: |
         Đóng bán là `baseStatus`, không phải xoá — `docs/22` M4.
@@ -1240,7 +1383,7 @@ paths:
   /api/v1/admin/departures/{id}/prices:
     put:
       tags: [admin]
-      operationId: luuGiaNgayKhoiHanh
+      operationId: saveDeparturePrices
       summary: Thay toàn bộ bảng giá của một ngày khởi hành
       description: |
         Ma trận **loại khách × kiểu phòng** (`docs/22` M5). Thay toàn bộ, không
@@ -1302,7 +1445,7 @@ paths:
   /api/v1/admin/bookings:
     get:
       tags: [admin]
-      operationId: danhSachDon
+      operationId: listBookings
       summary: Danh sách đơn đặt, nhìn từ trang quản trị
       description: |
         Màn hình M6 của `docs/22`. Đơn về rồi thì phải có chỗ để nhìn — đây là
@@ -1380,7 +1523,7 @@ paths:
   /api/v1/admin/bookings/{reference}:
     get:
       tags: [admin]
-      operationId: chiTietDon
+      operationId: getAdminBooking
       summary: Một đơn — phân rã giá, hành khách, và toàn bộ nhật ký
       description: |
         Màn hình M7 của `docs/22`. Ba khối, và khối thứ ba là lý do màn hình này
@@ -1423,7 +1566,7 @@ paths:
   /api/v1/admin/bookings/{reference}/status:
     post:
       tags: [admin]
-      operationId: doiTrangThaiDon
+      operationId: changeBookingStatus
       summary: Nhân viên đổi trạng thái một đơn
       description: |
         Đường **ghi** của M7. Máy trạng thái ở `docs/23` mục 4, và ba quy tắc của
@@ -1488,7 +1631,7 @@ paths:
   /api/v1/admin/quotes:
     get:
       tags: [admin]
-      operationId: danhSachBaoGia
+      operationId: listQuotes
       summary: Danh sách báo giá, nhìn từ trang quản trị
       description: |
         Màn hình M8 của `docs/22`. Chỉ `PRIVATE_TOUR` — loại khác không đi qua
@@ -1540,7 +1683,7 @@ paths:
   /api/v1/admin/quotes/{reference}:
     get:
       tags: [admin]
-      operationId: chiTietBaoGia
+      operationId: getQuote
       summary: Một báo giá — yêu cầu của khách và bảng giá đang dựng
       parameters:
         - name: reference
@@ -1565,7 +1708,7 @@ paths:
   /api/v1/admin/quotes/{reference}/lines:
     put:
       tags: [admin]
-      operationId: dungBangGiaBaoGia
+      operationId: saveQuoteLines
       summary: Tư vấn viên dựng bảng giá của một báo giá
       description: |
         `PUT` chứ không `PATCH`: thân yêu cầu là **toàn bộ** bảng giá, và lưu là
@@ -1614,7 +1757,7 @@ paths:
   /api/v1/admin/quotes/{reference}/status:
     post:
       tags: [admin]
-      operationId: doiTrangThaiBaoGia
+      operationId: changeQuoteStatus
       summary: Gửi báo giá, hoặc ghi nhận khách đã trả lời
       description: |
         Máy trạng thái ở `docs/14` mục 7:
@@ -1670,7 +1813,7 @@ paths:
   /api/v1/admin/destinations/{id}:
     get:
       tags: [admin]
-      operationId: chiTietDiemDenQuanTri
+      operationId: getAdminDestination
       summary: Một điểm đến, kèm mọi bản dịch
       parameters: [{ $ref: '#/components/parameters/AdminId' }]
       responses:
@@ -1684,7 +1827,7 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
     patch:
       tags: [admin]
-      operationId: suaDiemDen
+      operationId: updateDestination
       summary: Sửa phần không phụ thuộc ngôn ngữ của một điểm đến
       description: |
         `code` **không có ở đây**: nó là định danh nội bộ mà dữ liệu mồi, tài
@@ -1708,7 +1851,7 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
     delete:
       tags: [admin]
-      operationId: xoaDiemDen
+      operationId: deleteDestination
       summary: Xoá mềm một điểm đến
       description: |
         **Xoá mềm** — `soft_delete = TRUE`, không `DELETE` thật (`docs/22` mục 7).
@@ -1729,7 +1872,7 @@ paths:
   /api/v1/admin/destinations/{id}/translations/{locale}:
     put:
       tags: [admin]
-      operationId: luuBanDichDiemDen
+      operationId: saveDestinationTranslation
       summary: Lưu bản dịch của một điểm đến
       description: |
         Quyền phụ thuộc **cả vai trò lẫn locale**: `EDITOR` sửa bản nguồn,
@@ -1761,7 +1904,7 @@ paths:
   /api/v1/admin/posts:
     get:
       tags: [admin]
-      operationId: danhSachBaiViet
+      operationId: listAdminPosts
       summary: Danh sách bài viết, mọi trạng thái và mọi ngôn ngữ
       parameters:
         - name: q
@@ -1784,7 +1927,7 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
     post:
       tags: [admin]
-      operationId: taoBaiViet
+      operationId: createPost
       summary: Tạo một bài viết
       description: |
         Thân yêu cầu mang **luôn bản ngôn ngữ nguồn**, cùng khuôn với
@@ -1808,7 +1951,7 @@ paths:
   /api/v1/admin/posts/{id}:
     get:
       tags: [admin]
-      operationId: chiTietBaiViet
+      operationId: getAdminPost
       summary: Một bài viết, kèm mọi bản dịch
       parameters: [{ $ref: '#/components/parameters/AdminId' }]
       responses:
@@ -1822,7 +1965,7 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
     patch:
       tags: [admin]
-      operationId: suaBaiViet
+      operationId: updatePost
       summary: Sửa phần không phụ thuộc ngôn ngữ của một bài viết
       description: |
         **Thẻ không sửa ở đây** — nó có endpoint riêng, `PUT .../tags`.
@@ -1851,7 +1994,7 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
     delete:
       tags: [admin]
-      operationId: xoaBaiViet
+      operationId: deletePost
       summary: Xoá mềm một bài viết
       parameters: [{ $ref: '#/components/parameters/AdminId' }]
       responses:
@@ -1864,7 +2007,7 @@ paths:
   /api/v1/admin/posts/{id}/tags:
     put:
       tags: [admin]
-      operationId: datTheChoBaiViet
+      operationId: setPostTags
       summary: Thay toàn bộ tập thẻ của một bài viết
       parameters: [{ $ref: '#/components/parameters/AdminId' }]
       requestBody:
@@ -1886,7 +2029,7 @@ paths:
   /api/v1/admin/posts/{id}/translations/{locale}:
     put:
       tags: [admin]
-      operationId: luuBanDichBaiViet
+      operationId: savePostTranslation
       summary: Lưu bản dịch của một bài viết
       description: |
         Cùng luật quyền với bản dịch sản phẩm và điểm đến.
@@ -1919,7 +2062,7 @@ paths:
   /api/v1/admin/lectures:
     get:
       tags: [admin]
-      operationId: danhSachSuKienQuanTri
+      operationId: listAdminLectures
       summary: Danh sách buổi thuyết trình, gồm cả buổi đã diễn ra
       description: |
         Khác bề mặt khách ở một điểm quan trọng: **trả cả buổi đã qua**. Bề mặt
@@ -1942,7 +2085,7 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
     post:
       tags: [admin]
-      operationId: taoSuKien
+      operationId: createLecture
       summary: Tạo một buổi thuyết trình
       requestBody:
         required: true
@@ -1962,7 +2105,7 @@ paths:
   /api/v1/admin/lectures/{id}:
     get:
       tags: [admin]
-      operationId: chiTietSuKien
+      operationId: getAdminLecture
       summary: Một buổi thuyết trình, kèm mọi bản dịch
       parameters: [{ $ref: '#/components/parameters/AdminId' }]
       responses:
@@ -1976,7 +2119,7 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
     patch:
       tags: [admin]
-      operationId: suaSuKien
+      operationId: updateLecture
       summary: Sửa phần không phụ thuộc ngôn ngữ của một buổi thuyết trình
       description: |
         Hạ `seats` xuống dưới số người đã đăng ký trả `409 CAPACITY_BELOW_BOOKED`
@@ -2001,7 +2144,7 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
     delete:
       tags: [admin]
-      operationId: xoaSuKien
+      operationId: deleteLecture
       summary: Xoá mềm một buổi thuyết trình
       parameters: [{ $ref: '#/components/parameters/AdminId' }]
       responses:
@@ -2014,7 +2157,7 @@ paths:
   /api/v1/admin/lectures/{id}/translations/{locale}:
     put:
       tags: [admin]
-      operationId: luuBanDichSuKien
+      operationId: saveLectureTranslation
       summary: Lưu bản dịch của một buổi thuyết trình
       parameters:
         - $ref: '#/components/parameters/AdminId'
@@ -2041,7 +2184,7 @@ paths:
   /api/v1/admin/tags:
     get:
       tags: [admin]
-      operationId: danhSachThe
+      operationId: listTags
       summary: Thẻ, để chọn khi gán cho bài viết
       description: |
         Cùng vai trò với `GET /admin/destinations`: danh sách để chọn trong một
@@ -2060,7 +2203,7 @@ paths:
   /api/v1/admin/users:
     get:
       tags: [admin]
-      operationId: danhSachNguoiDung
+      operationId: listUsers
       summary: Người dùng và vai trò của họ
       description: |
         Màn hình M14 của `docs/22` — **chỉ `ADMIN`** (ma trận mục 2.1).
@@ -2081,7 +2224,7 @@ paths:
   /api/v1/admin/users/{id}:
     patch:
       tags: [admin]
-      operationId: suaNguoiDung
+      operationId: updateUser
       summary: Bật hoặc tắt một tài khoản, đổi tên hiển thị
       description: |
         **Tắt tài khoản chứ không xoá.** Người nghỉ việc vẫn đứng tên trong
@@ -2112,7 +2255,7 @@ paths:
   /api/v1/admin/users/{id}/roles:
     put:
       tags: [admin]
-      operationId: datVaiTro
+      operationId: setUserRoles
       summary: Thay toàn bộ tập vai trò của một người dùng
       description: |
         `PUT` thay sạch, không `POST` thêm từng cái: vai trò là một **tập**, và
@@ -2139,10 +2282,209 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
+  /api/v1/admin/destinations/{id}/media:
+    get:
+      tags: [admin]
+      operationId: getDestinationMedia
+      summary: Ảnh và video của một điểm đến, theo thứ tự
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '200':
+          description: Danh sách theo `sort_order`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMediaList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+    put:
+      tags: [admin]
+      operationId: saveDestinationMedia
+      summary: Thay **toàn bộ** danh sách ảnh và video của điểm đến
+      description: |
+        `PUT` thay sạch, cùng khuôn với `price-tiers`, `tags` và `roles`: thứ tự
+        là một thuộc tính của **cả danh sách**, nên sửa từng phần tử không diễn
+        đạt được "đổi chỗ hai tấm".
+
+        Gỡ một tệp khỏi đây **không xoá tệp**, chỉ xoá dòng nối — chứng từ giấy
+        phép của nó ở lại (`docs/12` mục 4.6). Tệp cùng lúc dùng ở nhiều nơi là
+        chuyện bình thường.
+
+        `assetId` trỏ vào tệp không tồn tại, hoặc trùng nhau trong cùng một mảng,
+        đều là `400 VALIDATION_FAILED` chỉ đúng phần tử sai.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaOrder' }
+      responses:
+        '200':
+          description: Danh sách sau khi lưu
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMediaList' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/products/{id}/images:
+    get:
+      tags: [admin]
+      operationId: getProductImages
+      summary: Bộ ảnh của một sản phẩm, theo thứ tự
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      responses:
+        '200':
+          description: Danh sách theo `sort_order`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMediaList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+    put:
+      tags: [admin]
+      operationId: saveProductImages
+      summary: Thay **toàn bộ** bộ ảnh của sản phẩm
+      description: |
+        Cùng khuôn với `media` của điểm đến. Khác một luật: bộ ảnh sản phẩm
+        **chỉ nhận `IMAGE`** — bảng nối là `product_image` và nó vẫn đúng tên.
+        Gửi một `VIDEO` vào đây là `400` chỉ đúng phần tử đó.
+
+        Thứ tự ở đây là thứ tự khách thấy trong bộ ảnh ở trang chi tiết. Ảnh
+        **không có `alt` ở locale nào thì biến mất khỏi locale đó** — nó vẫn nằm
+        trong danh sách này, chỉ là không tới được mắt khách đọc thứ tiếng ấy.
+      parameters: [{ $ref: '#/components/parameters/AdminId' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaOrder' }
+      responses:
+        '200':
+          description: Bộ ảnh sau khi lưu
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMediaList' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/media/upload-url:
+    post:
+      tags: [admin]
+      operationId: createMediaUploadUrl
+      summary: Xin URL đã ký để tải một tệp lên kho ảnh
+      description: |
+        **Backend không nhận byte.** Nó ký một URL có hạn, trình duyệt `PUT`
+        thẳng tệp lên kho, rồi gọi `POST /api/v1/admin/media` để ghi bản ghi —
+        ADR-011 mục 4. Đẩy tệp qua backend nghĩa là một tour 40 ảnh đi qua bộ nhớ
+        của API hai lần, và tiến trình Java là chỗ đắt nhất để làm việc đó.
+
+        **`path` do máy chủ đặt, không nhận từ client.** Tên tệp khách gửi lên
+        chỉ dùng để lấy phần đuôi; đường dẫn thật là `<thư mục>/<uuid>.<đuôi>`.
+        Cho client chọn đường dẫn là cho nó ghi đè ảnh của bản ghi khác.
+
+        URL ký bằng **địa chỉ công khai** của kho chứ không phải địa chỉ nội bộ:
+        chữ ký SigV4 bao gồm cả host, nên ký sai host thì trình duyệt nhận `403`
+        mà không nói vì sao (`docs/15` mục 2).
+
+        Ký xong mà không ai tải lên thì **không có gì được tạo** — không dòng
+        `media_asset` nào, không tệp nào. Tệp tải lên mà không gọi bước hai là
+        tệp mồ côi, dọn theo ADR-011 mục 6 việc 6.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaUploadUrlRequest' }
+      responses:
+        '200':
+          description: URL đã ký, dùng được tới `expiresAt`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaUploadUrl' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/media:
+    post:
+      tags: [admin]
+      operationId: createMedia
+      summary: Ghi bản ghi ảnh sau khi tệp đã lên kho
+      description: |
+        Bước hai của luồng tải lên. Gọi sau khi `PUT` vào `uploadUrl` trả về
+        `2xx`.
+
+        **Chứng từ giấy phép là bắt buộc với ảnh không tự chụp.** `source` khác
+        `SELF` mà thiếu `licenceRef` thì `400 VALIDATION_FAILED` chỉ đúng ô
+        `licenceRef` — ràng buộc `ck_media_licence` của CSDL cũng nói y như vậy,
+        và ảnh tạm là thứ ở lại lâu nhất (`docs/24` mục 8).
+
+        **`alt` nhập bằng ngôn ngữ nguồn** (`da`, ADR-004). Bản `vi` đặt sau
+        bằng `PUT /api/v1/admin/media/{id}/translations/{locale}`, và tới lúc đó
+        ảnh mới hiện ở trang tiếng Việt: ảnh thiếu `alt` ở locale nào thì **biến
+        mất** ở locale đó, đúng luật không fallback cho nội dung bán hàng.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminMediaCreate' }
+      responses:
+        '201':
+          description: Ảnh vừa ghi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMedia' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
+  /api/v1/admin/media/{id}/translations/{locale}:
+    put:
+      tags: [admin]
+      operationId: saveMediaTranslation
+      summary: Đặt chữ thay ảnh cho một ngôn ngữ
+      description: |
+        Quyền phụ thuộc **locale đang sửa**, cùng ma trận với bản dịch sản phẩm
+        (`docs/22` mục 2.1): `EDITOR` ghi bản `da`, `TRANSLATOR` ghi bản `vi`,
+        `ADMIN` ghi cả hai.
+
+        `alt` là **nội dung phải dịch**, không phải siêu dữ liệu kỹ thuật — nó là
+        thứ người khiếm thị đọc thay cho ảnh (`docs/24` mục 6).
+      parameters:
+        - $ref: '#/components/parameters/AdminId'
+        - name: locale
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [da, vi]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminMediaTranslationInput' }
+      responses:
+        '200':
+          description: Ảnh sau khi đặt chữ thay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMedia' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /api/v1/{market}/pricing/preview:
     post:
       tags: [booking]
-      operationId: xemTruocGia
+      operationId: previewPricing
       summary: Tính giá, không lưu gì
       description: |
         **Không có tác dụng phụ nào.** Màn hình đặt tour gọi endpoint này mỗi lần
@@ -2187,7 +2529,7 @@ paths:
   /api/v1/{market}/seat-holds:
     post:
       tags: [booking]
-      operationId: giuCho
+      operationId: createSeatHold
       summary: Giữ chỗ có hạn
       description: |
         Tạo ngay khi khách chọn xong ngày khởi hành, **không phải ở bước cuối**
@@ -2223,7 +2565,7 @@ paths:
   /api/v1/{market}/seat-holds/{id}:
     delete:
       tags: [booking]
-      operationId: boGiuCho
+      operationId: releaseSeatHold
       summary: Trả chỗ về kho khi khách quay lại bước trước
       parameters:
         - $ref: '#/components/parameters/Market'
@@ -2243,7 +2585,7 @@ paths:
   /api/v1/{market}/bookings:
     post:
       tags: [booking]
-      operationId: datTour
+      operationId: createBooking
       summary: Tạo đơn đặt
       description: |
         Loại sản phẩm có tồn kho thì **bắt buộc** có `seatHoldId` còn hạn; giữ
@@ -2280,7 +2622,7 @@ paths:
   /api/v1/{market}/bookings/{reference}:
     get:
       tags: [booking]
-      operationId: traDon
+      operationId: getBooking
       summary: Tra đơn bằng mã và email
       description: |
         Không có đăng nhập cho khách ở v1, nên tra đơn cần **mã + email khớp**.
@@ -2315,7 +2657,7 @@ paths:
   /api/v1/{market}/quote-requests:
     post:
       tags: [booking]
-      operationId: guiYeuCauBaoGia
+      operationId: createQuoteRequest
       summary: Khách gửi yêu cầu báo giá cho một tour riêng
       description: |
         Chỉ `PRIVATE_TOUR` (`docs/04`). Loại khác đặt thẳng được nên không đi qua
@@ -4287,16 +4629,436 @@ components:
           maxLength: 3
           example: DKK
 
+    AdminItinerary:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/AdminItineraryDay' }
+          description: |
+            Sắp theo `dayNumber`. **Có thể rỗng** — sản phẩm chưa nhập lịch trình
+            là trạng thái hợp lệ, và màn hình phải dựng được khi rỗng.
+
+    AdminItineraryDay:
+      type: object
+      required: [dayNumber, translations]
+      properties:
+        dayNumber: { type: integer, format: int32, minimum: 1 }
+        destinationId:
+          type: string
+          format: uuid
+          description: |
+            Nơi **ngủ đêm**. Vắng mặt với ngày bay hoặc ngày trên tàu — đó là
+            trạng thái hợp lệ, không phải dữ liệu thiếu.
+        destinationName:
+          type: string
+          description: Tên ở **ngôn ngữ nguồn**, trả sẵn để bảng đọc được mà không phải tra thêm.
+        hotelId: { type: string, format: uuid }
+        hotelName:
+          type: string
+          description: Tên riêng, **không dịch** — `docs/24` mục 5.
+        translations:
+          type: array
+          items: { $ref: '#/components/schemas/AdminItineraryDayText' }
+          description: |
+            Mọi locale đang có chữ cho ngày này. Locale vắng mặt nghĩa là ngày
+            này **chưa dịch** sang đó, và cả lịch trình sẽ không hiện ở locale
+            ấy — bề mặt công khai `INNER JOIN` bảng dịch.
+
+    AdminItineraryDayText:
+      type: object
+      required: [locale, title, description, isSource]
+      properties:
+        locale: { type: string }
+        title: { type: string }
+        description: { type: string }
+        isSource:
+          type: boolean
+          description: Bản này có phải ngôn ngữ nguồn không — ADR-004.
+
+    AdminItinerarySave:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/AdminItineraryDayInput' }
+          description: |
+            **Toàn bộ** lịch trình. Ngày không có trong mảng này bị xoá mềm.
+
+    AdminItineraryDayInput:
+      type: object
+      required: [dayNumber, title, description]
+      properties:
+        dayNumber: { type: integer, format: int32, minimum: 1, maximum: 60 }
+        destinationId: { type: string, format: uuid }
+        hotelId: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1 }
+
+    AdminItineraryTranslationSave:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/AdminItineraryDayTranslationInput' }
+
+    AdminItineraryDayTranslationInput:
+      type: object
+      required: [dayNumber, title, description]
+      properties:
+        dayNumber: { type: integer, format: int32, minimum: 1, maximum: 60 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, minLength: 1 }
+
+    MediaKind:
+      type: string
+      description: |
+        Loại tệp trong kho. Ảnh bìa của một video cũng là một bản ghi `IMAGE`
+        riêng — nó có giấy phép và `alt` của chính nó.
+      enum: [IMAGE, VIDEO]
+
+    MediaItem:
+      type: object
+      description: |
+        Một tấm ảnh hoặc một video, nhìn từ bề mặt khách.
+        
+        Khác `GalleryImage` ở chỗ nó mang được cả video. `GalleryImage` giữ nguyên
+        cho bộ ảnh sản phẩm — bộ đó hôm nay chỉ có ảnh, và đổi kiểu của nó là đổi
+        phá vỡ tương thích cho một thứ chưa cần.
+      required: [kind, url, alt, width, height]
+      properties:
+        kind: { $ref: '#/components/schemas/MediaKind' }
+        url: { type: string }
+        alt:
+          type: string
+          description: |
+            Theo locale ở `Accept-Language`. Tệp **không có `alt` ở locale đang
+            đọc thì không xuất hiện** — luật không fallback, `CLAUDE.md` quy tắc 3.
+        width: { type: integer, format: int32 }
+        height: { type: integer, format: int32 }
+        contentType: { type: string, description: Chỉ có ở `VIDEO`. }
+        durationSeconds: { type: integer, format: int32, description: Chỉ có ở `VIDEO`. }
+        posterUrl:
+          type: string
+          description: |
+            Ảnh bìa của video. Luôn có với `VIDEO` — `ck_media_video` bắt buộc nó
+            ở tầng CSDL.
+
+    ProductStop:
+      type: object
+      description: |
+        Một chặng dừng của lộ trình — khối "bản đồ lộ trình" ở tab Tổng quan
+        (`docs/05` mục 6.1).
+
+        **Dựng từ lịch trình, không nhập riêng.** Nhập hai lần là hai chỗ lệch
+        nhau, và chỗ lệch sẽ là chỗ khách đọc.
+      required: [destination, nights, dayNumbers, media]
+      properties:
+        destination: { $ref: '#/components/schemas/Ref' }
+        nights:
+          type: integer
+          format: int32
+          description: Số đêm ngủ ở chặng này — đếm số ngày lịch trình trỏ vào điểm đến đó.
+        dayNumbers:
+          type: array
+          items: { type: integer, format: int32 }
+          description: Những ngày ứng với chặng này, để khách đối chiếu với tab Lịch trình.
+        media:
+          type: array
+          items: { $ref: '#/components/schemas/MediaItem' }
+          description: |
+            Ảnh và video của điểm đến, theo thứ tự biên tập viên đã sắp. **Có thể
+            rỗng** — chặng chưa có ảnh vẫn phải hiện ra.
+
+    MediaOrder:
+      type: object
+      description: |
+        Danh sách tệp theo **thứ tự**, thay toàn bộ. Thứ tự trong mảng chính là
+        `sort_order`; không có trường thứ tự riêng để không ai phải giữ hai nguồn
+        sự thật cho cùng một việc.
+      required: [assetIds]
+      properties:
+        assetIds:
+          type: array
+          items: { type: string, format: uuid }
+          maxItems: 40
+
+    AdminMediaList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AdminMedia' }
+
+    MediaSource:
+      type: string
+      description: |
+        Ảnh từ đâu ra. Quyết định chứng từ giấy phép có bắt buộc hay không —
+        `docs/24` mục 8, ràng buộc `ck_media_licence`.
+      enum: [SELF, PARTNER, PURCHASED, CUSTOMER]
+
+    MediaUploadUrlRequest:
+      type: object
+      required: [fileName, contentType, byteSize]
+      properties:
+        fileName:
+          type: string
+          maxLength: 260
+          description: |
+            Chỉ dùng để lấy **phần đuôi**. Đường dẫn thật do máy chủ đặt.
+        contentType:
+          type: string
+          description: |
+            Danh mục đóng, và cố ý hẹp. Kho ảnh mở quyền đọc ẩn danh để
+            `next/image` tải được, nên mọi thứ tải lên đó là **tệp công khai** —
+            danh sách này là thứ ngăn nó thành nơi chứa tệp bất kỳ.
+          enum: [image/jpeg, image/png, image/webp, image/avif, video/mp4, video/webm]
+        byteSize:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 209715200
+          description: |
+            Trần ở đây là trần **chung** (200 MB). Trần thật phụ thuộc loại tệp và
+            máy chủ kiểm riêng: **10 MB cho ảnh, 200 MB cho video**. Vượt trần thì
+            `400 VALIDATION_FAILED` chỉ đúng ô `byteSize`, kèm `max` là trần của
+            đúng loại đang tải.
+
+            Hai trần chứ không một, vì ký một URL là hứa nhận từng ấy byte vào
+            đĩa VPS và không có ai đứng giữa để dừng lại giữa chừng — mà một ảnh
+            10 MB thì đã là ảnh chưa ai nén, còn một video 10 MB thì chỉ dài vài
+            giây.
+        folder:
+          type: string
+          enum: [tour, diem-den, khach-san, bai-viet]
+          default: tour
+          description: Thư mục đầu trong kho. Chỉ để tệp dễ tìm bằng mắt.
+
+    MediaUploadUrl:
+      type: object
+      required: [uploadUrl, path, expiresAt]
+      properties:
+        uploadUrl:
+          type: string
+          description: |
+            `PUT` thẳng tệp vào đây, kèm header `Content-Type` **đúng bằng**
+            `contentType` đã xin. Lệch một chữ là chữ ký không khớp và kho trả
+            `403`.
+        path:
+          type: string
+          description: |
+            Đường dẫn **tương đối** trong bucket. Gửi lại nguyên văn ở bước hai;
+            đây cũng chính là thứ lưu vào `media_asset.path` (ADR-011 mục 2).
+        expiresAt: { type: string, format: date-time }
+
+    AdminMediaCreate:
+      type: object
+      required: [path, width, height, byteSize, source, alt]
+      properties:
+        kind:
+          allOf: [{ $ref: '#/components/schemas/MediaKind' }]
+          default: IMAGE
+        path: { type: string, maxLength: 500 }
+        contentType:
+          type: string
+          maxLength: 64
+          description: |
+            **Bắt buộc với `VIDEO`** — thẻ `<video>` cần nó để chọn bộ giải mã.
+            Ảnh thì bỏ trống được: trình duyệt tự đoán từ byte đầu.
+        durationSeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          description: |
+            **Bắt buộc với `VIDEO`**, và phải rỗng với `IMAGE` — ràng buộc
+            `ck_media_video` cưỡng chế cả hai chiều.
+        posterAssetId:
+          type: string
+          format: uuid
+          description: |
+            Ảnh bìa, **bắt buộc với `VIDEO`**. Phải là một `media_asset` có
+            `kind = IMAGE`; trỏ vào một video khác là `400`.
+
+            Vì sao bắt buộc: thiếu nó thì trình duyệt tải những megabyte đầu của
+            video chỉ để vẽ một khung hình tĩnh, và trên VPS không CDN đó là băng
+            thông trả cho thứ khách chưa bấm xem (`docs/24` mục 7).
+        width: { type: integer, format: int32, minimum: 1 }
+        height: { type: integer, format: int32, minimum: 1 }
+        byteSize: { type: integer, format: int64, minimum: 1 }
+        source: { $ref: '#/components/schemas/MediaSource' }
+        licenceRef:
+          type: string
+          maxLength: 200
+          description: |
+            **Bắt buộc khi `source` khác `SELF`.** Số hợp đồng, đường dẫn tới thư
+            cho phép, hoặc mã đơn mua — thứ tra lại được sau hai năm.
+        licenceScope: { type: string, maxLength: 200 }
+        licenceUntil: { type: string, format: date }
+        personConsent:
+          type: boolean
+          default: false
+          description: Có người nhận diện được trong ảnh và đã đồng ý — `docs/31`.
+        alt:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Chữ thay ảnh, bằng **ngôn ngữ nguồn** `da`.
+
+    AdminMediaTranslationInput:
+      type: object
+      required: [alt]
+      properties:
+        alt: { type: string, minLength: 1, maxLength: 300 }
+
+    AdminMedia:
+      type: object
+      required: [id, kind, path, url, width, height, byteSize, source, translatedLocales]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: '#/components/schemas/MediaKind' }
+        contentType: { type: string }
+        durationSeconds: { type: integer, format: int32 }
+        posterUrl:
+          type: string
+          description: Địa chỉ công khai của ảnh bìa. Chỉ có ở `VIDEO`.
+        path:
+          type: string
+          description: Đường dẫn tương đối, đúng như lưu trong CSDL.
+        url:
+          type: string
+          description: |
+            Địa chỉ công khai đầy đủ, ghép từ `path` và cấu hình kho. Trả sẵn để
+            màn hình quản trị hiện ảnh xem trước mà không phải tự ghép — ghép ở
+            frontend là chép một quy tắc của backend sang chỗ thứ hai.
+        width: { type: integer, format: int32 }
+        height: { type: integer, format: int32 }
+        byteSize: { type: integer, format: int64 }
+        source: { $ref: '#/components/schemas/MediaSource' }
+        licenceRef: { type: string }
+        translatedLocales:
+          type: array
+          items: { type: string }
+          description: |
+            Locale đã có `alt`. Locale **không** nằm ở đây thì ảnh này vô hình
+            trên bản ngôn ngữ đó — màn hình quản trị hiện cảnh báo dựa vào chính
+            trường này.
+
+    ErrorCode:
+      type: string
+      description: |
+        **Danh mục đóng.** Mọi mã lỗi hệ thống này phát ra đều nằm ở đây, và đây
+        là nguồn sự thật cho cả hai phía: backend không viết chuỗi mã ra tay,
+        frontend phải dịch đủ danh sách này — thiếu một mã là lỗi biên dịch chứ
+        không phải một dòng mã lạ hiện ra trước mặt người dùng.
+
+        Bảng đối chiếu mã ↔ HTTP ↔ khi nào xảy ra: `docs/13` mục 5.1.
+
+        Thêm mã mới là **đổi hợp đồng**: sửa ở đây, sinh lại, rồi cả hai phía
+        cùng đỏ cho tới khi được xử lý. Đó là chủ ý.
+      example: NOT_FOUND
+      enum:
+        # 400 — dữ liệu vào
+        - VALIDATION_FAILED
+        - UNSUPPORTED_LOCALE
+        - PRODUCT_TYPE_BLOCK_MISMATCH
+        - DURATION_DAYS_RULE_VIOLATED
+        - CABIN_CATEGORY_NOT_ALLOWED
+        - UNKNOWN_PAX_TYPE
+        - PRICE_TIER_NOT_CONTIGUOUS
+        # 401 · 403 · 404
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        # 409 — hợp lệ, nhưng trạng thái hiện tại không cho
+        - DEPARTURE_SOLD_OUT
+        - SEAT_HOLD_EXPIRED
+        - DEPARTURE_CLOSED
+        - QUOTE_EXPIRED
+        - QUOTE_NOT_ACCEPTABLE
+        - CAPACITY_BELOW_BOOKED
+        - BOOKING_TRANSITION_NOT_ALLOWED
+        - PRODUCT_HAS_ACTIVE_BOOKINGS
+        - SINGLE_PRICE_MISSING
+        - DESTINATION_IN_USE
+        - LAST_ADMIN
+        - IDEMPOTENCY_KEY_REUSED
+        # 422 — yêu cầu này không bao giờ hợp lệ
+        - LEAD_TIME_NOT_MET
+        - PRODUCT_NOT_QUOTABLE
+        - PRODUCT_NOT_BOOKABLE
+        - PARTY_SIZE_OUT_OF_RANGE
+        # 500
+        - INTERNAL_ERROR
+
+    FieldRule:
+      type: string
+      description: |
+        Luật một trường bị vi phạm, đi kèm `FieldError`. Danh mục đóng như
+        `ErrorCode`, và cũng vì cùng một lý do.
+
+        Backend ánh xạ **tường minh** từ annotation Bean Validation sang danh
+        sách này. Ràng buộc chưa có trong bảng ánh xạ rơi về `INVALID` — vẫn nói
+        được trường nào sai, chỉ là chưa có câu riêng. `DecimalMin` và
+        `DecimalMax` gộp vào `MIN` và `MAX`: với người nhập liệu chúng là cùng
+        một chuyện.
+      example: SIZE
+      enum:
+        - NOT_NULL
+        - SIZE
+        - MIN
+        - MAX
+        - PATTERN
+        - INVALID
+
     ErrorResponse:
       type: object
       description: Mã lỗi kèm tham số. Frontend dịch — backend không trả câu tiếng người.
       required: [code]
       properties:
         code:
-          type: string
-          example: NOT_FOUND
+          $ref: '#/components/schemas/ErrorCode'
         params:
           type: object
           additionalProperties: true
+        fields:
+          type: array
+          description: |
+            Chỉ có ở `VALIDATION_FAILED`, và chỉ khi lỗi định vị được tới từng
+            trường (`docs/13` mục 5). Luật liên trường không nằm ở đây — chúng có
+            mã lỗi riêng, ví dụ `DURATION_DAYS_RULE_VIOLATED`.
+
+            Rỗng thì **bỏ hẳn khỏi JSON**, không trả `[]` — quy tắc trường rỗng
+            của `docs/13` mục 4.
+          items:
+            $ref: '#/components/schemas/FieldError'
         traceId:
           type: string
+
+    FieldError:
+      type: object
+      description: |
+        Một trường sai, một luật bị vi phạm. Vẫn là **mã kèm tham số**, không phải
+        câu tiếng người: `{"path":"party.adults","code":"MIN","params":{"min":1}}`
+        chứ không phải "Phải có ít nhất 1 người lớn".
+      required: [path, code]
+      properties:
+        path:
+          type: string
+          description: |
+            Đường dẫn tới trường **trong thân yêu cầu**, dùng dấu chấm và chỉ số
+            mảng: `source.longDescription`, `groupTour.minPax`, `lines[2].amount`.
+            Tên trường là tên trong JSON, không phải tên thuộc tính Java.
+          example: source.longDescription
+        code:
+          $ref: '#/components/schemas/FieldRule'
+        params:
+          type: object
+          additionalProperties: true
+          description: |
+            Tham số của chính luật đó — `{"min":2}` cho `SIZE`, `{"regexp":"…"}`
+            cho `PATTERN`. Frontend dựng câu từ đây nên **không** cần biết trước
+            con số nào nằm trong ràng buộc.

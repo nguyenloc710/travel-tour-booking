@@ -105,7 +105,7 @@ pnpm build
 pnpm typecheck
 pnpm lint
 pnpm test
-pnpm i18n:check                   # độ phủ chuỗi giao diện — thiếu khoá là LỖI
+pnpm i18n:check                   # độ phủ chuỗi giao diện + khoá error.* chết
 
 # contracts/
 pnpm contracts:generate           # sinh interface Java + TS client
@@ -228,7 +228,7 @@ Nội dung commit viết **tiếng Việt**.
 |---|---|
 | Chuỗi khách nhìn thấy | `da` và `vi` — trong message catalog và bảng dịch |
 | Nội dung trong CSDL | `da` là nguồn, `vi` là bản dịch |
-| Định danh trong code | Tiếng Anh — xem `docs/03` mục 7 |
+| Tên lớp và tên hàm | **Tiếng Anh** — kể cả component React và `operationId`. `docs/03` mục 7.1 |
 | Chú thích trong code | **Tiếng Việt** |
 | Tài liệu trong `docs/` | **Tiếng Việt** |
 | Commit | **Tiếng Việt** |

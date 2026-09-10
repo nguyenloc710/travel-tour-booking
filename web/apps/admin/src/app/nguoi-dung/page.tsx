@@ -27,7 +27,7 @@ export default function NguoiDung() {
     let conHieuLuc = true;
     void (async () => {
       try {
-        const kq = await adminApi().danhSachNguoiDung();
+        const kq = await adminApi().listUsers();
         if (conHieuLuc) {
           setDs(kq);
           setLoi('');
@@ -91,7 +91,7 @@ function Nguoi({ u, napLai }: { u: AdminStaffUser; napLai: () => Promise<void> }
     setLoi('');
     setXong(false);
     try {
-      await adminApi().datVaiTro({
+      await adminApi().setUserRoles({
         id: u.id,
         adminRoleAssignment: { roles: chon as never[] },
       });
@@ -109,7 +109,7 @@ function Nguoi({ u, napLai }: { u: AdminStaffUser; napLai: () => Promise<void> }
     setLoi('');
     setXong(false);
     try {
-      await adminApi().suaNguoiDung({
+      await adminApi().updateUser({
         id: u.id,
         adminStaffUserPatch: { isActive: !u.isActive },
       });

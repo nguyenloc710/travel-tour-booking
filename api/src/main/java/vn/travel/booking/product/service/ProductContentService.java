@@ -4,6 +4,7 @@ import vn.travel.booking.product.dto.DepartureView;
 import vn.travel.booking.product.dto.HotelStay;
 import vn.travel.booking.product.dto.ItineraryDay;
 import vn.travel.booking.product.dto.ProductType;
+import vn.travel.booking.product.dto.ProductStopView;
 import vn.travel.booking.product.dto.VisibleProduct;
 import vn.travel.booking.product.repository.ProductContentRepository;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,22 @@ public class ProductContentService {
                     "loại " + product.productType() + " không có lịch trình theo ngày");
         }
         return productContentRepository.findItinerary(product.id(), locale);
+    }
+
+    /**
+     * Các chặng dừng của lộ trình — khối "bản đồ lộ trình" của docs/05 mục 6.1.
+     *
+     * <p>Cùng cổng 404 với {@code /itinerary}, và cùng lý do: nó dựng từ chính
+     * lịch trình đó, nên loại nào không có lịch trình thì cũng không có chặng.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductStopView> stops(String market, String locale, String slug) {
+        VisibleProduct product = requireVisible(market, locale, slug);
+        if (NO_ITINERARY_TYPES.contains(product.productType())) {
+            throw new NotFoundException(
+                    "loại " + product.productType() + " không có lộ trình theo chặng");
+        }
+        return productContentRepository.findStops(product.id(), locale);
     }
 
     @Transactional(readOnly = true)

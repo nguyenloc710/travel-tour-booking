@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { t, type Locale, type Market } from '@travel/i18n';
 import { formatMoney } from '@travel/ui';
 import type { Booking, Departure, PriceBreakdown } from '@travel/api-client';
-import { bookingApi, requestScope } from '@/lib/api';
+import { bookingApi, requestScope, translateError } from '@/lib/api';
 import { duongDanDatTour, duongDanXacNhan } from '@/lib/routes';
 
 export type TrangThai = {
@@ -98,7 +98,7 @@ export function DatTour({
     let conHieuLuc = true;
     void (async () => {
       try {
-        const kq = await bookingApi().xemTruocGia({
+        const kq = await bookingApi().previewPricing({
           ...phamVi,
           pricingRequest: {
             departureId: trangThai.departureId as string,
@@ -112,7 +112,7 @@ export function DatTour({
       } catch (ex) {
         if (conHieuLuc) {
           setGia(null);
-          setLoi(await cauLoi(locale, ex));
+          setLoi(await translateError(locale, ex));
         }
       }
     })();
@@ -137,14 +137,14 @@ export function DatTour({
   async function chonNgay(d: Departure) {
     setLoi('');
     try {
-      const giu = await bookingApi().giuCho({
+      const giu = await bookingApi().createSeatHold({
         ...phamVi,
         idempotencyKey: khoaChoNgay(d.id),
         seatHoldRequest: { departureId: d.id, seats: Math.max(tongKhach, 1) },
       });
       di({ buoc: 2, departureId: d.id, holdId: giu.id, hetHan: giu.expiresAt.toISOString() });
     } catch (ex) {
-      setLoi(await cauLoi(locale, ex));
+      setLoi(await translateError(locale, ex));
     }
   }
 
@@ -152,7 +152,7 @@ export function DatTour({
     setLoi('');
     setDangGui(true);
     try {
-      const don: Booking = await bookingApi().datTour({
+      const don: Booking = await bookingApi().createBooking({
         ...phamVi,
         idempotencyKey: khoaDon,
         bookingRequest: {
@@ -170,7 +170,7 @@ export function DatTour({
       });
       router.replace(duongDanXacNhan(locale, don.reference, email));
     } catch (ex) {
-      setLoi(await cauLoi(locale, ex));
+      setLoi(await translateError(locale, ex));
       setDangGui(false);
     }
   }
@@ -612,26 +612,4 @@ function ngayDai(d: Date, locale: Locale): string {
   return new Intl.DateTimeFormat(locale === 'da' ? 'da-DK' : 'vi-VN', {
     dateStyle: 'long',
   }).format(d);
-}
-
-/**
- * Mã lỗi của API sang câu tiếng người của locale đang xem — docs/13 mục 5.
- *
- * Mã chưa có bản dịch thì hiện câu chung, **không hiện mã ra khách**
- * (web/CLAUDE.md mục 4).
- */
-async function cauLoi(locale: Locale, loi: unknown): Promise<string> {
-  let ma = '';
-  if (loi && typeof loi === 'object' && 'response' in loi) {
-    try {
-      const than = await (loi as { response: Response }).response.clone().json();
-      ma = String(than.code ?? '');
-    } catch {
-      ma = '';
-    }
-  }
-
-  const khoa = `error.${ma}`;
-  const cau = t(locale, khoa);
-  return ma !== '' && cau !== khoa ? cau : t(locale, 'error.generic');
 }

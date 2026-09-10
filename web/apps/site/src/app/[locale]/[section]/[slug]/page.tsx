@@ -392,7 +392,7 @@ async function XacNhanPage({
   let don;
   if (email !== '') {
     try {
-      don = await bookingApi().traDon({ ...requestScope(market, locale), reference, email });
+      don = await bookingApi().getBooking({ ...requestScope(market, locale), reference, email });
     } catch (loi) {
       if (!laKhongTimThay(loi)) {
         throw loi;

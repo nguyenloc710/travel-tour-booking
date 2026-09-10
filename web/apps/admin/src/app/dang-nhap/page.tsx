@@ -23,7 +23,7 @@ export default function DangNhap() {
     setLoi('');
     setDangGui(true);
     try {
-      await adminApi().dangNhap({ loginRequest: { email, password: matKhau } });
+      await adminApi().createSession({ loginRequest: { email, password: matKhau } });
       router.replace('/');
       router.refresh();
     } catch (ex) {

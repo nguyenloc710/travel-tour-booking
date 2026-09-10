@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { AdminDestination } from '@travel/api-client';
 import { adminApi, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
+import { useFieldErrors } from '@/lib/useFieldErrors';
+import { MediaUpload } from '@/components/MediaUpload';
 import { LOAI, TRUONG_THEO_LOAI, khoiGui } from '@/lib/loaiSanPham';
 
 /**
@@ -18,6 +20,25 @@ import { LOAI, TRUONG_THEO_LOAI, khoiGui } from '@/lib/loaiSanPham';
  * Vì thế màn hình này dài. Tạo trước rồi điền sau là thứ **không làm được**,
  * không phải thứ chưa làm.
  */
+/**
+ * Đường dẫn trường trong thân yêu cầu → `id` của ô nhập trên biểu mẫu này.
+ *
+ * Trường của khối riêng theo loại không cần liệt kê: `id` của chúng đã chính là
+ * tên trường (`groupTour.minPax` → ô `minPax`), xem `TRUONG_THEO_LOAI`.
+ */
+const INPUT_ID_BY_PATH: Record<string, string> = {
+  productType: 'loai',
+  primaryDestinationId: 'dd',
+  durationDays: 'so-ngay',
+  heroImage: 'anh',
+  'source.slug': 'slug',
+  'source.title': 'tieu-de',
+  'source.shortDescription': 'mo-ta',
+  'source.longDescription': 'dai',
+  'source.whyChooseThis': 'vi-sao',
+  'source.heroImageAlt': 'alt',
+};
+
 export default function TaoSanPham() {
   const router = useRouter();
   const [diemDen, setDiemDen] = useState<AdminDestination[] | null>(null);
@@ -36,13 +57,14 @@ export default function TaoSanPham() {
   const [heroImageAlt, setHeroImageAlt] = useState('');
 
   const [loi, setLoi] = useState('');
+  const loiO = useFieldErrors(INPUT_ID_BY_PATH);
   const [dangGui, setDangGui] = useState(false);
 
   useEffect(() => {
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ds = await adminApi().danhSachDiemDenQuanTri();
+        const ds = await adminApi().listAdminDestinations();
         if (conHieuLuc) {
           setDiemDen(ds);
         }
@@ -65,9 +87,10 @@ export default function TaoSanPham() {
   async function gui(e: React.FormEvent) {
     e.preventDefault();
     setLoi('');
+    loiO.clear();
     setDangGui(true);
     try {
-      const sp = await adminApi().taoSanPham({
+      const sp = await adminApi().createProduct({
         adminProductCreate: {
           productType: productType as never,
           primaryDestinationId,
@@ -102,6 +125,8 @@ export default function TaoSanPham() {
           ? 'Chỉ vai trò EDITOR hoặc ADMIN tạo được sản phẩm.'
           : await loiTiengViet(ex),
       );
+
+      await loiO.show(ex);
     } finally {
       setDangGui(false);
     }
@@ -144,6 +169,7 @@ export default function TaoSanPham() {
               </option>
             ))}
           </select>
+          {loiO.errorFor('loai')}
           <p className="phu" style={{ marginTop: '0.25rem' }}>
             <strong>Không đổi được sau khi tạo.</strong> Mỗi loại một bộ trường
             riêng; đổi loại là mất dữ liệu của loại cũ.
@@ -167,6 +193,7 @@ export default function TaoSanPham() {
               ))}
             </select>
           )}
+          {loiO.errorFor('dd')}
 
           {!laDayTour && (
             <>
@@ -181,6 +208,7 @@ export default function TaoSanPham() {
                 onChange={(e) => setDurationDays(e.target.value)}
                 style={{ maxWidth: '8rem' }}
               />
+              {loiO.errorFor('so-ngay')}
             </>
           )}
 
@@ -192,9 +220,20 @@ export default function TaoSanPham() {
             value={heroImage}
             onChange={(e) => setHeroImage(e.target.value)}
           />
+          {loiO.errorFor('anh')}
           <p className="phu" style={{ marginTop: '0.25rem' }}>
-            Đường dẫn nhập tay. Tải ảnh lên chưa có — chờ ADR-008 chốt nơi lưu.
+            Dán đường dẫn có sẵn, hoặc tải ảnh mới lên bằng khối bên dưới.
           </p>
+          <MediaUpload
+            onUploaded={(anh, alt) => {
+              setHeroImage(anh.path);
+              // Điền sẵn chữ thay ảnh của bản nguồn: người vừa gõ nó ở khối tải
+              // lên, bắt gõ lại y hệt ở ô dưới là cách chắc chắn để hai chỗ lệch.
+              if (heroImageAlt.trim() === '') {
+                setHeroImageAlt(alt);
+              }
+            }}
+          />
         </div>
 
         {truong.length > 0 && (
@@ -211,6 +250,7 @@ export default function TaoSanPham() {
                   onChange={(e) => setKhoi({ ...khoi, [ten]: e.target.value })}
                   style={{ maxWidth: kieu === 'number' ? '10rem' : '24rem' }}
                 />
+                {loiO.errorFor(ten)}
               </div>
             ))}
           </div>
@@ -232,6 +272,7 @@ export default function TaoSanPham() {
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
           />
+          {loiO.errorFor('slug')}
           {slugCoDau && (
             <p className="loi" style={{ margin: '0.4rem 0 0' }}>
               Slug chỉ được dùng a–z, 0–9 và dấu gạch nối — không dấu ở cả hai ngôn
@@ -241,6 +282,7 @@ export default function TaoSanPham() {
 
           <label htmlFor="tieu-de">Tiêu đề</label>
           <input id="tieu-de" required value={title} onChange={(e) => setTitle(e.target.value)} />
+          {loiO.errorFor('tieu-de')}
 
           <label htmlFor="mo-ta">Mô tả ngắn</label>
           <textarea
@@ -249,6 +291,7 @@ export default function TaoSanPham() {
             value={shortDescription}
             onChange={(e) => setShortDescription(e.target.value)}
           />
+          {loiO.errorFor('mo-ta')}
 
           <label htmlFor="dai">Mô tả dài — cách nhau một dòng trống, ít nhất 2 đoạn</label>
           <textarea
@@ -257,6 +300,7 @@ export default function TaoSanPham() {
             value={longDescription}
             onChange={(e) => setLongDescription(e.target.value)}
           />
+          {loiO.errorFor('dai')}
 
           <label htmlFor="vi-sao">Vì sao chọn tour này — mỗi dòng một ý, 3 đến 7 ý</label>
           <textarea
@@ -265,6 +309,7 @@ export default function TaoSanPham() {
             value={whyChooseThis}
             onChange={(e) => setWhyChooseThis(e.target.value)}
           />
+          {loiO.errorFor('vi-sao')}
           {whyChooseThis !== '' && (soY < 3 || soY > 7) && (
             <p className="loi" style={{ margin: '0.4rem 0 0' }}>
               Đang có {soY} ý. Cơ sở dữ liệu chỉ nhận từ 3 tới 7.
@@ -278,6 +323,7 @@ export default function TaoSanPham() {
             value={heroImageAlt}
             onChange={(e) => setHeroImageAlt(e.target.value)}
           />
+          {loiO.errorFor('alt')}
           <p className="phu" style={{ marginTop: '0.25rem' }}>
             Đây là <strong>nội dung phải dịch</strong>, không phải siêu dữ liệu kỹ
             thuật — nó là thứ người khiếm thị đọc thay cho ảnh.

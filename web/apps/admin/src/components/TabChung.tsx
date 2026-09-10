@@ -4,6 +4,23 @@ import { useState } from 'react';
 import type { AdminProductDetail, AdminProductPatch } from '@travel/api-client';
 import { adminApi, loiTiengViet } from '@/lib/api';
 import { TRUONG_THEO_LOAI, khoiBanDau, khoiGui } from '@/lib/loaiSanPham';
+import { useFieldErrors } from '@/lib/useFieldErrors';
+import { MediaUpload } from './MediaUpload';
+
+/**
+ * Đường dẫn trường trong thân yêu cầu → `id` ô nhập của tab này.
+ *
+ * Trường của khối riêng theo loại không cần khai: `id` của chúng đã chính là tên
+ * trường (`groupTour.minPax` → ô `minPax`), xem `TRUONG_THEO_LOAI`. Đó cũng là
+ * chỗ luật liên trường của đợt 2 hiện ra — `guaranteedThreshold` lớn hơn
+ * `minPax` được sửa ở tab này nhiều hơn ở màn hình tạo mới.
+ */
+const INPUT_ID_BY_PATH: Record<string, string> = {
+  heroImage: 'anh',
+  mapImage: 'ban-do',
+  durationDays: 'so-ngay',
+  isNew: 'moi',
+};
 
 /**
  * Thông tin chung và phần riêng của loại (docs/22 M3).
@@ -26,6 +43,7 @@ export function TabChung({
   const [isNew, setIsNew] = useState(sp.isNew);
   const [khoi, setKhoi] = useState<Record<string, string>>(khoiBanDau(sp, sp.productType));
   const [loi, setLoi] = useState('');
+  const loiO = useFieldErrors(INPUT_ID_BY_PATH);
   const [xong, setXong] = useState('');
   const [dangLuu, setDangLuu] = useState(false);
 
@@ -33,6 +51,7 @@ export function TabChung({
 
   async function luu() {
     setLoi('');
+    loiO.clear();
     setXong('');
     setDangLuu(true);
     try {
@@ -43,11 +62,12 @@ export function TabChung({
         isNew,
         ...khoiGui(sp.productType, khoi),
       };
-      await adminApi().suaSanPham({ id: sp.id, adminProductPatch: than });
+      await adminApi().updateProduct({ id: sp.id, adminProductPatch: than });
       setXong('Đã lưu.');
       await napLai();
     } catch (ex) {
       setLoi(await loiTiengViet(ex));
+      await loiO.show(ex);
     } finally {
       setDangLuu(false);
     }
@@ -66,11 +86,14 @@ export function TabChung({
 
       <label htmlFor="anh">Ảnh đầu trang</label>
       <input id="anh" value={heroImage} onChange={(e) => setHeroImage(e.target.value)} />
+      {loiO.errorFor('anh')}
+      <MediaUpload onUploaded={(anh) => setHeroImage(anh.path)} />
 
       <label htmlFor="ban-do">Ảnh bản đồ</label>
       <input id="ban-do" value={mapImage} onChange={(e) => setMapImage(e.target.value)} />
+      {loiO.errorFor('ban-do')}
       <p className="phu" style={{ marginTop: '0.25rem' }}>
-        Hiện là đường dẫn nhập tay. Tải ảnh lên chưa có — chờ ADR-008 chốt nơi lưu.
+        Dán đường dẫn có sẵn, hoặc tải ảnh mới lên bằng khối ở trên.
       </p>
 
       {sp.productType !== 'DAY_TOUR' && (
@@ -85,6 +108,7 @@ export function TabChung({
             onChange={(e) => setDurationDays(e.target.value)}
             style={{ maxWidth: '8rem' }}
           />
+          {loiO.errorFor('so-ngay')}
         </>
       )}
 
@@ -111,6 +135,7 @@ export function TabChung({
                 onChange={(e) => setKhoi({ ...khoi, [ten]: e.target.value })}
                 style={{ maxWidth: kieu === 'number' ? '10rem' : '24rem' }}
               />
+              {loiO.errorFor(ten)}
             </div>
           ))}
         </>

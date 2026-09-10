@@ -32,7 +32,7 @@ export function TabThiTruong({
     setXong('');
     setDangLuu(market);
     try {
-      await adminApi().ganThiTruong({
+      await adminApi().setProductMarket({
         id: sp.id,
         market: market as never,
         adminMarketAssignment: { published },

@@ -48,7 +48,7 @@ function NoiDung() {
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ket_qua = await adminApi().danhSachDon({
+        const ket_qua = await adminApi().listBookings({
           scope: (scope || undefined) as never,
           status: (status || undefined) as never,
           market: (market || undefined) as never,

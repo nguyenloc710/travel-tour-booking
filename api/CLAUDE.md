@@ -315,7 +315,8 @@ Từ ADR-010 thì không còn `archTest`: `./gradlew test` chạy cả hai loạ
 | Market trong code | Chữ hoa | `DK` |
 | Market trong URL | Chữ thường | `/dk/` |
 
-Chú thích viết **tiếng Việt**. Bảng thuật ngữ đầy đủ: `docs/03`.
+**Tên lớp và tên phương thức viết bằng tiếng Anh**, kể cả phương thức `private`.
+Chú thích viết **tiếng Việt**. Đầy đủ: `docs/03` mục 7.1.
 
 ---
 

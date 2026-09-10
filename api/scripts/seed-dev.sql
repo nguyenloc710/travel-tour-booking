@@ -1931,7 +1931,7 @@ UPDATE product SET layout = 'ke-chuyen'
 --
 -- Mỗi điểm đến một tấm. Bảng chịu được nhiều hơn — `sort_order` có sẵn — và
 -- tầng đọc lấy tấm đầu.
-INSERT INTO destination_image (destination_id, asset_id, sort_order) VALUES
+INSERT INTO destination_media (destination_id, asset_id, sort_order) VALUES
   ('e0000000-0000-4000-8000-000000000001', '33330000-0000-4000-8000-000000000014', 1),  -- HANOI      -> toà nhà kiểu thuộc địa
   ('e0000000-0000-4000-8000-000000000002', '33330000-0000-4000-8000-000000000003', 1),  -- HALONG     -> thuyền trong vịnh Hạ Long
   ('e0000000-0000-4000-8000-000000000005', '33330000-0000-4000-8000-000000000005', 1),  -- SAPA       -> ruộng bậc thang

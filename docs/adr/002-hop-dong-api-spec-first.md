@@ -1,8 +1,9 @@
 # ADR-002 — Hợp đồng API viết trước, sinh code từ spec
 
 ```
-Trạng thái: Đã chốt, sửa một phần bởi ADR-012 (09/09/2026)
+Trạng thái: Đã chốt
 Ngày: 31/08/2026
+Sửa một phần bởi: ADR-012 (09/09/2026)
 ```
 
 > **ADR-012 đã bỏ cơ chế bắt buộc mô tả ở đây.** Controller không còn

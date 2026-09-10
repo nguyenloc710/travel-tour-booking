@@ -98,7 +98,7 @@ danh sách tồn tại ở ba chỗ và lệch nhau dần.
 |---|---|---|
 | M1 | Bảng điều khiển | Việc cần làm hôm nay: đơn chờ xác nhận quá 24 giờ, báo giá sắp hết hạn, ngày khởi hành sắp tới hạn chốt mà thiếu khách, hàng đợi dịch |
 | M2 | Danh sách sản phẩm | Lọc theo loại, thị trường, trạng thái dịch |
-| M3 | Sửa sản phẩm | Tab: thông tin chung · bản `da` · bản `vi` · thị trường và giá · ngày khởi hành |
+| M3 | Sửa sản phẩm | Tab: thông tin chung · bản `da` · bản `vi` · **lịch trình** · **bộ ảnh** · thị trường và giá · ngày khởi hành |
 | M4 | Ngày khởi hành | Theo sản phẩm; hiện `capacity`, `seats_booked`, chỗ còn lại, trạng thái |
 | M5 | Giá | `departure_price` theo loại khách và kiểu phòng; `price_tier` cho `PRIVATE_TOUR` |
 | M6 | Danh sách đơn | Lọc theo trạng thái, thị trường, khoảng ngày |

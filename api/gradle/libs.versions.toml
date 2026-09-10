@@ -11,6 +11,7 @@ testcontainers = "1.21.4"
 openapiGenerator = "7.14.0"
 # springdoc 3.x la nhanh cho Spring Boot 4; 2.x chi chay voi Boot 3.
 springdoc = "3.1.1"
+minio = "8.5.17"
 
 [libraries]
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
@@ -44,6 +45,10 @@ spring-boot-flyway = { module = "org.springframework.boot:spring-boot-flyway" }
 flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
 
 springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# Kho anh. SDK RIENG cua MinIO chu khong phai thu vien S3 tong quat — ADR-013
+# sua lai lua chon cua ADR-011 muc 4, ly do va cai danh doi ghi o do.
+minio = { module = "io.minio:minio", version.ref = "minio" }
 
 testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
 testcontainers-junit = { module = "org.testcontainers:junit-jupiter" }

@@ -38,7 +38,7 @@ export function Canh() {
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ho_so = await adminApi().hoSoNhanVien();
+        const ho_so = await adminApi().getStaffProfile();
         if (conHieuLuc) {
           setNhanVien(ho_so);
         }
@@ -55,8 +55,8 @@ export function Canh() {
     };
   }, [router]);
 
-  async function dangXuat() {
-    await adminApi().dangXuat();
+  async function deleteSession() {
+    await adminApi().deleteSession();
     // replace chứ không push: bấm Back sau khi đăng xuất không được quay lại
     // màn hình có dữ liệu chưa xuất bản.
     router.replace('/dang-nhap');
@@ -98,7 +98,7 @@ export function Canh() {
                 <em>{nhanVien.roles.join(' · ')}</em>
               </span>
             </div>
-            <button className="canh-thoat" onClick={dangXuat}>
+            <button className="canh-thoat" onClick={deleteSession}>
               Đăng xuất
             </button>
           </>

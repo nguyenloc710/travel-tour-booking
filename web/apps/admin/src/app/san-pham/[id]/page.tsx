@@ -4,14 +4,18 @@ import Link from 'next/link';
 import { use, useCallback, useEffect, useState } from 'react';
 import type { AdminProductDetail, AdminProductTranslation } from '@travel/api-client';
 import { adminApi, laChuaDangNhap, loiTiengViet } from '@/lib/api';
+import { TabAnh } from '@/components/TabAnh';
 import { TabChung } from '@/components/TabChung';
 import { TabDich } from '@/components/TabDich';
+import { TabLichTrinh } from '@/components/TabLichTrinh';
 import { TabNgayKhoiHanh } from '@/components/TabNgayKhoiHanh';
 import { TabThiTruong } from '@/components/TabThiTruong';
 
 const TAB = [
   ['chung', 'Thông tin chung'],
   ['dich', 'Bản dịch'],
+  ['lich-trinh', 'Lịch trình'],
+  ['anh', 'Bộ ảnh'],
   ['thi-truong', 'Thị trường và bán'],
   ['ngay', 'Ngày khởi hành và giá'],
 ] as const;
@@ -35,8 +39,8 @@ export default function SuaSanPham({ params }: { params: Promise<{ id: string }>
     const api = adminApi();
     try {
       const [chiTiet, dich] = await Promise.all([
-        api.chiTietSanPhamQuanTri({ id }),
-        api.danhSachBanDich({ id }),
+        api.getAdminProduct({ id }),
+        api.listProductTranslations({ id }),
       ]);
       setSp(chiTiet);
       setBanDich(dich);
@@ -100,6 +104,8 @@ export default function SuaSanPham({ params }: { params: Promise<{ id: string }>
 
       {tab === 'chung' && <TabChung sp={sp} napLai={nap} />}
       {tab === 'dich' && <TabDich sp={sp} banDich={banDich} napLai={nap} />}
+      {tab === 'lich-trinh' && <TabLichTrinh sp={sp} />}
+      {tab === 'anh' && <TabAnh sp={sp} />}
       {tab === 'thi-truong' && <TabThiTruong sp={sp} napLai={nap} />}
       {tab === 'ngay' && <TabNgayKhoiHanh sp={sp} />}
     </main>

@@ -25,6 +25,7 @@ import vn.travel.booking.web.generated.model.AdminBookingPage;
 import vn.travel.booking.web.generated.model.AdminBookingPassenger;
 import vn.travel.booking.web.generated.model.AdminBookingSummary;
 import vn.travel.booking.web.generated.model.BookingStatus;
+import vn.travel.booking.web.generated.model.ErrorCode;
 import vn.travel.booking.web.generated.model.ErrorResponse;
 
 import java.math.BigDecimal;
@@ -501,7 +502,7 @@ class AdminBookingIT {
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         ErrorResponse error = response.getBody();
         assertNotNull(error);
-        assertEquals("BOOKING_TRANSITION_NOT_ALLOWED", error.getCode());
+        assertEquals(ErrorCode.BOOKING_TRANSITION_NOT_ALLOWED, error.getCode());
         // Tham số, không phải câu tiếng người — frontend dựng câu.
         assertEquals("COMPLETED", error.getParams().get("from"));
         assertEquals("CONFIRMED", error.getParams().get("to"));

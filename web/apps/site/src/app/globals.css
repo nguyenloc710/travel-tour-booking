@@ -2426,3 +2426,26 @@ main > .tran {
   object-fit: cover;
   display: block;
 }
+
+/* Khối bản đồ lộ trình — `docs/05` mục 6.1. Ảnh và video của từng chặng dừng.
+
+   Video chặn chiều cao cùng lý do với `.ke-chuyen__anh`: một video dọc quay bằng
+   điện thoại cao 1920px sẽ đẩy cả danh sách chặng ra khỏi màn hình, và khách
+   phải cuộn qua một chặng mới thấy chặng sau. */
+.lo-trinh__video {
+  width: 100%;
+  max-width: 48rem;
+  max-height: 30rem;
+  height: auto;
+  display: block;
+  margin: 0.75rem 0;
+  background: #000;
+}
+
+.lo-trinh .the img {
+  width: 100%;
+  height: auto;
+  max-width: 48rem;
+  display: block;
+  margin: 0.75rem 0;
+}

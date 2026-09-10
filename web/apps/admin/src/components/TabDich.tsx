@@ -123,7 +123,7 @@ function BieuMauDich({
     setXong('');
     setDangLuu(true);
     try {
-      await adminApi().luuBanDich({
+      await adminApi().saveProductTranslation({
         id: productId,
         locale: localeDich as never,
         adminProductTranslationInput: {
@@ -235,7 +235,7 @@ function BieuMauNguon({
     setLoi('');
     setXong('');
     try {
-      await adminApi().luuBanDich({
+      await adminApi().saveProductTranslation({
         id: productId,
         locale: nguon.locale as never,
         adminProductTranslationInput: {

@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { use, useEffect, useState } from 'react';
-import { ResponseError, type AdminBookingDetail } from '@travel/api-client';
+import type { AdminBookingDetail } from '@travel/api-client';
 import { formatMoney } from '@travel/ui';
-import { adminApi, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
+import { adminApi, errorInfo, laChuaDangNhap, laKhongDuQuyen, loiTiengViet } from '@/lib/api';
 import {
   hauQua,
   mauTrangThai,
@@ -38,7 +38,7 @@ export default function ChiTietDon({ params }: { params: Promise<{ reference: st
     let conHieuLuc = true;
     void (async () => {
       try {
-        const ket_qua = await adminApi().chiTietDon({ reference });
+        const ket_qua = await adminApi().getAdminBooking({ reference });
         if (conHieuLuc) {
           setDon(ket_qua);
         }
@@ -296,7 +296,7 @@ function ThaoTac({
     setDangGui(true);
     setLoi('');
     try {
-      const moi = await adminApi().doiTrangThaiDon({
+      const moi = await adminApi().changeBookingStatus({
         reference: don.reference,
         adminBookingStatusChange: {
           toStatus: sang as never,
@@ -385,15 +385,9 @@ function ThaoTac({
  * thái đơn này** trong lúc màn hình đang mở.
  */
 async function loiDoiTrangThai(ex: unknown): Promise<string> {
-  if (ex instanceof ResponseError && ex.response.status === 409) {
-    try {
-      const than = await ex.response.clone().json();
-      if (than.code === 'BOOKING_TRANSITION_NOT_ALLOWED') {
-        return `Đơn đang ở trạng thái "${tenTrangThai(String(than.params?.from))}" nên không chuyển sang "${tenTrangThai(String(than.params?.to))}" được. Nhiều khả năng người khác vừa đổi — tải lại trang để xem trạng thái mới nhất.`;
-      }
-    } catch {
-      // rơi xuống bảng dịch chung
-    }
+  const than = await errorInfo(ex);
+  if (than?.code === 'BOOKING_TRANSITION_NOT_ALLOWED') {
+    return `Đơn đang ở trạng thái "${tenTrangThai(String(than.params.from))}" nên không chuyển sang "${tenTrangThai(String(than.params.to))}" được. Nhiều khả năng người khác vừa đổi — tải lại trang để xem trạng thái mới nhất.`;
   }
   return loiTiengViet(ex);
 }

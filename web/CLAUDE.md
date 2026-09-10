@@ -35,7 +35,7 @@ pnpm dev:admin             # admin ở cổng 3001
 pnpm typecheck             # sinh lại TS client rồi kiểm cả 5 package
 pnpm lint
 pnpm test
-pnpm i18n:check            # thiếu khoá dịch là LỖI
+pnpm i18n:check            # thiếu khoá dịch là LỖI; khoá error.* chết cũng vậy
 pnpm build
 
 pnpm contracts:generate    # sinh CẢ HAI phía: TS client + interface Java
@@ -187,7 +187,20 @@ hoá phần trăm.
 
 ---
 
-## 10. Trước khi báo hoàn thành
+## 10. Tên lớp và tên hàm — tiếng Anh
+
+Component, hook, hàm tiện ích: **tiếng Anh**. `ProductForm` chứ không
+`BieuMauSanPham`, `translateError()` chứ không `loiTiengViet()`.
+
+Chú thích vẫn **tiếng Việt**, chuỗi khách nhìn thấy vẫn nằm trong message
+catalog. Lý do và bảng đầy đủ: `docs/03` mục 7.1.
+
+Phần lớn tên hiện có trong `apps/` là tiếng Việt — di sản, đổi dần khi động vào
+tệp đó vì lý do khác, không đổi hàng loạt.
+
+---
+
+## 11. Trước khi báo hoàn thành
 
 ```bash
 pnpm typecheck
@@ -199,7 +212,7 @@ pnpm build
 
 ---
 
-## 11. Cấm
+## 12. Cấm
 
 - `parseFloat` trên trường tiền
 - Định dạng tiền hoặc ngày rải rác trong component

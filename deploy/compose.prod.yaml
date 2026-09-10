@@ -75,6 +75,25 @@ services:
       # Phần đầu ghép vào `media_asset.path` — ADR-011 mục 2, docs/12 mục 4.6.
       STORAGE_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_URL:?thieu MEDIA_PUBLIC_URL}
 
+      # Kho ảnh, đường GHI — ADR-011 mục 4, ADR-013.
+      #
+      # HAI địa chỉ, không phải một, và đây là chỗ dễ sai nhất của cả tệp này:
+      # chữ ký SigV4 bao gồm cả host, nên URL ký cho TRÌNH DUYỆT phải ký bằng
+      # địa chỉ công khai. Ký bằng địa chỉ nội bộ thì trình duyệt nhận 403 và
+      # không nói vì sao — còn ở dev hai giá trị trùng nhau nên lỗi ẩn hoàn toàn
+      # cho tới lúc triển khai.
+      #
+      # Nội bộ là đường backend tự gọi kho để tra xem tệp đã lên chưa. Cùng máy
+      # chủ nên hai giá trị có thể giống nhau; khai riêng để ngày MinIO chuyển
+      # vào mạng nội bộ thì chỉ đổi một dòng.
+      TRAVEL_STORAGE_ENDPOINT_PUBLIC: ${MEDIA_ENDPOINT_PUBLIC:?thieu MEDIA_ENDPOINT_PUBLIC}
+      TRAVEL_STORAGE_ENDPOINT_INTERNAL: ${MEDIA_ENDPOINT_INTERNAL:?thieu MEDIA_ENDPOINT_INTERNAL}
+      # Ba biến này trước đây nằm trong `.env` mà không service nào đọc. Từ đợt
+      # tải ảnh lên thì chúng có tác dụng thật.
+      TRAVEL_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:?thieu MINIO_ROOT_USER}
+      TRAVEL_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?thieu MINIO_ROOT_PASSWORD}
+      TRAVEL_STORAGE_BUCKET: ${MINIO_BUCKET:?thieu MINIO_BUCKET}
+
       # Hạ từ DEBUG — điều kiện chặn của docs/34 mục 5.2.
       LOGGING_LEVEL_VN_TRAVEL_BOOKING: INFO
 
